@@ -10,7 +10,8 @@
     "test": "vitest run",
     "type-check": "tsc --noEmit",
     "setup": "nest build && node dist/scripts/setup.js",
-    "create-admin": "nest build && node dist/scripts/create-admin.js"
+    "create-admin": "nest build && node dist/scripts/create-admin.js",
+    "seed:credits": "nest build && node dist/seed/seed-credits.js"
   },
   "dependencies": {
     "@agendajs/mongo-backend": "^4.0.3",
