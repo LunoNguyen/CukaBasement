@@ -1,0 +1,5 @@
+{
+  "jsc": {
+    "paths": { "@cuka/api/*": ["../api/dist/*"] }
+  }
+}

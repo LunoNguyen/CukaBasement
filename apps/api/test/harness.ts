@@ -40,7 +40,13 @@ export async function postMultipart(url: string, fields: Record<string, string>,
   return fetch(url, { method: 'POST', body: form })
 }
 
-const FIXTURE_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.zip': 'application/zip' }
+const FIXTURE_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.zip': 'application/zip',
+  '.mp4': 'video/mp4',
+  '.mp3': 'audio/mpeg',
+}
 
 /**
  * Presigns, uploads `test/fixtures/<fixtureName>` straight to MinIO and calls complete.

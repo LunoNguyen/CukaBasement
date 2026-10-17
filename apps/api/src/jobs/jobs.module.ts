@@ -1,12 +1,12 @@
 import { Global, Module } from '@nestjs/common'
-import { JOBS, type JobsPort } from './jobs.port'
-
-/** Placeholder until AgendaJobs (Task 9): enqueue is a no-op. */
-const noopJobs: JobsPort = { enqueue: async () => {} }
+import { getConnectionToken } from '@nestjs/mongoose'
+import type mongoose from 'mongoose'
+import { AgendaJobs } from './agenda-jobs'
+import { JOBS } from './jobs.port'
 
 @Global()
 @Module({
-  providers: [{ provide: JOBS, useValue: noopJobs }],
+  providers: [{ provide: JOBS, inject: [getConnectionToken()], useFactory: (conn: mongoose.Connection) => new AgendaJobs(conn) }],
   exports: [JOBS],
 })
 export class JobsModule {}
