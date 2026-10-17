@@ -3,8 +3,7 @@ import { APP_GUARD } from '@nestjs/core'
 import { JwtModule } from '@nestjs/jwt'
 import { MongooseModule } from '@nestjs/mongoose'
 import { CONFIG, type Config } from '../config/config'
-import { USER_MODEL, UserSchema } from '../users/user.schema'
-import { UsersService } from '../users/users.service'
+import { UsersModule } from '../users/users.module'
 import { AUTH_TOKEN_MODEL, AuthTokenSchema } from './auth-token.schema'
 import { AuthController } from './auth.controller'
 import { AuthGuard } from './auth.guard'
@@ -13,10 +12,8 @@ import { TokensService } from './tokens'
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: USER_MODEL, schema: UserSchema },
-      { name: AUTH_TOKEN_MODEL, schema: AuthTokenSchema },
-    ]),
+    UsersModule,
+    MongooseModule.forFeature([{ name: AUTH_TOKEN_MODEL, schema: AuthTokenSchema }]),
     JwtModule.registerAsync({
       inject: [CONFIG],
       useFactory: (config: Config) => ({
@@ -26,7 +23,7 @@ import { TokensService } from './tokens'
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, UsersService, TokensService, { provide: APP_GUARD, useClass: AuthGuard }],
-  exports: [AuthService, UsersService, TokensService, MongooseModule],
+  providers: [AuthService, TokensService, { provide: APP_GUARD, useClass: AuthGuard }],
+  exports: [AuthService, TokensService, UsersModule, MongooseModule],
 })
 export class AuthModule {}
