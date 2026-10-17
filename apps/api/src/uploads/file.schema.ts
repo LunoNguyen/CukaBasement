@@ -21,7 +21,8 @@ export interface FileDoc {
   width: number | null
   height: number | null
   durationSec: number | null
-  status: FileStatus
+  /** `validating` is internal: a complete() call has claimed the file and is checking its bytes. */
+  status: FileStatus | 'validating'
   variants: FileVariant[]
   createdAt: Date
 }
@@ -53,7 +54,7 @@ export const FileSchema = new Schema<FileDoc>(
     width: { type: Number, default: null },
     height: { type: Number, default: null },
     durationSec: { type: Number, default: null },
-    status: { type: String, enum: FILE_STATUSES, default: 'uploading' },
+    status: { type: String, enum: [...FILE_STATUSES, 'validating'], default: 'uploading' },
     variants: { type: [variantSchema], default: [] },
   },
   { collection: 'files', timestamps: { createdAt: true, updatedAt: false } },

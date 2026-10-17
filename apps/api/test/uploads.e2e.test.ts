@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Types } from 'mongoose'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { UploadsService } from '../src/uploads/uploads.service'
 import { SettingsService } from '../src/settings/settings.service'
 import { StorageService } from '../src/storage/storage.service'
 import { createTestHarness, createUser, postMultipart, uploadFixture, type Harness } from './harness'
@@ -181,6 +182,33 @@ describe('uploads', () => {
         const doc = await h.db.collection('files').findOne({ _id: new Types.ObjectId(id) })
         expect(doc!.status).toBe('processing')
       }
+    })
+
+    it('a complete racing the winner returns 200 without copying, so the validated original stays intact', async () => {
+      const u = await createUser(h)
+      const png = fixture('tiny.png')
+      const p = await presign(u.token, { name: 'tiny.png', size: png.length, mime: 'image/png' })
+      expect((await postMultipart(p.body.url, p.body.fields, png)).ok).toBe(true)
+      const svc = h.app.get(UploadsService)
+      let loser: Awaited<ReturnType<typeof complete>> | undefined
+      svc.testHooks.afterCopy = async () => {
+        svc.testHooks.afterCopy = undefined
+        const zip = Buffer.concat([fixture('fake.zip'), Buffer.alloc(png.length - fixture('fake.zip').length)])
+        expect((await postMultipart(p.body.url, p.body.fields, zip)).ok).toBe(true)
+        loser = await complete(u.token, p.body.fileId)
+      }
+      const winner = await complete(u.token, p.body.fileId)
+      expect(loser?.status).toBe(200)
+      expect(winner.status).toBe(200)
+      const doc = await h.db.collection('files').findOne({ _id: new Types.ObjectId(p.body.fileId) })
+      expect((await storage.readHead(ORIGINALS, doc!.objectKey, 8)).equals(png.subarray(0, 8))).toBe(true)
+      expect(h.jobs.enqueued.filter((j) => j.name === 'process-file')).toHaveLength(1)
+    })
+
+    it('presign reports maxBytes equal to the declared size', async () => {
+      const u = await createUser(h)
+      const p = await presign(u.token, { name: 'a.png', size: 1234, mime: 'image/png' })
+      expect(p.body.maxBytes).toBe(1234)
     })
 
     it('two concurrent completes enqueue once', async () => {
