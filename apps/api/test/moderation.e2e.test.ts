@@ -28,7 +28,7 @@ describe('moderation', () => {
       visibility: 'public',
       review: { status: 'approved', reason: null, by: null, at: null },
       aiDeclaration: true,
-      sourceCredit: '',
+      credit: { isOwnWork: true, artistName: '', artistHandle: '', platform: 'other', sourceUrl: '', permissionNote: '' },
       files: [{ fileId: new Types.ObjectId(), position: 0, isCover: true }],
       tags: [],
       counts: { likes: 0, bookmarks: 0, comments: 0, views: 0 },
@@ -365,6 +365,63 @@ describe('moderation', () => {
       expect(l.actorId).toBeInstanceOf(Types.ObjectId)
       expect(l.actorId.toString()).toBe(mod.id)
     }
+  })
+
+  describe('PATCH /mod/posts/:id/credit', () => {
+    const credit = {
+      isOwnWork: false,
+      artistName: 'Yun Yun',
+      artistHandle: '@funo_yun',
+      platform: 'x',
+      sourceUrl: 'https://x.com/funo_yun/status/1560630784146681857',
+      permissionNote: 'granted by DM',
+    }
+    const patchCredit = (token: string, id: string, body: object) => h.http().patch(`/api/mod/posts/${id}/credit`).set(auth(token)).send(body)
+
+    it('updates the credit, keeps review status, logs update_credit and enqueues rewatermark', async () => {
+      const mod = await createUser(h, { role: 'moderator' })
+      const author = await createUser(h)
+      const id = await seed(author.id)
+      const res = await patchCredit(mod.token, id, credit)
+      expect(res.status).toBe(200)
+      expect(res.body).toMatchObject({ id, credit, review: { status: 'approved' } })
+      const doc = await postDoc(id)
+      expect(doc!.credit).toEqual(credit)
+      expect(doc!.review.status).toBe('approved')
+      expect(await logs({ action: 'update_credit' })).toEqual([expect.objectContaining({ actorId: new Types.ObjectId(mod.id), targetType: 'post', targetId: id })])
+      expect(h.jobs.enqueued).toEqual([{ name: 'rewatermark', data: { postId: id } }])
+      const pending = await seed(author.id, { review: { status: 'pending', reason: null, by: null, at: null } })
+      expect((await patchCredit(mod.token, pending, credit)).body.review.status).toBe('pending')
+    })
+
+    it('validates like the post schema: repost without source → 400 CREDIT_REQUIRED; unknown post → 404', async () => {
+      const mod = await createUser(h, { role: 'moderator' })
+      const author = await createUser(h)
+      const id = await seed(author.id)
+      const bad = await patchCredit(mod.token, id, { ...credit, sourceUrl: '' })
+      expect(bad.status).toBe(400)
+      expect(bad.body.error.code).toBe('CREDIT_REQUIRED')
+      expect((await patchCredit(mod.token, id, {})).body.error.code).toBe('VALIDATION_FAILED')
+      const missing = await patchCredit(mod.token, new Types.ObjectId().toString(), credit)
+      expect(missing.status).toBe(404)
+      expect(missing.body.error.code).toBe('POST_NOT_FOUND')
+      expect(await logs({ action: 'update_credit' })).toEqual([])
+      expect(h.jobs.enqueued).toEqual([])
+    })
+
+    it('peer rule: moderator on an admin post → 403 CANNOT_MODERATE_PEER; admin may; users → 403', async () => {
+      const mod = await createUser(h, { role: 'moderator' })
+      const admin = await createUser(h, { role: 'admin' })
+      const user = await createUser(h)
+      const id = await seed(admin.id)
+      const res = await patchCredit(mod.token, id, credit)
+      expect(res.status).toBe(403)
+      expect(res.body.error.code).toBe('CANNOT_MODERATE_PEER')
+      expect((await patchCredit(user.token, id, credit)).status).toBe(403)
+      expect(h.jobs.enqueued).toEqual([])
+      const admin2 = await createUser(h, { role: 'admin' })
+      expect((await patchCredit(admin2.token, id, credit)).status).toBe(200)
+    })
   })
 
   it('hide with no request body → 200 (note optional)', async () => {

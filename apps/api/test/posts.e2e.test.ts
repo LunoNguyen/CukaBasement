@@ -19,9 +19,19 @@ const body = (fileId: string, over: Record<string, unknown> = {}) => ({
   rating: 'all',
   tags: [],
   aiDeclaration: true,
+  credit: { isOwnWork: true },
   files: [{ fileId, position: 0, isCover: true }],
   ...over,
 })
+
+const repost = {
+  isOwnWork: false,
+  artistName: 'Ruri',
+  artistHandle: '@_rurisuisen',
+  platform: 'x',
+  sourceUrl: 'https://x.com/_rurisuisen/status/1890567100382544149',
+  permissionNote: 'asked on X',
+}
 
 describe('posts', () => {
   let h: Harness
@@ -134,7 +144,7 @@ describe('posts', () => {
 
     it('new post is pending and visible by direct link to anonymous', async () => {
       const u = await createUser(h)
-      const id = await createPost(h, u, { title: 'My art', sourceCredit: 'me' })
+      const id = await createPost(h, u, { title: 'My art', credit: repost })
       const res = await h.http().get(`/api/posts/${id}`)
       expect(res.status).toBe(200)
       expect(res.body).toMatchObject({
@@ -144,7 +154,7 @@ describe('posts', () => {
         description: '',
         rating: 'all',
         tags: [],
-        sourceCredit: 'me',
+        credit: repost,
         review: { status: 'pending' },
         visibility: 'public',
         counts: { likes: 0, bookmarks: 0, comments: 0 },
@@ -197,6 +207,37 @@ describe('posts', () => {
       expect(ok.body.tags).toEqual(['ameoduca'])
     })
 
+    it('repost credit without artistName/platform/sourceUrl → 400 CREDIT_REQUIRED; missing credit → 400 VALIDATION_FAILED', async () => {
+      const u = await createUser(h)
+      const fileId = await readyPng(u)
+      for (const credit of [{ isOwnWork: false }, { ...repost, sourceUrl: '' }, { ...repost, artistName: '' }]) {
+        const res = await create(u, body(fileId, { credit }))
+        expect(res.status).toBe(400)
+        expect(res.body.error.code).toBe('CREDIT_REQUIRED')
+      }
+      const { credit: _, ...noCredit } = body(fileId)
+      const missing = await create(u, noCredit)
+      expect(missing.status).toBe(400)
+      expect(missing.body.error.code).toBe('VALIDATION_FAILED')
+      expect(await posts().countDocuments()).toBe(0)
+    })
+
+    it('own work needs no artist fields; credit is stored with defaults', async () => {
+      const u = await createUser(h)
+      const res = await create(u, body(await readyPng(u)))
+      expect(res.status).toBe(201)
+      expect(res.body.credit).toEqual({ isOwnWork: true, artistName: '', artistHandle: '', platform: 'other', sourceUrl: '', permissionNote: '' })
+      expect((await loadPost(res.body.id))!.credit).toEqual(res.body.credit)
+      expect(await loadPost(res.body.id)).not.toHaveProperty('sourceCredit')
+    })
+
+    it('create always enqueues rewatermark for the post', async () => {
+      const u = await createUser(h)
+      const res = await create(u, body(await readyPng(u)))
+      expect(res.status).toBe(201)
+      expect(h.jobs.enqueued.filter((j) => j.name !== 'process-file')).toEqual([{ name: 'rewatermark', data: { postId: res.body.id } }])
+    })
+
     it('r18 create enqueues relocate-variants with the postId', async () => {
       const u = await createUser(h)
       const fileId = await readyPng(u)
@@ -211,7 +252,7 @@ describe('posts', () => {
       const u = await createUser(h)
       const id = await createPost(h, u)
       await approve(h, id)
-      const patch = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ title: 'New title', tags: ['a'], description: 'd', sourceCredit: 'c' })
+      const patch = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ title: 'New title', tags: ['a'], description: 'd' })
       expect(patch.status).toBe(200)
       expect(patch.body).toMatchObject({ title: 'New title', tags: ['a'], review: { status: 'approved' } })
 
@@ -220,6 +261,24 @@ describe('posts', () => {
       expect(res.status).toBe(200)
       expect(res.body.review.status).toBe('pending')
       expect(res.body.media.map((m: { fileId: string }) => m.fileId)).toEqual([replacement])
+    })
+
+    it('credit-only PATCH keeps approved and enqueues rewatermark; other edits do not', async () => {
+      const u = await createUser(h)
+      const id = await createPost(h, u)
+      await approve(h, id)
+      h.jobs.clear()
+      const res = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ credit: repost })
+      expect(res.status).toBe(200)
+      expect(res.body).toMatchObject({ credit: repost, review: { status: 'approved' } })
+      expect(h.jobs.enqueued).toEqual([{ name: 'rewatermark', data: { postId: id } }])
+      h.jobs.clear()
+      await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ title: 'x' })
+      expect(h.jobs.enqueued).toEqual([])
+      const bad = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ credit: { ...repost, platform: undefined } })
+      expect(bad.status).toBe(400)
+      expect(bad.body.error.code).toBe('CREDIT_REQUIRED')
+      expect((await loadPost(id))!.credit).toEqual(repost)
     })
 
     it('reordering the same files keeps approved', async () => {
@@ -269,7 +328,10 @@ describe('posts', () => {
       h.jobs.clear()
       const res = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ files: [{ fileId: a, position: 0, isCover: true }, { fileId: b, position: 1, isCover: false }] })
       expect(res.status).toBe(200)
-      expect(h.jobs.enqueued).toEqual([{ name: 'relocate-variants', data: { postId: id } }])
+      expect(h.jobs.enqueued).toEqual([
+        { name: 'relocate-variants', data: { postId: id } },
+        { name: 'rewatermark', data: { postId: id } },
+      ])
     })
 
     it('tag edits move tag counts', async () => {
@@ -432,6 +494,37 @@ describe('posts', () => {
     })
   })
 
+  describe('original file access by credit', () => {
+    it('repost original: owner and staff → 200, anyone else → 404 POST_NOT_FOUND', async () => {
+      const u = await createUser(h)
+      const other = await createUser(h)
+      const mod = await createUser(h, { role: 'moderator' })
+      const id = await createPost(h, u, { credit: repost })
+      const fileId = (await loadPost(id))!.files[0].fileId.toString()
+      const url = `/api/posts/${id}/files/${fileId}/url`
+      for (const t of [undefined, other.token]) {
+        const req = h.http().get(url)
+        const res = await (t ? req.set(auth(t)) : req)
+        expect(res.status).toBe(404)
+        expect(res.body.error.code).toBe('POST_NOT_FOUND')
+      }
+      for (const t of [u.token, mod.token]) {
+        const res = await h.http().get(url).set(auth(t))
+        expect(res.status).toBe(200)
+        expect(res.body.url).toMatch(/\/original\.png\?/)
+      }
+    })
+
+    it('own-work original stays downloadable by anyone', async () => {
+      const u = await createUser(h)
+      const other = await createUser(h)
+      const id = await createPost(h, u)
+      const fileId = (await loadPost(id))!.files[0].fileId.toString()
+      expect((await h.http().get(`/api/posts/${id}/files/${fileId}/url`)).status).toBe(200)
+      expect((await h.http().get(`/api/posts/${id}/files/${fileId}/url`).set(auth(other.token))).status).toBe(200)
+    })
+  })
+
   describe('GET /users/:username/posts', () => {
     it('lists by direct rules (owner and staff also see rejected), newest first, with cursor', async () => {
       const u = await createUser(h)
@@ -455,6 +548,7 @@ describe('posts', () => {
         counts: { likes: 0 },
         author: { id: u.id, username: u.username },
         cover: expect.objectContaining({ isCover: true, thumbMdUrl: expect.any(String) }),
+        credit: { isOwnWork: true, artistName: '', artistHandle: '', platform: 'other', sourceUrl: '', permissionNote: '' },
         createdAt: expect.any(String),
       })
 

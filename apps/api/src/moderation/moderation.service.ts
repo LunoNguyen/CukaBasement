@@ -1,15 +1,16 @@
-import { Injectable, type OnModuleInit } from '@nestjs/common'
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { REPORT_REASONS, type ReportReason, type ReviewStatus, type Role, type Visibility } from '@cuka/shared'
+import { type Credit, REPORT_REASONS, type ReportReason, type ReviewStatus, type Role, type Visibility } from '@cuka/shared'
 import { type Model, type QueryFilter, Types } from 'mongoose'
 import type { Viewer } from '../auth/viewer'
 import { AppError } from '../common/app-error'
 import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
 import { COMMENT_MODEL, type Comment, type CommentStatus } from '../comments/comment.schema'
+import { JOBS, type JobsPort } from '../jobs/jobs.port'
 import { NotificationsService } from '../notifications/notifications.service'
 import { PostEvents } from '../posts/post-events'
 import { POST_MODEL, type Post } from '../posts/post.schema'
-import { type AuthorDto, type CursorQuery, type PostCardDto, PostsService } from '../posts/posts.service'
+import { assertCredit, type AuthorDto, type CursorQuery, type PostCardDto, PostsService } from '../posts/posts.service'
 import { REPORT_MODEL, type Report } from '../reports/report.schema'
 import { ReportsService } from '../reports/reports.service'
 import { USER_MODEL, type User } from '../users/user.schema'
@@ -69,6 +70,7 @@ export class ModerationService implements OnModuleInit {
     private readonly notifications: NotificationsService,
     private readonly usersService: UsersService,
     private readonly postEvents: PostEvents,
+    @Inject(JOBS) private readonly jobs: JobsPort,
   ) {}
 
   onModuleInit(): void {
@@ -113,6 +115,20 @@ export class ModerationService implements OnModuleInit {
     const changed = await this.setVisibility(post._id, ['removed', 'hidden_by_reports'], 'public')
     if (changed) await this.modLog.log(actor.id, 'restore', 'post', id)
     return this.result(changed ?? post)
+  }
+
+  /**
+   * Replaces the post's credit (e.g. a missing or wrong artist). Not an author edit: review status and `updatedAt` stay.
+   * The watermark is redrawn with the new credit.
+   */
+  async updateCredit(actor: Viewer, id: string, credit: Credit): Promise<ModPostResult & { credit: Credit }> {
+    assertCredit(credit)
+    const post = await this.moderatablePost(actor, id)
+    const updated = await this.posts.findOneAndUpdate({ _id: post._id, deletedAt: null }, { $set: { credit } }, NO_TIMESTAMPS).lean()
+    if (!updated) throw postNotFound()
+    await this.modLog.log(actor.id, 'update_credit', 'post', id)
+    await this.jobs.enqueue('rewatermark', { postId: id })
+    return { ...this.result(updated), credit: updated.credit }
   }
 
   /**

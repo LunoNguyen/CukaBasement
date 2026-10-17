@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { type createPostSchema, type cursorQuerySchema, type PostType, R18_REQUIRED_TAGS, type Rating, type ReviewStatus, type updatePostSchema, type Visibility } from '@cuka/shared'
+import { type Credit, type createPostSchema, type cursorQuerySchema, type PostType, R18_REQUIRED_TAGS, type Rating, type ReviewStatus, type updatePostSchema, type Visibility } from '@cuka/shared'
 import { type Model, Types } from 'mongoose'
 import type { z } from 'zod'
 import type { Viewer } from '../auth/viewer'
@@ -41,7 +41,7 @@ export interface PostDto {
   description: string
   rating: Rating
   tags: string[]
-  sourceCredit: string
+  credit: Credit
   review: { status: ReviewStatus; reason?: string }
   visibility: Visibility
   counts: Post['counts']
@@ -61,6 +61,7 @@ export interface PostCardDto {
   pageCount: number
   counts: Post['counts']
   author: AuthorDto
+  credit: Credit
   createdAt: string
 }
 
@@ -90,6 +91,16 @@ function assertTagRating(tags: string[], rating: Rating): void {
     throw new AppError('VALIDATION_FAILED', 400, 'Posts with this tag must be rated r18', { field: 'rating', reason: 'R18_TAG_REQUIRES_R18' })
   }
 }
+
+/** Server-side twin of the shared schema refinement: a repost names its artist, platform and source. */
+export function assertCredit(credit: Credit): void {
+  if (!credit.isOwnWork && (!credit.artistName || !credit.platform || !credit.sourceUrl)) {
+    throw new AppError('CREDIT_REQUIRED', 400, 'A repost must credit the artist, platform and source URL')
+  }
+}
+
+/** Posts saved before credits existed count as the uploader's own work. */
+export const OWN_WORK: Credit = { isOwnWork: true, artistName: '', artistHandle: '', platform: 'other', sourceUrl: '', permissionNote: '' }
 
 function sameFileSet(a: PostFile[], b: PostFile[]): boolean {
   const ids = (fs: PostFile[]) => [...new Set(fs.map((f) => f.fileId.toString()))].sort().join(',')
@@ -123,6 +134,7 @@ export class PostsService {
   async create(viewer: Viewer, input: CreatePostInput): Promise<PostDto> {
     const tags = normalizeTags(input.tags).map((t) => t.tag)
     assertTagRating(tags, input.rating)
+    assertCredit(input.credit)
     const files = await this.checkFiles(viewer.id, input.files)
     let post: Post
     try {
@@ -135,7 +147,7 @@ export class PostsService {
         visibility: 'public',
         review: { status: 'pending', reason: null, by: null, at: null },
         aiDeclaration: true,
-        sourceCredit: input.sourceCredit,
+        credit: input.credit,
         files,
         tags,
       })
@@ -148,6 +160,8 @@ export class PostsService {
     await this.tags.applyDelta(input.tags, [])
     // Files processed before the post existed have public variants; move them to the private bucket.
     if (post.rating === 'r18') await this.jobs.enqueue('relocate-variants', { postId: post._id.toString() })
+    // Files are usually processed before the post exists, so their variants carry no watermark yet.
+    await this.jobs.enqueue('rewatermark', { postId: post._id.toString() })
     return this.toDto(post, viewer)
   }
 
@@ -166,8 +180,13 @@ export class PostsService {
     if (post.authorId.toString() !== viewer.id) throw new AppError('FORBIDDEN', 403, 'Only the author can edit this post')
 
     const $set: Record<string, unknown> = {}
-    for (const key of ['type', 'title', 'description', 'sourceCredit', 'rating'] as const) {
+    for (const key of ['type', 'title', 'description', 'rating'] as const) {
       if (input[key] !== undefined) $set[key] = input[key]
+    }
+    // The credit is replaced whole; a credit edit alone keeps the review status.
+    if (input.credit !== undefined) {
+      assertCredit(input.credit)
+      $set.credit = input.credit
     }
     const tags = input.tags !== undefined ? normalizeTags(input.tags) : null
     assertTagRating(tags ? tags.map((t) => t.tag) : post.tags, input.rating ?? post.rating)
@@ -206,6 +225,8 @@ export class PostsService {
     }
     // Variants live in the bucket of the post's rating: a new rating, or newly attached files, need relocating.
     if (ratingChanged || filesChanged) await this.jobs.enqueue('relocate-variants', { postId: post._id.toString() })
+    // The watermark shows the credit: redraw it for a new credit or newly attached files.
+    if (input.credit !== undefined || filesChanged) await this.jobs.enqueue('rewatermark', { postId: post._id.toString() })
     return this.toDto(updated, viewer)
   }
 
@@ -226,10 +247,15 @@ export class PostsService {
     if (!isOwner) await this.events.staffRemoved({ actorId: viewer.id, postId: id, authorId: post.authorId.toString() })
   }
 
-  /** Presigned download of a post file's original; r18 originals only for eligible viewers. */
+  /**
+   * Presigned download of a post file's original; r18 originals only for eligible viewers. A repost's clean
+   * (unwatermarked) original is only for its uploader and staff.
+   */
   async fileUrl(viewer: Viewer | null, id: string, fileId: string): Promise<{ url: string }> {
     const post = await this.findViewable(viewer, id)
     if (post.rating === 'r18' && !canSeeFullMedia(viewer)) throw notFound()
+    const repost = post.credit && !post.credit.isOwnWork
+    if (repost && viewer?.id !== post.authorId.toString() && !isStaff(viewer)) throw notFound()
     const fid = oid(fileId)
     const file = fid && post.files.some((f) => f.fileId.equals(fid)) ? await this.files.findById(fid).lean() : null
     if (!file || (file.status !== 'processing' && file.status !== 'ready')) throw new AppError('NOT_FOUND', 404, 'File not found')
@@ -267,6 +293,7 @@ export class PostsService {
           pageCount: p.files.length,
           counts: p.counts,
           author: authors.get(p.authorId.toString())!,
+          credit: p.credit ?? OWN_WORK,
           createdAt: p.createdAt.toISOString(),
         }
       }),
@@ -285,7 +312,7 @@ export class PostsService {
       description: post.description,
       rating: post.rating,
       tags: post.tags,
-      sourceCredit: post.sourceCredit,
+      credit: post.credit ?? OWN_WORK,
       review: { status: post.review.status, ...(showReason && post.review.reason ? { reason: post.review.reason } : {}) },
       visibility: post.visibility,
       counts: post.counts,

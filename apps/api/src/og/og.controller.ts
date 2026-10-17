@@ -1,5 +1,6 @@
 import { Controller, Get, Inject, Param, Res } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
+import { artistTag, type Credit, PLATFORM_LABELS } from '@cuka/shared'
 import type { Response } from 'express'
 import { type Model, Types } from 'mongoose'
 import { CONFIG, type Config } from '../config/config'
@@ -9,6 +10,13 @@ import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 
 const SITE_TITLE = 'CukaBasement'
+
+/** "Art by @handle (Platform) — " for a repost (no "(…)" for platform `other`); empty for own work. */
+function creditPrefix(credit: Credit | undefined): string {
+  if (!credit || credit.isOwnWork) return ''
+  const label = PLATFORM_LABELS[credit.platform] ?? ''
+  return `Art by ${artistTag(credit)}${label ? ` (${label})` : ''} — `
+}
 
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -42,7 +50,7 @@ export class OgController {
     res.send(
       page({
         title: post.title,
-        description: (post.description || post.title).slice(0, 200),
+        description: (creditPrefix(post.credit) + (post.description || post.title)).slice(0, 200),
         image,
         url: `${this.config.appUrl}/posts/${post._id.toString()}`,
       }),

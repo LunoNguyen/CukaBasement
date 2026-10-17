@@ -61,6 +61,17 @@ describe('GET /og/posts/:id', () => {
     expect(res.text).not.toContain('a'.repeat(201))
   })
 
+  it('repost description is prefixed "Art by @handle (Platform) — "; own work is not', async () => {
+    const author = await createUser(h)
+    const credit = { isOwnWork: false, artistName: 'Ruri', artistHandle: '_rurisuisen', platform: 'x', sourceUrl: 'https://x.com/_rurisuisen/status/1', permissionNote: '' }
+    const repost = await createPost(h, author, { description: 'Birthday art', credit })
+    expect((await og(repost)).text).toContain('<meta property="og:description" content="Art by @_rurisuisen (X) — Birthday art">')
+    const other = await createPost(h, author, { title: 'T', description: '', credit: { ...credit, artistHandle: '', platform: 'other' } })
+    expect((await og(other)).text).toContain('<meta property="og:description" content="Art by Ruri — T">')
+    const own = await createPost(h, author, { description: 'Mine' })
+    expect((await og(own)).text).toContain('<meta property="og:description" content="Mine">')
+  })
+
   it('unknown, invalid, hidden and deleted posts give 404 html with default image', async () => {
     const author = await createUser(h)
     const hidden = await createPost(h, author)

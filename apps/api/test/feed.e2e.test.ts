@@ -33,7 +33,7 @@ describe('feed, search and tags', () => {
       visibility: 'public',
       review: { status: 'approved', reason: null, by: null, at: null },
       aiDeclaration: true,
-      sourceCredit: '',
+      credit: { isOwnWork: true, artistName: '', artistHandle: '', platform: 'other', sourceUrl: '', permissionNote: '' },
       files: [{ fileId: new Types.ObjectId(), position: 0, isCover: true }],
       tags: [],
       counts: { likes: 0, bookmarks: 0, comments: 0, views: 0 },

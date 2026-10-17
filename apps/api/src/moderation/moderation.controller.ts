@@ -1,5 +1,5 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common'
-import { cursorQuerySchema, rejectSchema, resolveReportsSchema } from '@cuka/shared'
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common'
+import { type Credit, creditSchema, cursorQuerySchema, rejectSchema, resolveReportsSchema } from '@cuka/shared'
 import { z } from 'zod'
 import { Auth, CurrentViewer } from '../auth/decorators'
 import type { Viewer } from '../auth/viewer'
@@ -51,6 +51,12 @@ export class ModerationController {
   @HttpCode(200)
   restore(@CurrentViewer() v: Viewer, @Param('id') id: string) {
     return this.mod.restore(v, id)
+  }
+
+  @MOD_WRITE
+  @Patch('posts/:id/credit')
+  updateCredit(@CurrentViewer() v: Viewer, @Param('id') id: string, @Body(new ZodPipe(creditSchema)) body: Credit) {
+    return this.mod.updateCredit(v, id, body)
   }
 
   /** `cursor` is accepted but unused: the top `limit` groups are returned (resolved groups drop out). */

@@ -42,7 +42,7 @@ describe('end-to-end smoke', () => {
         description: 'end to end',
         rating: 'all',
         tags: ['smoke'],
-        sourceCredit: '',
+        credit: { isOwnWork: true },
         aiDeclaration: true,
         files: [{ fileId, position: 0, isCover: true }],
       })

@@ -1,4 +1,4 @@
-import { POST_TYPES, type PostType, RATINGS, type Rating, REVIEW_STATUSES, type ReviewStatus, VISIBILITIES, type Visibility } from '@cuka/shared'
+import { CREDIT_PLATFORMS, type Credit, POST_TYPES, type PostType, RATINGS, type Rating, REVIEW_STATUSES, type ReviewStatus, VISIBILITIES, type Visibility } from '@cuka/shared'
 import { type HydratedDocument, Schema, Types } from 'mongoose'
 
 export interface PostFile {
@@ -17,7 +17,7 @@ export interface Post {
   visibility: Visibility
   review: { status: ReviewStatus; reason: string | null; by: Types.ObjectId | null; at: Date | null }
   aiDeclaration: true
-  sourceCredit: string
+  credit: Credit
   files: PostFile[]
   tags: string[]
   counts: { likes: number; bookmarks: number; comments: number; views: number }
@@ -32,6 +32,18 @@ export type PostDocument = HydratedDocument<Post>
 export const POST_MODEL = 'Post'
 
 const count = { type: Number, default: 0 }
+
+const creditSchema = new Schema<Credit>(
+  {
+    isOwnWork: { type: Boolean, required: true },
+    artistName: { type: String, default: '' },
+    artistHandle: { type: String, default: '' },
+    platform: { type: String, enum: CREDIT_PLATFORMS, default: 'other' },
+    sourceUrl: { type: String, default: '' },
+    permissionNote: { type: String, default: '' },
+  },
+  { _id: false },
+)
 
 const postFileSchema = new Schema<PostFile>(
   {
@@ -57,7 +69,7 @@ export const PostSchema = new Schema<Post>(
       at: { type: Date, default: null },
     },
     aiDeclaration: { type: Boolean, required: true },
-    sourceCredit: { type: String, default: '' },
+    credit: { type: creditSchema, required: true },
     files: { type: [postFileSchema], default: [] },
     tags: { type: [String], default: [] },
     counts: { likes: count, bookmarks: count, comments: count, views: count },

@@ -35,6 +35,7 @@ export class GlobalErrorFilter implements ExceptionFilter {
       return [e.status, envelope(e.code, e.message, e.details)]
     }
     if (e instanceof ZodError) {
+      if (e.issues.some(isCreditRequired)) return [400, envelope('CREDIT_REQUIRED', 'A repost must credit the artist, platform and source URL', e.issues)]
       return [400, envelope('VALIDATION_FAILED', 'Validation failed', e.issues)]
     }
     if (isDuplicateKey(e)) {
@@ -85,6 +86,11 @@ function clientErrorStatus(e: unknown): number | null {
   const { status, statusCode } = e as { status?: unknown; statusCode?: unknown }
   const s = typeof status === 'number' ? status : statusCode
   return typeof s === 'number' && Number.isInteger(s) && s >= 400 && s < 500 ? s : null
+}
+
+/** Issue raised by the shared `creditSchema` refinement for a repost missing its artist, platform or source. */
+function isCreditRequired(issue: ZodError['issues'][number]): boolean {
+  return issue.code === 'custom' && (issue.params as { code?: unknown } | undefined)?.code === 'CREDIT_REQUIRED'
 }
 
 function isDuplicateKey(e: unknown): boolean {
