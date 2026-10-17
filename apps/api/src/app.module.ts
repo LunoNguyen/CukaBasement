@@ -14,6 +14,7 @@ import { JobsModule } from './jobs/jobs.module'
 import { MailModule } from './mail/mail.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { PostsModule } from './posts/posts.module'
+import { ReportsModule } from './reports/reports.module'
 import { SettingsModule } from './settings/settings.module'
 import { StorageModule } from './storage/storage.module'
 import { UploadsModule } from './uploads/uploads.module'
@@ -59,6 +60,7 @@ export class HealthController {
     NotificationsModule,
     InteractionsModule,
     CommentsModule,
+    ReportsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],
