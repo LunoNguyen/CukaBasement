@@ -7,13 +7,18 @@ import { readFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import * as argon2 from 'argon2'
 import type mongoose from 'mongoose'
+import { Types } from 'mongoose'
 import { Client } from 'minio'
 import supertest from 'supertest'
 import { AppModule, configureApp } from '../src/app.module'
 import { TokensService } from '../src/auth/tokens'
 import { CONFIG, type Config, loadConfig } from '../src/config/config'
+import type { JobDeps } from '../src/jobs/handlers/media'
+import { processFile } from '../src/jobs/handlers/process-file'
+import { relocateVariants } from '../src/jobs/handlers/relocate-variants'
 import { JOBS, type JobName, type JobsPort } from '../src/jobs/jobs.port'
 import { SettingsService } from '../src/settings/settings.service'
+import { StorageService } from '../src/storage/storage.service'
 import { MAIL, type MailMessage, type MailPort } from '../src/mail/mail.port'
 import { USER_MODEL, type User } from '../src/users/user.schema'
 import { TestOnlyModule } from './test-only.module'
@@ -212,4 +217,56 @@ export async function createTestHarness(): Promise<Harness> {
   }
   await harness.reset()
   return harness
+}
+
+export type CreatePostBody = {
+  type: string
+  title: string
+  description: string
+  rating: 'all' | 'r18'
+  tags: string[]
+  sourceCredit: string
+  aiDeclaration: boolean
+  files: Array<{ fileId: string; position: number; isCover: boolean }>
+}
+
+/** Job deps wired to the app's own connection, storage and config, for running worker handlers inline. */
+export function jobDeps(h: Harness): JobDeps {
+  return { conn: h.db, storage: h.app.get(StorageService), config: h.app.get(CONFIG) }
+}
+
+/**
+ * Uploads tiny.png (unless `overrides.files` is given), processes it inline and creates a post via HTTP.
+ * Any relocate-variants job the create enqueued is run inline too, as the worker would. Returns the postId.
+ */
+export async function createPost(h: Harness, user: { token: string }, overrides: Partial<CreatePostBody> = {}): Promise<string> {
+  let files = overrides.files
+  if (!files) {
+    const fileId = await uploadFixture(h, user, 'tiny.png')
+    await processFile(jobDeps(h), { fileId })
+    files = [{ fileId, position: 0, isCover: true }]
+  }
+  const body: CreatePostBody = {
+    type: 'illustration',
+    title: 'Test post',
+    description: '',
+    rating: 'all',
+    tags: [],
+    sourceCredit: '',
+    aiDeclaration: true,
+    ...overrides,
+    files,
+  }
+  const res = await h.http().post('/api/posts').set({ Authorization: `Bearer ${user.token}` }).send(body)
+  if (res.status !== 201) throw new Error(`create post failed: ${res.status} ${JSON.stringify(res.body)}`)
+  const postId = res.body.id as string
+  for (const job of h.jobs.enqueued) {
+    if (job.name === 'relocate-variants' && job.data.postId === postId) await relocateVariants(jobDeps(h), { postId })
+  }
+  return postId
+}
+
+/** Marks the post approved directly in the database. */
+export async function approve(h: Harness, postId: string): Promise<void> {
+  await h.db.collection('posts').updateOne({ _id: new Types.ObjectId(postId) }, { $set: { 'review.status': 'approved' } })
 }

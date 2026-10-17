@@ -9,6 +9,7 @@ import { CONFIG, type Config, loadConfig } from './config/config'
 import { DatabaseModule } from './database/database.module'
 import { JobsModule } from './jobs/jobs.module'
 import { MailModule } from './mail/mail.module'
+import { PostsModule } from './posts/posts.module'
 import { SettingsModule } from './settings/settings.module'
 import { StorageModule } from './storage/storage.module'
 import { UploadsModule } from './uploads/uploads.module'
@@ -49,6 +50,7 @@ export class HealthController {
     }),
     AuthModule,
     UploadsModule,
+    PostsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],
