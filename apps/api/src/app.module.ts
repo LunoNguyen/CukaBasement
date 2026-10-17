@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core'
 import cookieParser from 'cookie-parser'
 import { APP_FILTER } from '@nestjs/core'
 import { ThrottlerModule } from '@nestjs/throttler'
+import { AdminModule } from './admin/admin.module'
 import { AuthModule } from './auth/auth.module'
 import { GlobalErrorFilter } from './common/error.filter'
 import { CONFIG, type Config, loadConfig } from './config/config'
@@ -63,6 +64,7 @@ export class HealthController {
     CommentsModule,
     ReportsModule,
     ModerationModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],
