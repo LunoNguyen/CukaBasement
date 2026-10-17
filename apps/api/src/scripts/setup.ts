@@ -5,6 +5,7 @@ import { getConnectionToken } from '@nestjs/mongoose'
 import type mongoose from 'mongoose'
 import { createAppContext } from '../app.module'
 import { type Config, loadConfig } from '../config/config'
+import { loadEnvFile } from '../config/env-file'
 import { ensureIndexes } from '../database/indexes'
 
 async function ensureBucket(client: Client, bucket: string): Promise<boolean> {
@@ -50,6 +51,7 @@ export async function runSetup(cfg: Config, log: (line: string) => void = () => 
 }
 
 if (require.main === module) {
+  loadEnvFile()
   runSetup(loadConfig(process.env), (l) => console.log(l))
     .then(() => console.log('setup complete'))
     .catch((err) => {

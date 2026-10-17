@@ -1,28 +1,5 @@
 # CukaBasement
 
-This template should help get you started developing with Vue 3 in Vite.
-
-## Recommended IDE Setup
-
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
 ## Cài đặt
 
 **Yêu cầu:** Node.js (theo `engines` trong `package.json`), MongoDB đang chạy với database `CukaDB`, MinIO đang chạy local, và ffmpeg có trong `PATH`.
@@ -31,10 +8,14 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 
 ```sh
 cp .env.example .env        # rồi chỉnh các giá trị cho phù hợp
-npm install
+npm install                 # tự build packages/shared (script prepare)
 npm run setup               # tạo index MongoDB, bucket MinIO và settings (chạy lại an toàn)
 npm run create-admin -- --email <email> --password <mật khẩu> --username <tên>
 npm run dev                 # chạy song song shared, api, worker, web
 ```
+
+API, worker và các script `setup` / `create-admin` đều đọc file `.env` ở thư mục gốc.
+
+**Lưu ý khi dev worker:** worker chạy code job từ bản build của `apps/api` (`apps/api/dist`). `npm run dev` của api build lại `dist` khi bạn sửa `apps/api/src`, nhưng worker không tự khởi động lại — sau khi sửa job handler (`apps/api/src/jobs/...`) hay code mà worker dùng, hãy khởi động lại worker (dừng `npm run dev` rồi chạy lại, hoặc chạy riêng `npm -w @cuka/worker run dev`).
 
 Các lệnh khác: `npm run build`, `npm test`, `npm run type-check`.

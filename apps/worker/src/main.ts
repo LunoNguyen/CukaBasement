@@ -1,6 +1,4 @@
 import 'reflect-metadata'
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { Logger } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { getConnectionToken } from '@nestjs/mongoose'
@@ -8,6 +6,7 @@ import type { Job } from 'agenda'
 import { type Connection, Types } from 'mongoose'
 import { AppModule } from '@cuka/api/app.module'
 import { CONFIG, type Config } from '@cuka/api/config/config'
+import { loadEnvFile } from '@cuka/api/config/env-file'
 import type { AgendaJobs } from '@cuka/api/jobs/agenda-jobs'
 import type { JobDeps } from '@cuka/api/jobs/handlers/media'
 import { cleanupUploads } from '@cuka/api/jobs/handlers/cleanup-uploads'
@@ -22,8 +21,7 @@ const MAX_FAILS = 3
 const logger = new Logger('Worker')
 
 async function bootstrap(): Promise<void> {
-  const envFile = resolve(__dirname, '../../../.env')
-  if (existsSync(envFile)) process.loadEnvFile(envFile)
+  loadEnvFile()
 
   const app = await NestFactory.createApplicationContext(AppModule)
   const deps: JobDeps = {

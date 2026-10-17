@@ -5,6 +5,7 @@ import { getModelToken } from '@nestjs/mongoose'
 import type { Model } from 'mongoose'
 import { createAppContext } from '../app.module'
 import { type Config, loadConfig } from '../config/config'
+import { loadEnvFile } from '../config/env-file'
 import { USER_MODEL, type User } from '../users/user.schema'
 
 export interface CreateAdminInput {
@@ -50,6 +51,7 @@ function parseArgs(argv: string[]): Partial<CreateAdminInput> {
 }
 
 if (require.main === module) {
+  loadEnvFile()
   const args = parseArgs(process.argv.slice(2))
   if (!args.email || !args.password || !args.username) {
     console.error('Usage: create-admin --email <email> --password <password> --username <username>')
