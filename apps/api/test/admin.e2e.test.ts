@@ -78,13 +78,16 @@ describe('admin', () => {
     expect(mid.body.items).toEqual([])
   })
 
-  it('q with regex characters "a.*" does not match everything', async () => {
+  it('q with regex characters is matched literally, not as a pattern', async () => {
     const admin = await createUser(h, { role: 'admin' })
-    await createUser(h)
-    await createUser(h)
-    const res = await h.http().get(`/api/admin/users?q=${encodeURIComponent('a.*')}`).set(auth(admin.token))
-    expect(res.status).toBe(200)
-    expect(res.body.items).toEqual([])
+    const u = await createUser(h)
+    const ids = async (q: string) =>
+      (await h.http().get(`/api/admin/users?q=${encodeURIComponent(q)}`).set(auth(admin.token))).body.items.map((x: { id: string }) => x.id)
+    expect(await ids('u.*')).toEqual([])
+    expect(await ids('.*')).toEqual([])
+    expect(await ids('a.*')).toEqual([])
+    expect(await ids('u_')).toContain(u.id)
+    expect(await ids(u.username)).toEqual([u.id])
   })
 
   it('ban revokes refresh and login → 403 ACCOUNT_BANNED; unban restores', async () => {

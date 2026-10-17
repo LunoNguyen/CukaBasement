@@ -100,8 +100,8 @@ export class AdminService {
     const target = await this.target(actor, id)
     if (target.status === status) return this.toDto(target)
     const undo = await this.applyGuarded(target, { status }, status !== 'active')
-    if (status === 'banned') await this.authTokens.deleteMany({ userId: target._id, type: 'refresh' })
     try {
+      if (status === 'banned') await this.authTokens.deleteMany({ userId: target._id, type: 'refresh' })
       await this.modLog.log(actor.id, STATUS_ACTION[status], 'user', id, note)
     } catch (e) {
       await undo()
@@ -183,7 +183,7 @@ export class AdminService {
     const guarded = leavesService && target.role === 'admin' && target.status === 'active'
     const others = () => this.users.countDocuments({ role: 'admin', status: 'active', _id: { $ne: target._id } })
     if (guarded && (await others()) === 0) throw new AppError('LAST_ADMIN', 400, 'At least one active admin must remain')
-    const before = { status: target.status, role: target.role }
+    const before = Object.fromEntries(Object.keys($set).map((k) => [k, target[k as keyof typeof $set]]))
     await this.users.updateOne({ _id: target._id }, { $set })
     const undo = async () => {
       await this.users.updateOne({ _id: target._id }, { $set: before })
