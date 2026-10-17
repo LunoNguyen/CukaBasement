@@ -7,6 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common'
+import { ThrottlerException } from '@nestjs/throttler'
 import type { ErrorCode } from '@cuka/shared'
 import type { Response } from 'express'
 import { ZodError } from 'zod'
@@ -39,7 +40,7 @@ export class GlobalErrorFilter implements ExceptionFilter {
     if (isDuplicateKey(e)) {
       return [409, envelope('VALIDATION_FAILED', 'Duplicate value')]
     }
-    if (e instanceof HttpException && e.constructor.name === 'ThrottlerException') {
+    if (e instanceof ThrottlerException) {
       return [429, envelope('RATE_LIMITED', 'Too many requests')]
     }
     if (e instanceof NotFoundException) {

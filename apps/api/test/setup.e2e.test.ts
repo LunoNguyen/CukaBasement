@@ -20,6 +20,14 @@ describe('setup script', () => {
     expect((await settings.get()).reportHideThreshold).toBe(9)
   })
 
+  it('setup builds the unique index on users.email', async () => {
+    await h.db.collection('users').dropIndexes()
+    expect((await h.db.collection('users').indexes()).map((i) => i.name)).toEqual(['_id_'])
+    await runSetup(testConfig())
+    const idx = (await h.db.collection('users').indexes()).find((i) => JSON.stringify(i.key) === '{"email":1}')
+    expect(idx?.unique).toBe(true)
+  })
+
   it('public bucket allows anonymous GetObject, originals does not', async () => {
     const cfg = testConfig()
     await runSetup(cfg)

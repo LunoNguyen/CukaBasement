@@ -2,6 +2,8 @@ import { Controller, Get, Global, type INestApplication, Module } from '@nestjs/
 import { NestFactory } from '@nestjs/core'
 import cookieParser from 'cookie-parser'
 import { APP_FILTER } from '@nestjs/core'
+import { ThrottlerModule } from '@nestjs/throttler'
+import { AuthModule } from './auth/auth.module'
 import { GlobalErrorFilter } from './common/error.filter'
 import { CONFIG, type Config, loadConfig } from './config/config'
 import { DatabaseModule } from './database/database.module'
@@ -29,7 +31,23 @@ export class HealthController {
 }
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, MailModule, JobsModule, SettingsModule, StorageModule],
+  imports: [
+    ConfigModule,
+    DatabaseModule,
+    MailModule,
+    JobsModule,
+    SettingsModule,
+    StorageModule,
+    // Limits apply only where a route opts in with @UseGuards(ThrottlerGuard) + @Throttle.
+    ThrottlerModule.forRootAsync({
+      inject: [CONFIG],
+      useFactory: (config: Config) => ({
+        throttlers: [{ name: 'default', limit: 60, ttl: 60_000 }],
+        skipIf: () => config.throttleDisabled,
+      }),
+    }),
+    AuthModule,
+  ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],
 })

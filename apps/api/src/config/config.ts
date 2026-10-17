@@ -23,6 +23,7 @@ const envSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3000),
   FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
   FFPROBE_PATH: z.string().optional(),
+  THROTTLE_DISABLED: bool.default(false),
 })
 
 export interface Config {
@@ -45,6 +46,8 @@ export interface Config {
   apiPort: number
   ffmpegPath: string
   ffprobePath: string
+  /** Skips every @nestjs/throttler limit; tests set it and flip it off where they exercise limits. */
+  throttleDisabled: boolean
 }
 
 /** Derives the ffprobe path from the ffmpeg path by replacing the last `ffmpeg` in the file name. */
@@ -77,5 +80,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     apiPort: e.API_PORT,
     ffmpegPath: e.FFMPEG_PATH,
     ffprobePath: e.FFPROBE_PATH ?? deriveFfprobe(e.FFMPEG_PATH),
+    throttleDisabled: e.THROTTLE_DISABLED,
   }
 }

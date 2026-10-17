@@ -19,6 +19,8 @@ export interface Harness {
   db: mongoose.Connection
   mail: { sent: MailMessage[]; lastLinkFor(email: string): string }
   jobs: { enqueued: Array<{ name: JobName; data: Record<string, unknown> }>; clear(): void }
+  /** Turns @nestjs/throttler limits on (off by default in tests) until the next reset(). */
+  enableThrottling(): void
   reset(): Promise<void>
   close(): Promise<void>
 }
@@ -61,6 +63,7 @@ export function testConfig(): Config {
     ...base,
     mongoUri,
     smtpUrl: undefined,
+    throttleDisabled: true,
     minio: { ...base.minio, bucketOriginals: 'test-cuka-originals', bucketPublic: 'test-cuka-public' },
   }
 }
@@ -114,7 +117,11 @@ export async function createTestHarness(): Promise<Harness> {
         enqueued.length = 0
       },
     },
+    enableThrottling() {
+      config.throttleDisabled = false
+    },
     async reset() {
+      config.throttleDisabled = true
       // Let Mongoose's automatic index builds settle first so they cannot race the drop.
       await Promise.all(Object.values(db.models).map((m) => m.init()))
       const collections = await db.listCollections()
