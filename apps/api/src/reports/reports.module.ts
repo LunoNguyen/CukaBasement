@@ -12,6 +12,6 @@ import { ReportsService } from './reports.service'
   imports: [MongooseModule.forFeature([{ name: REPORT_MODEL, schema: ReportSchema }]), PostsModule, SettingsModule, NotificationsModule, ModerationLogModule],
   controllers: [ReportsController],
   providers: [ReportsService],
-  exports: [ReportsService],
+  exports: [ReportsService, MongooseModule],
 })
 export class ReportsModule {}

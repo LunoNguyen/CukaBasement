@@ -12,6 +12,7 @@ import { FeedModule } from './feed/feed.module'
 import { InteractionsModule } from './interactions/interactions.module'
 import { JobsModule } from './jobs/jobs.module'
 import { MailModule } from './mail/mail.module'
+import { ModerationModule } from './moderation/moderation.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { PostsModule } from './posts/posts.module'
 import { ReportsModule } from './reports/reports.module'
@@ -61,6 +62,7 @@ export class HealthController {
     InteractionsModule,
     CommentsModule,
     ReportsModule,
+    ModerationModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],

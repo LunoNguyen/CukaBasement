@@ -11,5 +11,6 @@ import { CommentsService } from './comments.service'
   imports: [MongooseModule.forFeature([{ name: COMMENT_MODEL, schema: CommentSchema }]), NotificationsModule, PostsModule, UsersModule],
   controllers: [CommentsController],
   providers: [CommentsService],
+  exports: [MongooseModule],
 })
 export class CommentsModule {}
