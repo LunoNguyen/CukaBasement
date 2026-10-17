@@ -7,7 +7,8 @@ import { ZodPipe } from '../common/zod.pipe'
 import type { CursorQuery } from '../posts/posts.service'
 import { InteractionsService } from './interactions.service'
 
-const bookmarkBodySchema = z.object({ isPrivate: z.boolean().default(false) })
+// Express 5 leaves req.body undefined when no body is sent.
+const bookmarkBodySchema = z.object({ isPrivate: z.boolean().default(false) }).default({ isPrivate: false })
 type BookmarkBody = z.infer<typeof bookmarkBodySchema>
 
 @Controller()

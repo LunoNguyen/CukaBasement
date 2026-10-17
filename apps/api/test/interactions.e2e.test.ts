@@ -77,6 +77,18 @@ describe('likes, bookmarks, follows', () => {
       expect((await getPost(postId)).viewerState).toEqual({ liked: false, bookmarked: false })
     })
 
+    it('unlike still works after the post is removed', async () => {
+      const author = await createUser(h)
+      const fan = await createUser(h)
+      const postId = await createPost(h, author)
+      await h.http().post(`/api/posts/${postId}/like`).set(auth(fan.token))
+      await h.db.collection('posts').updateOne({ _id: new Types.ObjectId(postId) }, { $set: { visibility: 'removed' } })
+      const res = await h.http().delete(`/api/posts/${postId}/like`).set(auth(fan.token))
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ liked: false, likes: 0 })
+      expect(await h.db.collection('likes').countDocuments()).toBe(0)
+    })
+
     it('suspended user like → 403 ACCOUNT_SUSPENDED; anonymous → 401', async () => {
       const author = await createUser(h)
       const sus = await createUser(h, { status: 'suspended' })
@@ -100,6 +112,58 @@ describe('likes, bookmarks, follows', () => {
   })
 
   describe('bookmarks', () => {
+    it('bodyless POST bookmark → 200 bookmarked, public', async () => {
+      const author = await createUser(h)
+      const fan = await createUser(h)
+      const postId = await createPost(h, author)
+      const res = await h.http().post(`/api/posts/${postId}/bookmark`).set(auth(fan.token))
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ bookmarked: true, bookmarks: 1 })
+    })
+
+    it('unbookmark still works after the post is removed', async () => {
+      const author = await createUser(h)
+      const fan = await createUser(h)
+      const postId = await createPost(h, author)
+      await h.http().post(`/api/posts/${postId}/bookmark`).set(auth(fan.token)).send({})
+      await h.db.collection('posts').updateOne({ _id: new Types.ObjectId(postId) }, { $set: { visibility: 'removed' } })
+      const res = await h.http().delete(`/api/posts/${postId}/bookmark`).set(auth(fan.token))
+      expect(res.status).toBe(200)
+      expect(res.body.bookmarked).toBe(false)
+      expect(await h.db.collection('bookmarks').countDocuments()).toBe(0)
+    })
+
+    it('bookmark list scan is bounded and hands back a cursor to continue', async () => {
+      const author = await createUser(h)
+      const fan = await createUser(h)
+      const viewer = await createUser(h)
+      const ids: string[] = []
+      for (let i = 0; i < 3; i++) {
+        const id = await createPost(h, author)
+        await approve(h, id)
+        ids.push(id)
+      }
+      // 60 bookmarks of invisible posts (newest), then the 3 visible ones
+      const now = Date.now()
+      for (const id of ids) await h.db.collection('bookmarks').insertOne({ userId: new Types.ObjectId(fan.id), postId: new Types.ObjectId(id), isPrivate: false, createdAt: new Date(now - 100000) })
+      await h.db.collection('bookmarks').insertMany(
+        Array.from({ length: 60 }, (_, i) => ({ userId: new Types.ObjectId(fan.id), postId: new Types.ObjectId(), isPrivate: false, createdAt: new Date(now - i * 1000) })),
+      )
+      const seen: string[] = []
+      let cursor: string | null = null
+      let pages = 0
+      do {
+        const res: any = await h.http().get(`/api/users/${fan.username}/bookmarks?limit=2${cursor ? `&cursor=${cursor}` : ''}`).set(auth(viewer.token))
+        expect(res.status).toBe(200)
+        seen.push(...res.body.items.map((i: { id: string }) => i.id))
+        if (pages === 0) expect(res.body.items).toEqual([]) // first scan gave up early but offers a cursor
+        if (pages === 0) expect(res.body.nextCursor).not.toBeNull()
+        cursor = res.body.nextCursor
+        pages++
+      } while (cursor && pages < 20)
+      expect(seen.sort()).toEqual([...ids].sort())
+    })
+
     it('bookmark is idempotent, counts once, and unbookmark never goes negative', async () => {
       const author = await createUser(h)
       const fan = await createUser(h)

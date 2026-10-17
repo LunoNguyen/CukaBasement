@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose'
 import { type Model, Types, type QueryFilter } from 'mongoose'
 import type { Viewer } from '../auth/viewer'
 import { AppError } from '../common/app-error'
-import { type Cursor, cursorFilter, decodeCursor, pageOf } from '../common/cursor'
+import { type Cursor, cursorFilter, decodeCursor, encodeCursor, pageOf } from '../common/cursor'
 import { NotificationsService } from '../notifications/notifications.service'
 import { POST_MODEL, type Post } from '../posts/post.schema'
 import { type CursorQuery, type PostCardDto, PostsService } from '../posts/posts.service'
@@ -11,6 +11,9 @@ import { canViewPost, visiblePostsFilter } from '../posts/visibility'
 import { USER_MODEL, type User } from '../users/user.schema'
 import { type PublicUserItemDto, UsersService } from '../users/users.service'
 import { BOOKMARK_MODEL, type Bookmark, FOLLOW_MODEL, type Follow, LIKE_MODEL, type Like } from './interaction.schemas'
+
+/** Bounds the work of one bookmark page when most bookmarked posts are not visible to the viewer. */
+const MAX_BOOKMARK_BATCHES = 5
 
 type Page<T> = { items: T[]; nextCursor: string | null }
 
@@ -61,7 +64,7 @@ export class InteractionsService {
   }
 
   async unlike(viewer: Viewer, postId: string): Promise<{ liked: boolean; likes: number }> {
-    const post = await this.viewablePost(viewer, postId)
+    const post = await this.existingPost(postId)
     const res = await this.likes.deleteOne({ userId: new Types.ObjectId(viewer.id), postId: post._id })
     const likes = res.deletedCount === 1 ? await this.bumpPostCount(post._id, 'likes', -1) : await this.countOf(post._id, 'likes')
     return { liked: false, likes }
@@ -82,7 +85,7 @@ export class InteractionsService {
   }
 
   async unbookmark(viewer: Viewer, postId: string): Promise<{ bookmarked: boolean; bookmarks: number }> {
-    const post = await this.viewablePost(viewer, postId)
+    const post = await this.existingPost(postId)
     const res = await this.bookmarks.deleteOne({ userId: new Types.ObjectId(viewer.id), postId: post._id })
     const bookmarks = res.deletedCount === 1 ? await this.bumpPostCount(post._id, 'bookmarks', -1) : await this.countOf(post._id, 'bookmarks')
     return { bookmarked: false, bookmarks }
@@ -134,21 +137,32 @@ export class InteractionsService {
     const want = q.limit + 1
     const kept: Array<{ _id: Types.ObjectId; createdAt: Date; post: Post }> = []
     let cursor: Cursor | null = decodeCursor(q.cursor)
+    let exhausted = false
+    let scanned = 0
     while (kept.length < want) {
+      if (scanned++ >= MAX_BOOKMARK_BATCHES) break
       const base: QueryFilter<Bookmark>[] = [{ userId: owner._id }, ...(isOwner ? [] : [{ isPrivate: false }]), ...(cursor ? [cursorFilter(cursor)] : [])]
       const batch = await this.bookmarks.find({ $and: base }).sort({ createdAt: -1, _id: -1 }).limit(want).lean()
-      if (batch.length === 0) break
+      if (batch.length === 0) {
+        exhausted = true
+        break
+      }
       const posts = await this.posts.find({ $and: [{ _id: { $in: batch.map((b) => b.postId) } }, postFilter] }).lean()
       const byId = new Map(posts.map((p) => [p._id.toString(), p]))
       for (const b of batch) {
         const post = byId.get(b.postId.toString())
         if (post) kept.push({ _id: b._id, createdAt: b.createdAt, post })
       }
-      if (batch.length < want) break
       const last = batch[batch.length - 1]!
       cursor = { createdAt: last.createdAt, id: last._id }
+      if (batch.length < want) {
+        exhausted = true
+        break
+      }
     }
     const page = pageOf(kept.slice(0, want), q.limit)
+    // The scan gave up before the end: hand back where it stopped so the client can continue.
+    if (!exhausted && page.nextCursor === null && cursor) page.nextCursor = encodeCursor({ createdAt: cursor.createdAt, id: cursor.id.toString() })
     return { items: await this.postsService.toCards(page.items.map((k) => k.post), viewer), nextCursor: page.nextCursor }
   }
 
@@ -180,6 +194,13 @@ export class InteractionsService {
   private async viewablePost(viewer: Viewer, id: string): Promise<Post> {
     const post = /^[0-9a-fA-F]{24}$/.test(id) ? await this.posts.findById(id).lean() : null
     if (!post || !canViewPost(viewer, post)) throw postNotFound()
+    return post
+  }
+
+  /** Undoing needs only the post row, so users can still remove their like/bookmark after a post is hidden or deleted. */
+  private async existingPost(id: string): Promise<Pick<Post, '_id'>> {
+    const post = /^[0-9a-fA-F]{24}$/.test(id) ? await this.posts.findById(id, { _id: 1 }).lean() : null
+    if (!post) throw postNotFound()
     return post
   }
 
