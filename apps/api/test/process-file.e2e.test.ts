@@ -9,7 +9,7 @@ import { CONFIG, type Config } from '../src/config/config'
 import { AgendaJobs } from '../src/jobs/agenda-jobs'
 import { type JobDeps, run } from '../src/jobs/handlers/media'
 import { processFile, processFileHooks } from '../src/jobs/handlers/process-file'
-import { relocateVariants } from '../src/jobs/handlers/relocate-variants'
+import { relocateFile, relocateVariants } from '../src/jobs/handlers/relocate-variants'
 import { rewatermark } from '../src/jobs/handlers/rewatermark'
 import { renderBlurred } from '../src/jobs/handlers/variants'
 import { watermarkHash, watermarkText } from '../src/jobs/handlers/watermark'
@@ -52,7 +52,7 @@ describe('process-file / relocate-variants', () => {
     return _id.toString()
   }
 
-  it('image: thumb_sm 360w and thumb_md ≤1200w in public bucket, status ready, no EXIF', async () => {
+  it('image: thumb_sm 360w and thumb_md ≤1200w, private until a post exists, status ready, no EXIF', async () => {
     const big = await sharp({ create: { width: 2000, height: 1500, channels: 3, background: '#3a7' } })
       .jpeg()
       .withExif({ IFD0: { Copyright: 'someone' } })
@@ -67,11 +67,12 @@ describe('process-file / relocate-variants', () => {
     expect(f.variants.map((v) => v.name).sort()).toEqual(['thumb_md', 'thumb_sm'])
     const sm = variant(f, 'thumb_sm')!
     const md = variant(f, 'thumb_md')!
-    expect(sm).toMatchObject({ bucket: bucketPublic, objectKey: storage.objectKey(f.ownerId.toString(), fileId, 'thumb_sm', 'webp'), width: 360, height: 270 })
-    expect(md).toMatchObject({ bucket: bucketPublic, objectKey: storage.objectKey(f.ownerId.toString(), fileId, 'thumb_md', 'webp'), width: 1200, height: 900 })
-    const smMeta = await sharp(await storage.getBuffer(bucketPublic, sm.objectKey)).metadata()
+    expect(sm).toMatchObject({ bucket: bucketOriginals, objectKey: storage.objectKey(f.ownerId.toString(), fileId, 'thumb_sm', 'webp'), width: 360, height: 270 })
+    expect(md).toMatchObject({ bucket: bucketOriginals, objectKey: storage.objectKey(f.ownerId.toString(), fileId, 'thumb_md', 'webp'), width: 1200, height: 900 })
+    for (const v of f.variants) expect(await exists(bucketPublic, v.objectKey)).toBe(false)
+    const smMeta = await sharp(await storage.getBuffer(bucketOriginals, sm.objectKey)).metadata()
     expect(smMeta).toMatchObject({ format: 'webp', width: 360 })
-    const meta = await sharp(await storage.getBuffer(bucketPublic, md.objectKey)).metadata()
+    const meta = await sharp(await storage.getBuffer(bucketOriginals, md.objectKey)).metadata()
     expect(meta.format).toBe('webp')
     expect(meta.width).toBeLessThanOrEqual(1200)
     expect(meta.exif).toBeUndefined()
@@ -85,8 +86,8 @@ describe('process-file / relocate-variants', () => {
     expect(f).toMatchObject({ status: 'ready', width: 64, height: 48 })
     for (const name of ['thumb_sm', 'thumb_md']) {
       const v = variant(f, name)!
-      expect(v).toMatchObject({ bucket: bucketPublic, width: 64, height: 48 })
-      expect((await sharp(await storage.getBuffer(bucketPublic, v.objectKey)).metadata()).exif).toBeUndefined()
+      expect(v).toMatchObject({ bucket: bucketOriginals, width: 64, height: 48 })
+      expect((await sharp(await storage.getBuffer(bucketOriginals, v.objectKey)).metadata()).exif).toBeUndefined()
     }
   })
 
@@ -100,8 +101,9 @@ describe('process-file / relocate-variants', () => {
     expect(file).toMatchObject({ width: 320, height: 240 })
     expect(file.variants.map((v) => v.name).sort()).toEqual(['preview', 'thumb_md', 'thumb_sm'])
     for (const v of file.variants) {
-      expect(v.bucket).toBe(bucketPublic)
-      const meta = await sharp(await storage.getBuffer(bucketPublic, v.objectKey)).metadata()
+      expect(v.bucket).toBe(bucketOriginals)
+      expect(await exists(bucketPublic, v.objectKey)).toBe(false)
+      const meta = await sharp(await storage.getBuffer(bucketOriginals, v.objectKey)).metadata()
       expect(meta).toMatchObject({ format: 'webp', width: 320, height: 240 })
     }
   })
@@ -145,13 +147,14 @@ describe('process-file / relocate-variants', () => {
   it('relocate all→r18 moves variants to originals and adds blurred; r18→all reverses', async () => {
     const u = await createUser(h)
     const fileId = await uploadFixture(h, u, 'tiny.png')
+    const { insertedId: postId } = await h.db
+      .collection('posts')
+      .insertOne({ rating: 'all', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
     await processFile(deps, { fileId })
     const before = await load(fileId)
     expect(before.variants.every((v) => v.bucket === bucketPublic)).toBe(true)
 
-    const { insertedId: postId } = await h.db
-      .collection('posts')
-      .insertOne({ rating: 'r18', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
+    await h.db.collection('posts').updateOne({ _id: postId }, { $set: { rating: 'r18' } })
     await relocateVariants(deps, { postId: postId.toString() })
 
     const r18 = await load(fileId)
@@ -195,15 +198,16 @@ describe('process-file / relocate-variants', () => {
   it('relocate is idempotent: a variant already moved by a failed attempt is accepted', async () => {
     const u = await createUser(h)
     const fileId = await uploadFixture(h, u, 'tiny.png')
+    const { insertedId: postId } = await h.db
+      .collection('posts')
+      .insertOne({ rating: 'all', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
     await processFile(deps, { fileId })
     const sm = variant(await load(fileId), 'thumb_sm')!
     // Simulate a prior attempt that moved thumb_sm and crashed before persisting.
     await storage.copy(bucketPublic, sm.objectKey, bucketOriginals, sm.objectKey)
     await storage.remove(bucketPublic, sm.objectKey)
 
-    const { insertedId: postId } = await h.db
-      .collection('posts')
-      .insertOne({ rating: 'r18', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
+    await h.db.collection('posts').updateOne({ _id: postId }, { $set: { rating: 'r18' } })
     await relocateVariants(deps, { postId: postId.toString() })
 
     const f = await load(fileId)
@@ -218,12 +222,13 @@ describe('process-file / relocate-variants', () => {
   it('relocate drops a variant whose object is gone from both buckets', async () => {
     const u = await createUser(h)
     const fileId = await uploadFixture(h, u, 'tiny.png')
+    const { insertedId: postId } = await h.db
+      .collection('posts')
+      .insertOne({ rating: 'all', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
     await processFile(deps, { fileId })
     const sm = variant(await load(fileId), 'thumb_sm')!
     await storage.remove(bucketPublic, sm.objectKey)
-    const { insertedId: postId } = await h.db
-      .collection('posts')
-      .insertOne({ rating: 'r18', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
+    await h.db.collection('posts').updateOne({ _id: postId }, { $set: { rating: 'r18' } })
     await relocateVariants(deps, { postId: postId.toString() })
     const f = await load(fileId)
     expect(f.variants.map((v) => v.name).sort()).toEqual(['blurred', 'thumb_md'])
@@ -255,10 +260,10 @@ describe('process-file / relocate-variants', () => {
     const u = await createUser(h)
     const fileId = await uploadFixture(h, u, 'tiny.png')
     const orphanKey = storage.objectKey(u.id, fileId, 'thumb_sm', 'webp')
-    await storage.put(bucketOriginals, orphanKey, Buffer.from('stale'), 'image/webp')
+    await storage.put(bucketPublic, orphanKey, Buffer.from('stale'), 'image/webp')
     await processFile(deps, { fileId })
-    expect(await exists(bucketPublic, orphanKey)).toBe(true)
-    expect(await exists(bucketOriginals, orphanKey)).toBe(false)
+    expect(await exists(bucketOriginals, orphanKey)).toBe(true)
+    expect(await exists(bucketPublic, orphanKey)).toBe(false)
   })
 
   it('file of a soft-deleted r18 post keeps r18 placement', async () => {
@@ -427,6 +432,46 @@ describe('process-file / relocate-variants', () => {
       const f = await load(marked)
       const original = await storage.getBuffer(f.bucket, f.objectKey)
       expect(original.equals(readFileSync(join(__dirname, 'fixtures', 'one-second.mp4')))).toBe(true)
+    })
+
+    it('repost: no public object for the file before rewatermark; afterwards the public objects are watermarked', async () => {
+      const fileId = await seedFile('image', 'image/png', 'png', await big())
+      await processFile(deps, { fileId })
+      const f = await load(fileId)
+      const clean = await storage.getBuffer(bucketOriginals, variant(f, 'thumb_md')!.objectKey)
+      for (const name of ['thumb_sm', 'thumb_md'] as const) {
+        const key = storage.objectKey(f.ownerId.toString(), fileId, name, 'webp')
+        expect(await exists(bucketPublic, key), name).toBe(false)
+      }
+      const postId = await seedPost([fileId])
+      await rewatermark(deps, { postId })
+      const after = await load(fileId)
+      for (const v of after.variants) {
+        expect(v.bucket).toBe(bucketPublic)
+        expect(await exists(bucketOriginals, v.objectKey)).toBe(false)
+      }
+      const pub = await storage.getBuffer(bucketPublic, variant(after, 'thumb_md')!.objectKey)
+      expect(await diff(clean, pub, 'bottomRight')).toBeGreaterThan(5)
+    })
+
+    it('profile image: processed after it is set as avatar → public; set afterwards → relocate-file publishes it', async () => {
+      const ownerFirst = await seedFile('image', 'image/png', 'png', await big())
+      const f0 = await load(ownerFirst)
+      await h.db.collection('users').insertOne({ _id: f0.ownerId, email: 'av@example.com', profile: { username: 'av', avatarFileId: new Types.ObjectId(ownerFirst) } })
+      await processFile(deps, { fileId: ownerFirst })
+      expect((await load(ownerFirst)).variants.every((v) => v.bucket === bucketPublic)).toBe(true)
+
+      const later = await seedFile('image', 'image/png', 'png', await big())
+      await processFile(deps, { fileId: later })
+      expect((await load(later)).variants.every((v) => v.bucket === bucketOriginals)).toBe(true)
+      await h.db.collection('users').insertOne({ email: 'bn@example.com', profile: { username: 'bn', bannerFileId: new Types.ObjectId(later) } })
+      await relocateFile(deps, { fileId: later })
+      const f = await load(later)
+      for (const v of f.variants) {
+        expect(v.bucket).toBe(bucketPublic)
+        expect(await exists(bucketPublic, v.objectKey)).toBe(true)
+        expect(await exists(bucketOriginals, v.objectKey)).toBe(false)
+      }
     })
 
     it('watermarkedFor records the burned-in text: "" for clean renders, its hash after rewatermark', async () => {

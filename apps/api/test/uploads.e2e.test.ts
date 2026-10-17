@@ -3,10 +3,11 @@ import { join } from 'node:path'
 import { Logger } from '@nestjs/common'
 import { Types } from 'mongoose'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { processFile } from '../src/jobs/handlers/process-file'
 import { UploadsService } from '../src/uploads/uploads.service'
 import { SettingsService } from '../src/settings/settings.service'
 import { StorageService } from '../src/storage/storage.service'
-import { createTestHarness, createUser, postMultipart, uploadFixture, type Harness } from './harness'
+import { createTestHarness, createUser, type Harness, jobDeps, postMultipart, uploadFixture } from './harness'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
 const ORIGINALS = 'test-cuka-originals'
@@ -297,6 +298,17 @@ describe('uploads', () => {
       const ok = await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: png })
       expect(ok.status).toBe(200)
       expect(ok.body.profile.avatarFileId).toBe(png)
+    })
+
+    it('setting an avatar or banner enqueues relocate-file so its variants become public', async () => {
+      const u = await createUser(h)
+      const fileId = await uploadFixture(h, u, 'tiny.png')
+      h.jobs.clear()
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: fileId, bannerFileId: fileId })).status).toBe(200)
+      expect(h.jobs.enqueued).toEqual([{ name: 'relocate-file', data: { fileId } }])
+      await processFile(jobDeps(h), { fileId })
+      const res = await h.http().get(`/api/users/${u.username}`)
+      expect(res.body.avatarUrl).toBe(storage.publicUrl(`${u.id}/${fileId}/thumb_md.webp`))
     })
 
     it('GET /users/:username returns the public URL of the thumb_md variant', async () => {

@@ -13,7 +13,7 @@ import { cleanupUploads } from '@cuka/api/jobs/handlers/cleanup-uploads'
 import { processFile } from '@cuka/api/jobs/handlers/process-file'
 import { purgeDeletedPosts } from '@cuka/api/jobs/handlers/purge-deleted-posts'
 import { reconcileCounters } from '@cuka/api/jobs/handlers/reconcile-counters'
-import { relocateVariants } from '@cuka/api/jobs/handlers/relocate-variants'
+import { relocateFile, relocateVariants } from '@cuka/api/jobs/handlers/relocate-variants'
 import { rewatermark } from '@cuka/api/jobs/handlers/rewatermark'
 import { JOBS } from '@cuka/api/jobs/jobs.port'
 import { StorageService } from '@cuka/api/storage/storage.service'
@@ -35,6 +35,7 @@ async function bootstrap(): Promise<void> {
 
   agenda.define<{ fileId: string }>('process-file', (job) => processFile(deps, job.attrs.data), { concurrency: 2 })
   agenda.define<{ postId: string }>('relocate-variants', (job) => relocateVariants(deps, job.attrs.data), { concurrency: 2 })
+  agenda.define<{ fileId: string }>('relocate-file', (job) => relocateFile(deps, job.attrs.data), { concurrency: 2 })
   agenda.define<{ postId: string }>('rewatermark', (job) => rewatermark(deps, job.attrs.data), { concurrency: 2 })
   agenda.define('cleanup-uploads', async () => void (await cleanupUploads({ ...deps, jobs })), { concurrency: 1 })
   agenda.define('purge-deleted-posts', async () => void (await purgeDeletedPosts(deps)), { concurrency: 1 })

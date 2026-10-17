@@ -24,10 +24,15 @@ export async function findRatingForFile(conn: mongoose.Connection, fileId: Types
   return post?.rating === 'r18' ? 'r18' : 'all'
 }
 
-/** What a file's display variants depend on: the bucket (rating) and the burned-in credit (null: no watermark). */
+/**
+ * What a file's display variants depend on: the bucket (rating, and whether the file is published at all) and the
+ * burned-in credit (null: no watermark). `published` is false for a file in no post that is not a profile image:
+ * its clean renders stay in the private originals bucket, so nobody can fetch them by their predictable keys.
+ */
 export interface VariantContext {
   rating: Rating
   watermark: WatermarkText | null
+  published: boolean
 }
 
 interface PostForContext {
@@ -38,26 +43,36 @@ interface PostForContext {
 
 /** Context of a post: own work (or no credit) needs the uploader's username; a missing user means no watermark. */
 export async function contextOfPost(conn: mongoose.Connection, doc: Record<string, unknown> | null): Promise<VariantContext> {
-  if (!doc) return { rating: 'all', watermark: null }
+  if (!doc) return { rating: 'all', watermark: null, published: false }
   const post = doc as PostForContext
   const rating: Rating = post.rating === 'r18' ? 'r18' : 'all'
   const credit = post.credit ?? null
-  if (credit && !credit.isOwnWork) return { rating, watermark: watermarkText(credit, '') }
+  if (credit && !credit.isOwnWork) return { rating, watermark: watermarkText(credit, ''), published: true }
   const user = post.authorId ? await conn.collection('users').findOne({ _id: post.authorId }, { projection: { 'profile.username': 1 } }) : null
   const username = (user?.profile as { username?: unknown } | undefined)?.username
-  return { rating, watermark: typeof username === 'string' && username ? watermarkText(credit, username) : null }
+  return { rating, watermark: typeof username === 'string' && username ? watermarkText(credit, username) : null, published: true }
 }
 
-/** Same lookup as findRatingForFile: a live post wins, else a soft-deleted one; no post → `all`, no watermark. */
+/**
+ * Same lookup as findRatingForFile: a live post wins, else a soft-deleted one. No post: a user's avatar or banner is
+ * published (`all`, no watermark); anything else stays unpublished (private, no watermark).
+ */
 export async function findContextForFile(conn: mongoose.Connection, fileId: Types.ObjectId): Promise<VariantContext> {
   const post = await conn
     .collection('posts')
     .findOne({ 'files.fileId': fileId }, { projection: { rating: 1, credit: 1, authorId: 1 }, sort: { deletedAt: 1 } })
-  return contextOfPost(conn, post)
+  if (post) return contextOfPost(conn, post)
+  const profile = await conn.collection('users').findOne({ $or: [{ 'profile.avatarFileId': fileId }, { 'profile.bannerFileId': fileId }] }, { projection: { _id: 1 } })
+  return { rating: 'all', watermark: null, published: !!profile }
+}
+
+/** Bucket for the variants of a file in context `ctx`: unpublished files stay in the private originals bucket. */
+export function contextBucket(deps: JobDeps, ctx: VariantContext): string {
+  return ctx.published ? variantBucket(deps, ctx.rating) : deps.config.minio.bucketOriginals
 }
 
 export function sameContext(a: VariantContext, b: VariantContext): boolean {
-  return a.rating === b.rating && a.watermark?.full === b.watermark?.full && a.watermark?.short === b.watermark?.short
+  return a.rating === b.rating && a.published === b.published && a.watermark?.full === b.watermark?.full && a.watermark?.short === b.watermark?.short
 }
 
 /** `all` variants are served publicly; `r18` ones stay private in the originals bucket. */
@@ -105,12 +120,12 @@ export async function finalVariants(clean: Rendered[], ctx: VariantContext): Pro
 }
 
 /**
- * Stores the final variants of `clean` for `ctx` in the rating's bucket. For `all`, a `blurred` left over from an
+ * Stores the final variants of `clean` for `ctx` in its bucket (see contextBucket). For `all`, a `blurred` left over from an
  * earlier r18 rendering is removed from both buckets.
  */
 export async function storeFinalVariants(deps: JobDeps, file: FileDoc, clean: Rendered[], ctx: VariantContext): Promise<FileVariant[]> {
   if (clean.length === 0) return []
-  const variants = await storeVariants(deps, file, variantBucket(deps, ctx.rating), await finalVariants(clean, ctx))
+  const variants = await storeVariants(deps, file, contextBucket(deps, ctx), await finalVariants(clean, ctx))
   if (ctx.rating === 'all') {
     const key = deps.storage.objectKey(file.ownerId.toString(), file._id.toString(), 'blurred', 'webp')
     await deps.storage.remove(deps.config.minio.bucketOriginals, key)

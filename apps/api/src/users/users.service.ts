@@ -10,6 +10,7 @@ import { isAdult, type Viewer } from '../auth/viewer'
 import { AppError } from '../common/app-error'
 import { CONFIG, type Config } from '../config/config'
 import { FOLLOW_MODEL, type Follow } from '../interactions/interaction.schemas'
+import { JOBS, type JobsPort } from '../jobs/jobs.port'
 import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 import { UploadsService } from '../uploads/uploads.service'
@@ -68,6 +69,7 @@ export class UsersService {
     private readonly uploads: UploadsService,
     private readonly storage: StorageService,
     @Inject(CONFIG) private readonly config: Config,
+    @Inject(JOBS) private readonly jobs: JobsPort,
   ) {}
 
   private async getUser(id: string): Promise<User> {
@@ -97,6 +99,9 @@ export class UsersService {
       if (v !== undefined) $set[`profile.socialLinks.${k}`] = v
     }
     if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set })
+    // Variants of a file in no post stay private; a new profile image must be published to the public bucket.
+    const profileFiles = new Set([input.avatarFileId, input.bannerFileId].filter((f): f is string => !!f))
+    for (const fileId of profileFiles) await this.jobs.enqueue('relocate-file', { fileId })
     return this.me(id)
   }
 

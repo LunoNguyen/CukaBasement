@@ -3,6 +3,7 @@ export const JOBS = Symbol('JOBS')
 export type JobName =
   | 'process-file'
   | 'relocate-variants'
+  | 'relocate-file'
   | 'rewatermark'
   | 'cleanup-uploads'
   | 'purge-deleted-posts'
