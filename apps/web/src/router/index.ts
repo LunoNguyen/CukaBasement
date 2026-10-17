@@ -3,6 +3,12 @@ import type { Role } from '@cuka/shared'
 import HomePage from '@/pages/HomePage.vue'
 import ForbiddenPage from '@/pages/ForbiddenPage.vue'
 import NotFoundPage from '@/pages/NotFoundPage.vue'
+import LoginPage from '@/pages/auth/LoginPage.vue'
+import RegisterPage from '@/pages/auth/RegisterPage.vue'
+import VerifyEmailPage from '@/pages/auth/VerifyEmailPage.vue'
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage.vue'
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage.vue'
+import { useAuth } from '@/stores/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -14,17 +20,17 @@ declare module 'vue-router' {
 const Stub = () => import('@/pages/StubPage.vue')
 
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
-  return createRouter({
+  const router = createRouter({
     history,
     routes: [
       { path: '/', name: 'home', component: HomePage },
       { path: '/403', name: 'forbidden', component: ForbiddenPage },
       // Stubs: later tasks replace these components.
-      { path: '/login', component: Stub },
-      { path: '/register', component: Stub },
-      { path: '/forgot-password', component: Stub },
-      { path: '/reset-password', component: Stub },
-      { path: '/verify-email', component: Stub },
+      { path: '/login', component: LoginPage },
+      { path: '/register', component: RegisterPage },
+      { path: '/forgot-password', component: ForgotPasswordPage },
+      { path: '/reset-password', component: ResetPasswordPage },
+      { path: '/verify-email', component: VerifyEmailPage },
       { path: '/upload', component: Stub, meta: { auth: true } },
       { path: '/posts/:id', component: Stub },
       { path: '/u/:username', component: Stub },
@@ -37,6 +43,18 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage },
     ],
   })
+
+  // Only guarded routes need to know who is logged in, so only they wait for the start-up refresh.
+  router.beforeEach(async (to) => {
+    if (!to.meta.auth && !to.meta.roles) return true
+    const auth = useAuth()
+    await auth.whenReady()
+    if (!auth.isLoggedIn) return { path: '/login', query: { next: to.fullPath } }
+    if (to.meta.roles && !to.meta.roles.includes(auth.user!.role)) return '/403'
+    return true
+  })
+
+  return router
 }
 
 export const router = createAppRouter()

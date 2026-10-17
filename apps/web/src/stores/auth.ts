@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { refreshOnce } from '@/api/client'
 import * as authApi from '@/api/endpoints/auth'
@@ -49,6 +49,18 @@ export const useAuth = defineStore('auth', () => {
     }
   }
 
+  /** Resolves once the start-up refresh has settled (immediately if it already has). */
+  function whenReady(): Promise<void> {
+    if (ready.value) return Promise.resolve()
+    return new Promise((resolve) => {
+      const stop = watch(ready, (v) => {
+        if (!v) return
+        stop()
+        resolve()
+      })
+    })
+  }
+
   async function login(email: string, password: string) {
     setSession(await authApi.login(email, password))
   }
@@ -67,5 +79,5 @@ export const useAuth = defineStore('auth', () => {
     }
   }
 
-  return { token, user, ready, isLoggedIn, isStaff, isAdmin, canSeeR18, setSession, clear, setUser, init, login, register, logout }
+  return { token, user, ready, isLoggedIn, isStaff, isAdmin, canSeeR18, setSession, clear, setUser, init, whenReady, login, register, logout }
 })

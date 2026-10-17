@@ -2,8 +2,11 @@
 import { useI18n } from 'vue-i18n'
 import LangSwitch from './LangSwitch.vue'
 import ThemeToggle from './ThemeToggle.vue'
+import AccountMenu from './AccountMenu.vue'
+import { useAuth } from '@/stores/auth'
 
 const { t } = useI18n()
+const auth = useAuth()
 </script>
 
 <template>
@@ -20,6 +23,14 @@ const { t } = useI18n()
         <LangSwitch />
         <ThemeToggle />
         <slot name="right" />
+        <template v-if="auth.isLoggedIn">
+          <RouterLink to="/upload" class="rounded bg-[var(--c-primary)] px-3 py-1 text-sm font-semibold text-[var(--c-bg)]">{{ t('nav.upload') }}</RouterLink>
+          <AccountMenu />
+        </template>
+        <template v-else-if="auth.ready">
+          <RouterLink to="/login" class="text-sm font-semibold">{{ t('auth.login') }}</RouterLink>
+          <RouterLink to="/register" class="rounded bg-[var(--c-primary)] px-3 py-1 text-sm font-semibold text-[var(--c-bg)]">{{ t('auth.register') }}</RouterLink>
+        </template>
       </div>
     </div>
   </header>
