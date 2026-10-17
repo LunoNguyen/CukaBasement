@@ -51,11 +51,9 @@ async function forEachBatch(deps: JobDeps, filter: mongo.Filter<FileDoc>, fn: (b
   if (batch.length) await fn(batch)
 }
 
-/** Ids among `ids` used by any post (deleted ones too: purge owns those) or as a user's avatar or banner. */
-async function referencedIds(deps: JobDeps, ids: Types.ObjectId[]): Promise<Set<string>> {
+/** Ids among `ids` set as any user's avatar or banner. */
+export async function profileFileIds(deps: JobDeps, ids: Types.ObjectId[]): Promise<Set<string>> {
   const used = new Set<string>()
-  const posts = deps.conn.collection('posts').find({ 'files.fileId': { $in: ids } }, { projection: { files: 1 } })
-  for await (const p of posts) for (const f of (p.files ?? []) as Array<{ fileId: Types.ObjectId }>) used.add(f.fileId.toString())
   const users = deps.conn
     .collection('users')
     .find(
@@ -69,6 +67,14 @@ async function referencedIds(deps: JobDeps, ids: Types.ObjectId[]): Promise<Set<
   return used
 }
 
+/** Ids among `ids` used by any post (deleted ones too: purge owns those) or as a user's avatar or banner. */
+async function referencedIds(deps: JobDeps, ids: Types.ObjectId[]): Promise<Set<string>> {
+  const used = await profileFileIds(deps, ids)
+  const posts = deps.conn.collection('posts').find({ 'files.fileId': { $in: ids } }, { projection: { files: 1 } })
+  for await (const p of posts) for (const f of (p.files ?? []) as Array<{ fileId: Types.ObjectId }>) used.add(f.fileId.toString())
+  return used
+}
+
 /** A `process-file` job for the file that is still due or running (a finished one has no nextRunAt or lock). */
 async function hasPendingProcessJob(deps: JobDeps, fileId: string): Promise<boolean> {
   const job = await deps.conn
@@ -79,23 +85,24 @@ async function hasPendingProcessJob(deps: JobDeps, fileId: string): Promise<bool
 
 /**
  * Hourly upload hygiene:
- * 1. abandoned uploads: `uploading`, `failed` or stuck `validating` (crash mid-complete) older than 24h;
- * 2. `processing`/`ready` files older than 24h not used by any post, avatar or banner;
+ * 1. abandoned uploads: `uploading` or stuck `validating` (crash mid-complete) older than 24h;
+ * 2. `processing`/`ready`/`failed` files older than 24h not used by any post, avatar or banner
+ *    (a post or avatar may hold a processing file that later failed, so `failed` is checked too);
  * 3. leftover staging objects (`upload.<ext>`, best-effort removal in complete) of files past `uploading`
- *    created in the last 7 days. Files have no updatedAt; a presigned POST expires after 15 min, so a
- *    staging object can only appear right after createdAt and the 7-day window bounds the per-run cost;
+ *    created in the last 48h. Files have no updatedAt; a presigned POST expires after 15 min, so a
+ *    staging object can only appear right after createdAt and the 48h window bounds the per-run cost;
  * 4. files `processing` for over 1h (by createdAt) with no pending `process-file` job are re-enqueued.
  */
 export async function cleanupUploads(deps: CleanupDeps, now = new Date()): Promise<CleanupResult> {
   const dayAgo = new Date(now.getTime() - 24 * HOUR)
   const result: CleanupResult = { removed: 0, stagingSwept: 0, requeued: 0 }
 
-  await forEachBatch(deps, { status: { $in: ['uploading', 'failed', 'validating'] }, createdAt: { $lt: dayAgo } }, async (batch) => {
+  await forEachBatch(deps, { status: { $in: ['uploading', 'validating'] }, createdAt: { $lt: dayAgo } }, async (batch) => {
     for (const file of batch) await removeFile(deps, file)
     result.removed += batch.length
   })
 
-  await forEachBatch(deps, { status: { $in: ['processing', 'ready'] }, createdAt: { $lt: dayAgo } }, async (batch) => {
+  await forEachBatch(deps, { status: { $in: ['processing', 'ready', 'failed'] }, createdAt: { $lt: dayAgo } }, async (batch) => {
     const used = await referencedIds(deps, batch.map((f) => f._id))
     for (const file of batch) {
       if (used.has(file._id.toString())) continue
@@ -104,9 +111,9 @@ export async function cleanupUploads(deps: CleanupDeps, now = new Date()): Promi
     }
   })
 
-  const weekAgo = new Date(now.getTime() - 7 * 24 * HOUR)
+  const stagingSince = new Date(now.getTime() - 48 * HOUR)
   // `validating` is excluded: complete() is still reading the staging object.
-  await forEachBatch(deps, { status: { $in: ['processing', 'ready', 'failed'] }, createdAt: { $gte: weekAgo } }, async (batch) => {
+  await forEachBatch(deps, { status: { $in: ['processing', 'ready', 'failed'] }, createdAt: { $gte: stagingSince } }, async (batch) => {
     for (const file of batch) {
       const key = stagingKeyOf(file)
       if (!(await deps.storage.stat(file.bucket, key))) continue

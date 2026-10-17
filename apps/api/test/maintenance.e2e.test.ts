@@ -4,7 +4,7 @@ import { CONFIG, type Config } from '../src/config/config'
 import { cleanupUploads } from '../src/jobs/handlers/cleanup-uploads'
 import type { JobDeps } from '../src/jobs/handlers/media'
 import { purgeDeletedPosts } from '../src/jobs/handlers/purge-deleted-posts'
-import { reconcileCounters } from '../src/jobs/handlers/reconcile-counters'
+import { reconcileCounters, reconcileHooks } from '../src/jobs/handlers/reconcile-counters'
 import { JOBS, type JobsPort } from '../src/jobs/jobs.port'
 import { StorageService } from '../src/storage/storage.service'
 import type { FileDoc } from '../src/uploads/file.schema'
@@ -132,6 +132,26 @@ describe('maintenance jobs', () => {
       expect(await exists(uploading.bucket, uploading.stagingKey)).toBe(true)
     })
 
+    it('keeps a 25h-old failed file still attached to a post', async () => {
+      const failed = await seedFile('failed', 25 * HOUR)
+      await h.db.collection('posts').insertOne({ rating: 'all', files: [{ fileId: oid(failed.id), position: 0, isCover: true }], deletedAt: null })
+
+      await cleanupUploads(deps)
+
+      expect(await fileDoc(failed.id)).not.toBeNull()
+      expect(await exists(failed.bucket, failed.objectKey)).toBe(true)
+    })
+
+    it('leaves staging objects of files older than 48h to the regular expiry rules', async () => {
+      const older = await seedFile('ready', 3 * DAY, { staging: true })
+      await h.db.collection('posts').insertOne({ rating: 'all', files: [{ fileId: oid(older.id), position: 0, isCover: true }], deletedAt: null })
+
+      const r = await cleanupUploads(deps)
+
+      expect(r.stagingSwept).toBe(0)
+      expect(await exists(older.bucket, older.stagingKey)).toBe(true)
+    })
+
     it('re-enqueues process-file for a file processing over 1h with no pending job', async () => {
       const stuck = await seedFile('processing', 2 * HOUR)
       const queued = await seedFile('processing', 2 * HOUR)
@@ -181,9 +201,53 @@ describe('maintenance jobs', () => {
       expect(await h.db.collection('posts').findOne({ _id: oid(keptPost) })).not.toBeNull()
       expect(await fileDoc(keptFile.toString())).not.toBeNull()
     })
+    it("purge keeps a post file that is also the author's avatar", async () => {
+      const author = await createUser(h)
+      const other = await createUser(h)
+      const postId = oid(await createPost(h, author))
+      const fileId = (await h.db.collection('posts').findOne({ _id: postId }))!.files[0].fileId as Types.ObjectId
+      const before = (await fileDoc(fileId.toString()))!
+      await h.db.collection('users').updateOne({ _id: oid(author.id) }, { $set: { 'profile.avatarFileId': fileId } })
+      await h.db.collection('likes').insertOne({ userId: oid(other.id), postId, createdAt: new Date() })
+      await h.db.collection('posts').updateOne({ _id: postId }, { $set: { deletedAt: new Date(Date.now() - 31 * DAY) } })
+
+      await purgeDeletedPosts(deps, new Date())
+
+      expect(await h.db.collection('posts').findOne({ _id: postId })).toBeNull()
+      expect(await h.db.collection('likes').countDocuments({ postId })).toBe(0)
+      expect(await fileDoc(fileId.toString())).not.toBeNull()
+      expect(await exists(before.bucket, before.objectKey)).toBe(true)
+      for (const v of before.variants) expect(await exists(v.bucket, v.objectKey)).toBe(true)
+    })
+
+    it("purge's per-post notification delete uses an index", async () => {
+      const plan = await h.db.db!.command({
+        explain: { delete: 'notifications', deletes: [{ q: { postId: new Types.ObjectId() }, limit: 0 }] },
+        verbosity: 'queryPlanner',
+      })
+      expect(JSON.stringify(plan.queryPlanner.winningPlan)).toContain('IXSCAN')
+    })
   })
 
   describe('reconcileCounters', () => {
+    it('skips a doc changed between its read and the write (compare-and-set)', async () => {
+      const author = await createUser(h)
+      const _id = oid(await createPost(h, author))
+      await h.db.collection('posts').updateOne({ _id }, { $set: { 'counts.likes': 99 } })
+      reconcileHooks.beforeWrite = async (coll) => {
+        if (coll === 'posts') await h.db.collection('posts').updateOne({ _id }, { $set: { 'counts.likes': 50 } })
+      }
+      try {
+        const r = await reconcileCounters(deps)
+        expect(r.fixed).toBe(0)
+        expect((await h.db.collection('posts').findOne({ _id }))!.counts.likes).toBe(50)
+      } finally {
+        reconcileHooks.beforeWrite = undefined
+      }
+      expect(await reconcileCounters(deps)).toEqual({ fixed: 1 })
+      expect((await h.db.collection('posts').findOne({ _id }))!.counts.likes).toBe(0)
+    })
+
     it('reconcile fixes a manually corrupted counts.likes and users.stats.followerCount', async () => {
       const author = await createUser(h)
       const fan = await createUser(h)

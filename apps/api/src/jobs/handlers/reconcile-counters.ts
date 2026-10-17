@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common'
-import { isDeepStrictEqual } from 'node:util'
 import type { mongo, Types } from 'mongoose'
 import { countOpenReports } from '../../reports/reports.service'
 import type { JobDeps } from './media'
@@ -7,8 +6,15 @@ import type { JobDeps } from './media'
 const BATCH = 500
 const logger = new Logger('ReconcileCounters')
 
+/** Test seam: runs after a batch is read and before its bulkWrite. */
+export const reconcileHooks: { beforeWrite?: (coll: string) => Promise<void> } = {}
+
 type Id = Types.ObjectId | string
 type Doc = { _id: Id } & Record<string, unknown>
+
+function valueAt(doc: Doc, path: string): unknown {
+  return path.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], doc)
+}
 
 /** Counts `coll` rows matching `match` (with `field ∈ ids`) grouped by `field` (an array field is unwound). */
 async function countBy(conn: mongo.Db, coll: string, field: string, ids: Id[], match: Record<string, unknown> = {}, unwind = false): Promise<Map<string, number>> {
@@ -20,8 +26,8 @@ async function countBy(conn: mongo.Db, coll: string, field: string, ids: Id[], m
 }
 
 /**
- * Walks `coll` in batches; `compute` returns the correct values per doc as dotted paths, and only docs
- * whose stored values differ are `$set` (one bulkWrite per batch). Returns how many docs were fixed.
+ * Walks `coll` in batches; `compute` returns the correct scalar values per doc as dotted leaf paths, and
+ * only docs whose stored values differ are `$set` (one bulkWrite per batch). Returns how many docs were fixed.
  */
 async function reconcile(
   conn: mongo.Db,
@@ -35,12 +41,16 @@ async function reconcile(
     const ops = []
     for (const doc of batch) {
       const want = expected(doc)
-      const differs = Object.entries(want).some(([path, v]) => !isDeepStrictEqual(path.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], doc), v))
-      if (differs) ops.push({ updateOne: { filter: { _id: doc._id }, update: { $set: want } } })
+      const read = Object.fromEntries(Object.keys(want).map((path) => [path, valueAt(doc, path) ?? null]))
+      if (Object.entries(want).some(([path, v]) => read[path] !== v)) {
+        // Compare-and-set: a doc changed since it was read (a concurrent like, follow, ...) is skipped
+        // this run rather than overwritten with a stale recount.
+        ops.push({ updateOne: { filter: { _id: doc._id, ...read }, update: { $set: want } } })
+      }
     }
+    await reconcileHooks.beforeWrite?.(coll)
     // The raw driver leaves `updatedAt` alone: a recount is not an edit.
-    if (ops.length) await conn.collection<Doc>(coll).bulkWrite(ops as never, { ordered: false })
-    fixed += ops.length
+    if (ops.length) fixed += (await conn.collection<Doc>(coll).bulkWrite(ops as never, { ordered: false })).modifiedCount
   }
   let batch: Doc[] = []
   for await (const doc of conn.collection<Doc>(coll).find({}, { projection }).batchSize(BATCH)) {
@@ -80,7 +90,8 @@ export async function reconcileCounters(deps: JobDeps): Promise<{ fixed: number 
         'counts.likes': likes.get(id) ?? 0,
         'counts.bookmarks': bookmarks.get(id) ?? 0,
         'counts.comments': comments.get(id) ?? 0,
-        reportCounts: reports.get(id),
+        'reportCounts.total': reports.get(id)!.total,
+        'reportCounts.ai_art': reports.get(id)!.ai_art,
       }
     }
   })
