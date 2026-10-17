@@ -7,8 +7,8 @@ import sharp from 'sharp'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { CONFIG, type Config } from '../src/config/config'
 import { AgendaJobs } from '../src/jobs/agenda-jobs'
-import type { JobDeps } from '../src/jobs/handlers/media'
-import { processFile } from '../src/jobs/handlers/process-file'
+import { type JobDeps, run } from '../src/jobs/handlers/media'
+import { processFile, processFileHooks } from '../src/jobs/handlers/process-file'
 import { relocateVariants } from '../src/jobs/handlers/relocate-variants'
 import { StorageService } from '../src/storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../src/uploads/file.schema'
@@ -187,5 +187,90 @@ describe('process-file / relocate-variants', () => {
     const job = await h.db.collection('jobs').findOne({ name: 'process-file' })
     expect(job).toMatchObject({ data: { fileId: 'abc' } })
     expect(job!.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now())
+  })
+
+  it('relocate is idempotent: a variant already moved by a failed attempt is accepted', async () => {
+    const u = await createUser(h)
+    const fileId = await uploadFixture(h, u, 'tiny.png')
+    await processFile(deps, { fileId })
+    const sm = variant(await load(fileId), 'thumb_sm')!
+    // Simulate a prior attempt that moved thumb_sm and crashed before persisting.
+    await storage.copy(bucketPublic, sm.objectKey, bucketOriginals, sm.objectKey)
+    await storage.remove(bucketPublic, sm.objectKey)
+
+    const { insertedId: postId } = await h.db
+      .collection('posts')
+      .insertOne({ rating: 'r18', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
+    await relocateVariants(deps, { postId: postId.toString() })
+
+    const f = await load(fileId)
+    expect(f.variants.map((v) => v.name).sort()).toEqual(['blurred', 'thumb_md', 'thumb_sm'])
+    for (const v of f.variants) {
+      expect(v.bucket).toBe(bucketOriginals)
+      expect(await exists(bucketOriginals, v.objectKey)).toBe(true)
+      expect(await exists(bucketPublic, v.objectKey)).toBe(false)
+    }
+  })
+
+  it('relocate drops a variant whose object is gone from both buckets', async () => {
+    const u = await createUser(h)
+    const fileId = await uploadFixture(h, u, 'tiny.png')
+    await processFile(deps, { fileId })
+    const sm = variant(await load(fileId), 'thumb_sm')!
+    await storage.remove(bucketPublic, sm.objectKey)
+    const { insertedId: postId } = await h.db
+      .collection('posts')
+      .insertOne({ rating: 'r18', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
+    await relocateVariants(deps, { postId: postId.toString() })
+    const f = await load(fileId)
+    expect(f.variants.map((v) => v.name).sort()).toEqual(['blurred', 'thumb_md'])
+    expect(f.variants.every((v) => v.bucket === bucketOriginals)).toBe(true)
+  })
+
+  it('rating changed to r18 while processing: variants end up in originals with blurred', async () => {
+    const u = await createUser(h)
+    const fileId = await uploadFixture(h, u, 'tiny.png')
+    processFileHooks.beforeStore = async () => {
+      await h.db.collection('posts').insertOne({ rating: 'r18', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
+    }
+    try {
+      await processFile(deps, { fileId })
+    } finally {
+      processFileHooks.beforeStore = undefined
+    }
+    const f = await load(fileId)
+    expect(f.status).toBe('ready')
+    expect(f.variants.map((v) => v.name).sort()).toEqual(['blurred', 'thumb_md', 'thumb_sm'])
+    for (const v of f.variants) {
+      expect(v.bucket).toBe(bucketOriginals)
+      expect(await exists(bucketOriginals, v.objectKey)).toBe(true)
+      expect(await exists(bucketPublic, v.objectKey)).toBe(false)
+    }
+  })
+
+  it('storing variants removes same-key orphans from the other bucket', async () => {
+    const u = await createUser(h)
+    const fileId = await uploadFixture(h, u, 'tiny.png')
+    const orphanKey = storage.objectKey(u.id, fileId, 'thumb_sm', 'webp')
+    await storage.put(bucketOriginals, orphanKey, Buffer.from('stale'), 'image/webp')
+    await processFile(deps, { fileId })
+    expect(await exists(bucketPublic, orphanKey)).toBe(true)
+    expect(await exists(bucketOriginals, orphanKey)).toBe(false)
+  })
+
+  it('file of a soft-deleted r18 post keeps r18 placement', async () => {
+    const u = await createUser(h)
+    const fileId = await uploadFixture(h, u, 'tiny.png')
+    await h.db.collection('posts').insertOne({ rating: 'r18', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: new Date() })
+    await processFile(deps, { fileId })
+    const f = await load(fileId)
+    expect(f.variants.map((v) => v.name).sort()).toEqual(['blurred', 'thumb_md', 'thumb_sm'])
+    expect(f.variants.every((v) => v.bucket === bucketOriginals)).toBe(true)
+  })
+
+  it('run() kills a hung ffmpeg after the timeout', async () => {
+    const started = Date.now()
+    await expect(run(config.ffmpegPath, ['-nostdin', '-re', '-f', 'lavfi', '-i', 'anullsrc', '-t', '30', '-f', 'null', '-'], 200)).rejects.toThrow(/timed out after 200ms/)
+    expect(Date.now() - started).toBeLessThan(5000)
   })
 })
