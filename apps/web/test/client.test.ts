@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPinia, setActivePinia } from 'pinia'
-import { ApiError, request } from '@/api/client'
+import { createPinia, setActivePinia, type Pinia } from 'pinia'
+import { ApiError, refreshOnce, request } from '@/api/client'
 import { useAuth } from '@/stores/auth'
 import { installFakeFetch, makeMe, type FakeFetch } from './fakeApi'
 
@@ -115,5 +115,102 @@ describe('api client', () => {
     fake = installFakeFetch({ 'GET /api/public': ok() })
     await request('/public', { auth: false })
     expect(fake.calls[0]!.headers.authorization).toBeUndefined()
+  })
+})
+
+describe('api client — refresh edge cases', () => {
+  it('a stale-token 401 arriving after a completed refresh retries with the new token, no second refresh', async () => {
+    const auth = useAuth()
+    auth.token = 'old'
+    let releaseB!: () => void
+    const gateB = new Promise<void>((r) => (releaseB = r))
+    fake = installFakeFetch({
+      'GET /api/a': (req) => (req.headers.authorization === 'Bearer new' ? ok({ a: 1 }) : unauth),
+      'GET /api/b': async (req) => {
+        if (req.headers.authorization === 'Bearer new') return ok({ b: 1 })
+        await gateB
+        return unauth
+      },
+      'POST /api/auth/refresh': ok({ accessToken: 'new', user: makeMe() }),
+    })
+
+    const b = request('/b')
+    await expect(request('/a')).resolves.toEqual({ a: 1 })
+    releaseB()
+    await expect(b).resolves.toEqual({ b: 1 })
+
+    expect(fake.callsTo('POST /api/auth/refresh')).toHaveLength(1)
+    expect(fake.callsTo('GET /api/b').map((c) => c.headers.authorization)).toEqual(['Bearer old', 'Bearer new'])
+  })
+
+  it('a throwing store access does not poison later refreshOnce calls', async () => {
+    const pinia = createPinia()
+    fake = installFakeFetch({ 'POST /api/auth/refresh': ok({ accessToken: 'new', user: makeMe() }) })
+    setActivePinia(undefined as unknown as Pinia) // useAuth() now throws
+    await expect(refreshOnce()).resolves.toBe(false)
+    setActivePinia(pinia)
+    await expect(refreshOnce()).resolves.toBe(true)
+    expect(useAuth().token).toBe('new')
+  })
+
+  it('/auth/resend-verification refreshes on 401 like a normal request', async () => {
+    useAuth().token = 'old'
+    fake = installFakeFetch({
+      'POST /api/auth/resend-verification': (req) => (req.headers.authorization === 'Bearer new' ? { status: 204 } : unauth),
+      'POST /api/auth/refresh': ok({ accessToken: 'new', user: makeMe() }),
+    })
+    await expect(request('/auth/resend-verification', { method: 'POST' })).resolves.toBeUndefined()
+    expect(fake.callsTo('POST /api/auth/refresh')).toHaveLength(1)
+    expect(fake.callsTo('POST /api/auth/resend-verification')).toHaveLength(2)
+  })
+
+  it.each(['/auth/refresh', '/auth/login', '/auth/register', '/auth/logout', '/auth/verify-email', '/auth/forgot-password', '/auth/reset-password'])(
+    '%s 401 does not refresh',
+    async (path) => {
+      fake = installFakeFetch({ [`POST /api${path}`]: unauth, 'POST /api/auth/refresh': unauth })
+      await expect(request(path, { method: 'POST' })).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
+      expect(fake.calls).toHaveLength(1)
+    },
+  )
+
+  it('refresh network error keeps auth state and the request rejects with NETWORK', async () => {
+    const auth = useAuth()
+    auth.token = 'old'
+    auth.user = makeMe()
+    fake = installFakeFetch({
+      'GET /api/thing': unauth,
+      'POST /api/auth/refresh': () => {
+        throw new TypeError('offline')
+      },
+    })
+    await expect(request('/thing')).rejects.toMatchObject({ code: 'NETWORK', status: 0 })
+    expect(auth.token).toBe('old')
+    expect(auth.user?.id).toBe('u1')
+  })
+
+  it('refresh 5xx keeps auth state and the request rejects with the server error', async () => {
+    const auth = useAuth()
+    auth.token = 'old'
+    auth.user = makeMe()
+    fake = installFakeFetch({
+      'GET /api/thing': unauth,
+      'POST /api/auth/refresh': { status: 503, body: { error: { code: 'INTERNAL', message: 'down' } } },
+    })
+    await expect(request('/thing')).rejects.toMatchObject({ code: 'INTERNAL', status: 503 })
+    expect(auth.token).toBe('old')
+    expect(auth.user?.id).toBe('u1')
+  })
+
+  it('refresh 403 TOKEN_INVALID clears the session', async () => {
+    const auth = useAuth()
+    auth.token = 'old'
+    auth.user = makeMe()
+    fake = installFakeFetch({
+      'GET /api/thing': unauth,
+      'POST /api/auth/refresh': { status: 403, body: { error: { code: 'TOKEN_INVALID', message: 'reused' } } },
+    })
+    await expect(request('/thing')).rejects.toMatchObject({ code: 'UNAUTHENTICATED', status: 401 })
+    expect(auth.token).toBeNull()
+    expect(auth.user).toBeNull()
   })
 })
