@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { ALLOWED_FILE_TYPES, type createUploadSchema, type FileKind, type FileStatus, kindForMime } from '@cuka/shared'
 import { type Model, Types } from 'mongoose'
@@ -67,6 +67,7 @@ function toDto(f: FileDoc): FileDto {
 
 @Injectable()
 export class UploadsService {
+  private readonly logger = new Logger('UploadsService')
   /** Test seam: lets a test interleave a request at a precise point of complete(). */
   readonly testHooks: { afterCopy?: () => Promise<void> } = {}
 
@@ -182,8 +183,13 @@ export class UploadsService {
       .findOneAndUpdate({ _id: file._id, status: 'validating' }, { $set: { mimeType, sizeBytes: stat.size, status: 'processing' } }, { returnDocument: 'after' })
       .lean()
     if (!done) return toDto((await this.files.findById(file._id).lean()) ?? file)
-    await this.storage.remove(file.bucket, staging)
     await this.jobs.enqueue('process-file', { fileId: file._id.toString() })
+    // Best-effort: the file is already valid and queued; a leftover staging object is swept by the cleanup job.
+    try {
+      await this.storage.remove(file.bucket, staging)
+    } catch (err) {
+      this.logger.warn(`Could not remove staging object ${staging}: ${(err as Error).message}`)
+    }
     return toDto(done)
   }
 

@@ -2,8 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Logger } from '@nestjs/common'
 import { Types } from 'mongoose'
-import { vi } from 'vitest'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UploadsService } from '../src/uploads/uploads.service'
 import { SettingsService } from '../src/settings/settings.service'
 import { StorageService } from '../src/storage/storage.service'
@@ -225,6 +224,27 @@ describe('uploads', () => {
       const retry = await complete(u.token, p.body.fileId)
       expect(retry.status).toBe(200)
       expect(retry.body.status).toBe('processing')
+    })
+
+    it('a failing staging cleanup after success still returns processing and enqueues once', async () => {
+      const u = await createUser(h)
+      const png = fixture('tiny.png')
+      const p = await presign(u.token, { name: 'tiny.png', size: png.length, mime: 'image/png' })
+      expect((await postMultipart(p.body.url, p.body.fields, png)).ok).toBe(true)
+      const original = storage.remove.bind(storage)
+      const spy = vi.spyOn(storage, 'remove').mockImplementation(async (bucket, key) => {
+        if (key.endsWith('/upload.png')) throw new Error('transient storage error')
+        return original(bucket, key)
+      })
+      const quiet = [vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {}), vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {})]
+      const res = await complete(u.token, p.body.fileId)
+      spy.mockRestore()
+      quiet.forEach((q) => q.mockRestore())
+      expect(res.status).toBe(200)
+      expect(res.body.status).toBe('processing')
+      const doc = await h.db.collection('files').findOne({ _id: new Types.ObjectId(p.body.fileId) })
+      expect(doc!.status).toBe('processing')
+      expect(h.jobs.enqueued.filter((j) => j.name === 'process-file')).toEqual([{ name: 'process-file', data: { fileId: p.body.fileId } }])
     })
 
     it('staging missing because a concurrent complete already finished → current state, not 400', async () => {
