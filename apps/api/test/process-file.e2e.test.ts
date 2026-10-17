@@ -474,6 +474,32 @@ describe('process-file / relocate-variants', () => {
       }
     })
 
+    it('relocate-file is a no-op for a file in a post (live or soft-deleted), even if a profile references it', async () => {
+      for (const deletedAt of [null, new Date()]) {
+        const fileId = await seedFile('image', 'image/png', 'png', await big())
+        await processFile(deps, { fileId })
+        const before = await load(fileId)
+        expect(before.variants.every((v) => v.bucket === bucketOriginals)).toBe(true)
+        // Simulate the post appearing after processing (rewatermark not run yet) plus a stale profile reference.
+        await h.db.collection('posts').insertOne({ rating: 'all', credit: repost, files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt })
+        await h.db.collection('users').insertOne({ email: `p${fileId}@example.com`, profile: { username: `p${fileId}`, avatarFileId: new Types.ObjectId(fileId) } })
+        await relocateFile(deps, { fileId })
+        const after = await load(fileId)
+        expect(after.variants).toEqual(before.variants)
+        for (const v of after.variants) expect(await exists(bucketPublic, v.objectKey)).toBe(false)
+      }
+    })
+
+    it('relocate-file keeps a blurred variant written after the job read the file', async () => {
+      const fileId = await seedFile('image', 'image/png', 'png', await big())
+      const f0 = await load(fileId)
+      await h.db.collection('users').insertOne({ _id: f0.ownerId, email: 'bl@example.com', profile: { username: 'bl', avatarFileId: new Types.ObjectId(fileId) } })
+      await processFile(deps, { fileId })
+      // Stale caller copy: relocateFile must work from the DB's current variants, not a passed-in array.
+      await relocateFile(deps, { fileId })
+      expect((await load(fileId)).variants.every((v) => v.bucket === bucketPublic)).toBe(true)
+    })
+
     it('watermarkedFor records the burned-in text: "" for clean renders, its hash after rewatermark', async () => {
       const fileId = await seedFile('image', 'image/png', 'png', await big())
       await processFile(deps, { fileId })

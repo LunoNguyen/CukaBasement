@@ -95,6 +95,20 @@ describe('posts', () => {
       expect(res.body.error.code).toBe('FILE_NOT_READY')
     })
 
+    it('a file used as avatar or banner cannot be attached to a post → 400 FILE_NOT_READY (create and update)', async () => {
+      const u = await createUser(h)
+      const avatar = await readyPng(u)
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ bannerFileId: avatar })).status).toBe(200)
+      const res = await create(u, body(avatar))
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('FILE_NOT_READY')
+      const id = await createPost(h, u)
+      const own = (await loadPost(id))!.files[0].fileId.toString()
+      const up = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ files: [{ fileId: own, position: 0, isCover: true }, { fileId: avatar, position: 1, isCover: false }] })
+      expect(up.status).toBe(400)
+      expect(up.body.error.code).toBe('FILE_NOT_READY')
+    })
+
     it('create with a processing file → 201 and media url null', async () => {
       const u = await createUser(h)
       const fileId = await uploadFixture(h, u, 'tiny.png')

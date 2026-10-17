@@ -311,6 +311,26 @@ describe('uploads', () => {
       expect(res.body.avatarUrl).toBe(storage.publicUrl(`${u.id}/${fileId}/thumb_md.webp`))
     })
 
+    it('a file attached to a post cannot become an avatar or banner → 400 FILE_NOT_READY, nothing published', async () => {
+      const u = await createUser(h)
+      const fileId = await uploadFixture(h, u, 'tiny.png')
+      await processFile(jobDeps(h), { fileId })
+      const credit = { isOwnWork: false, artistName: 'Ruri', artistHandle: '@r', platform: 'x', sourceUrl: 'https://x.com/r/status/1' }
+      const post = await h.http().post('/api/posts').set(auth(u.token)).send({
+        type: 'illustration', title: 't', rating: 'all', tags: [], aiDeclaration: true, credit, files: [{ fileId, position: 0, isCover: true }],
+      })
+      expect(post.status).toBe(201)
+      h.jobs.clear()
+      for (const key of ['avatarFileId', 'bannerFileId']) {
+        const res = await h.http().patch('/api/me').set(auth(u.token)).send({ [key]: fileId })
+        expect(res.status, key).toBe(400)
+        expect(res.body.error.code).toBe('FILE_NOT_READY')
+      }
+      expect(h.jobs.enqueued).toEqual([])
+      expect(await storage.stat('test-cuka-public', `${u.id}/${fileId}/thumb_md.webp`)).toBeNull()
+      expect((await h.db.collection('users').findOne({ _id: new Types.ObjectId(u.id) }))!.profile.avatarFileId ?? null).toBeNull()
+    })
+
     it('GET /users/:username returns the public URL of the thumb_md variant', async () => {
       const u = await createUser(h)
       const fileId = await uploadFixture(h, u, 'tiny.png')

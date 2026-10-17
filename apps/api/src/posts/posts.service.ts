@@ -371,6 +371,10 @@ export class PostsService {
     if (!docs.some((d) => MEDIA_KINDS.has(d.kind))) throw new AppError('POST_NEEDS_MEDIA', 400, 'A post needs an image, video or audio file')
     const ids = docs.map((d) => d._id)
     if (await this.posts.exists({ 'files.fileId': { $in: ids }, ...(exceptPostId ? { _id: { $ne: exceptPostId } } : {}) })) throw fileTaken()
+    // Profile images stay out of posts (their variants are public and unwatermarked).
+    if (await this.users.exists({ $or: [{ 'profile.avatarFileId': { $in: ids } }, { 'profile.bannerFileId': { $in: ids } }] })) {
+      throw new AppError('FILE_NOT_READY', 400, 'File is used as an avatar or banner')
+    }
 
     const files = [...input].sort((a, b) => a.position - b.position).map((f) => ({ fileId: new Types.ObjectId(f.fileId), position: f.position, isCover: f.isCover }))
     if (!files.some((f) => f.isCover)) files[0]!.isCover = true

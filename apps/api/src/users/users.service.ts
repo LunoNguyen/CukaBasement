@@ -93,6 +93,10 @@ export class UsersService {
       if (!oid) throw new AppError('VALIDATION_FAILED', 400, `Invalid ${key}`)
       const [file] = await this.uploads.assertUsableFiles(id, [v])
       if (file!.kind !== 'image') throw new AppError('FILE_NOT_READY', 400, `${key} must be an image`)
+      // Profile images and post files are exclusive: publishing a post file as an avatar could leak a clean render.
+      if (await this.users.db.collection('posts').findOne({ 'files.fileId': oid }, { projection: { _id: 1 } })) {
+        throw new AppError('FILE_NOT_READY', 400, `${key} is attached to a post`)
+      }
       $set[`profile.${key}`] = oid
     }
     for (const [k, v] of Object.entries(input.socialLinks ?? {})) {

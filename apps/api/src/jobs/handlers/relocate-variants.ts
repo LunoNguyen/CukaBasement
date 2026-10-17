@@ -1,7 +1,8 @@
+import { Logger } from '@nestjs/common'
 import { Types } from 'mongoose'
 import type { FileDoc } from '../../uploads/file.schema'
 import type { JobDeps } from './media'
-import { contextOfPost, findContextForFile, moveFileVariants } from './variants'
+import { contextOfPost, moveFileVariants } from './variants'
 
 /** Moves every variant of the post's files into the bucket that matches the post's current rating (a new blurred is watermarked). */
 export async function relocateVariants(deps: JobDeps, data: { postId: string }): Promise<void> {
@@ -19,14 +20,33 @@ export async function relocateVariants(deps: JobDeps, data: { postId: string }):
   }
 }
 
+const logger = new Logger('RelocateFile')
+
+/** A file that is in no post (live or soft-deleted) and is some user's avatar or banner. */
+async function isPostlessProfileImage(deps: JobDeps, fileId: Types.ObjectId): Promise<boolean> {
+  if (await deps.conn.collection('posts').findOne({ 'files.fileId': fileId }, { projection: { _id: 1 } })) return false
+  const user = await deps.conn
+    .collection('users')
+    .findOne({ $or: [{ 'profile.avatarFileId': fileId }, { 'profile.bannerFileId': fileId }] }, { projection: { _id: 1 } })
+  return !!user
+}
+
 /**
- * Publishes the variants of a file that just became a profile image (avatar or banner): moves them into the bucket
- * of its current context. A file that is (still) unpublished stays private; a processing file is left to processFile.
+ * Publishes the variants of a file that just became a profile image (avatar or banner). Acts only on a ready file
+ * that is in no post and is a profile image; a file in any post belongs to the post jobs (rewatermark/relocate),
+ * which must not be pre-empted with clean renders. The file is re-read right before the move so a stale variant
+ * list cannot drop a variant, and the check is repeated after it: a file that joined a post meanwhile is left to the
+ * post's rewatermark job (enqueued by the post create), which redraws and re-places every variant.
  */
 export async function relocateFile(deps: JobDeps, data: { fileId: string }): Promise<void> {
   if (!Types.ObjectId.isValid(data.fileId)) return
-  const file = await deps.conn.collection<FileDoc>('files').findOne({ _id: new Types.ObjectId(data.fileId) })
+  const _id = new Types.ObjectId(data.fileId)
+  // Fresh read of the variants, then the eligibility check, both immediately before the move.
+  const file = await deps.conn.collection<FileDoc>('files').findOne({ _id })
   if (!file || file.status !== 'ready') return
-  const ctx = await findContextForFile(deps.conn, file._id)
-  if (ctx.published) await moveFileVariants(deps, file, ctx.rating, ctx.watermark)
+  if (!(await isPostlessProfileImage(deps, _id))) return
+  await moveFileVariants(deps, file, 'all', null)
+  if (!(await isPostlessProfileImage(deps, _id))) {
+    logger.warn(`File ${data.fileId} joined a post during relocate-file; leaving it to the post's rewatermark job`)
+  }
 }
