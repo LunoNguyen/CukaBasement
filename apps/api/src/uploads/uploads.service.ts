@@ -37,6 +37,29 @@ function extOf(name: string): string {
   return m ? m[1]!.toLowerCase() : ''
 }
 
+/** Where the client's presigned POST writes; never the validated objectKey. */
+function stagingKey(ownerId: string, fileId: string, ext: string): string {
+  return `${ownerId}/${fileId}/upload.${ext}`
+}
+
+/** Maps equivalent mimes reported by file-type onto the whitelist. */
+function normalizeMime(detected: string, declared: string): string {
+  switch (detected) {
+    case 'video/x-m4v':
+      return 'video/mp4'
+    case 'video/quicktime':
+      return declared === 'video/mp4' ? 'video/mp4' : detected
+    case 'audio/x-wav':
+    case 'audio/vnd.wave':
+      return 'audio/wav'
+    case 'application/ogg':
+    case 'audio/opus':
+      return 'audio/ogg'
+    default:
+      return detected
+  }
+}
+
 function toDto(f: FileDoc): FileDto {
   return { id: f._id.toString(), kind: f.kind, mimeType: f.mimeType, sizeBytes: f.sizeBytes, status: f.status, originalName: f.originalName }
 }
@@ -54,9 +77,11 @@ export class UploadsService {
   async presign(ownerId: string, input: CreateUploadInput) {
     const s = await this.settings.get()
     if (input.size > s.maxFileBytes) throw new AppError('FILE_TOO_LARGE', 413, 'File is too large')
-    const ext = extOf(input.name)
-    const kind = kindForMime(input.mime, ext)
+    const mime = input.mime.toLowerCase()
+    const kind = kindForMime(mime, extOf(input.name))
     if (!kind) throw new AppError('FILE_TYPE_NOT_ALLOWED', 415, 'File type is not allowed')
+    // octet-stream is only whitelisted for .clip (checked by kindForMime); otherwise the mime picks the extension.
+    const ext = ALLOWED_FILE_TYPES.find((t) => t.mime === mime && t.kind === kind)!.ext
 
     const owner = new Types.ObjectId(ownerId)
     const [agg] = await this.files.aggregate<{ total: number }>([
@@ -69,19 +94,19 @@ export class UploadsService {
 
     const _id = new Types.ObjectId()
     const bucket = this.config.minio.bucketOriginals
-    const objectKey = this.storage.objectKey(ownerId, _id.toString(), 'original', ext || ALLOWED_FILE_TYPES.find((t) => t.mime === input.mime.toLowerCase())!.ext)
     await this.files.create({
       _id,
       ownerId: owner,
       bucket,
-      objectKey,
+      objectKey: this.storage.objectKey(ownerId, _id.toString(), 'original', ext),
       originalName: input.name,
-      mimeType: input.mime.toLowerCase(),
+      mimeType: mime,
       sizeBytes: input.size,
       kind,
       status: 'uploading',
     })
-    const { url, fields } = await this.storage.presignPost(bucket, objectKey, s.maxFileBytes, input.mime.toLowerCase())
+    // The client may only write the staging key; complete copies it to the server-owned objectKey.
+    const { url, fields } = await this.storage.presignPost(bucket, stagingKey(ownerId, _id.toString(), ext), input.size, mime)
     return { fileId: _id.toString(), url, fields, maxBytes: s.maxFileBytes }
   }
 
@@ -90,25 +115,44 @@ export class UploadsService {
     if (!file) throw new AppError('NOT_FOUND', 404, 'File not found')
     if (file.status !== 'uploading') return toDto(file)
 
+    const staging = stagingKey(ownerId, file._id.toString(), file.objectKey.slice(file.objectKey.lastIndexOf('.') + 1))
+    if (!(await this.storage.stat(file.bucket, staging))) {
+      // A concurrent complete may already have moved it.
+      const now = await this.files.findById(file._id).lean()
+      if (now && now.status !== 'uploading') return toDto(now)
+      throw new AppError('UPLOAD_NOT_FOUND', 400, 'No uploaded object found for this file')
+    }
+    // Validate a server-side copy the client cannot overwrite through the presigned POST.
+    try {
+      await this.storage.copy(file.bucket, staging, file.bucket, file.objectKey)
+    } catch {
+      const now = await this.files.findById(file._id).lean()
+      if (now && now.status !== 'uploading') return toDto(now)
+      throw new AppError('UPLOAD_NOT_FOUND', 400, 'No uploaded object found for this file')
+    }
+    await this.storage.remove(file.bucket, staging)
+
     const stat = await this.storage.stat(file.bucket, file.objectKey)
     if (!stat) throw new AppError('UPLOAD_NOT_FOUND', 400, 'No uploaded object found for this file')
-
     const s = await this.settings.get()
-    if (stat.size > s.maxFileBytes) await this.reject(file, 'FILE_TOO_LARGE', 413, 'File is too large')
+    if (stat.size > s.maxFileBytes || stat.size > file.sizeBytes) {
+      await this.reject(file, staging, 'FILE_TOO_LARGE', 413, 'File is too large')
+    }
 
     const head = await this.storage.readHead(file.bucket, file.objectKey, HEAD_BYTES)
     const found = await (await loadFileType()).fileTypeFromBuffer(head)
     let mimeType: string
-    if (file.kind === 'source' && extOf(file.originalName) === 'clip') {
-      // .clip has no magic signature: accept only when nothing was detected.
-      if (found) await this.reject(file, 'FILE_TYPE_NOT_ALLOWED', 415, 'File content does not match its type')
+    if (file.mimeType === 'application/octet-stream') {
+      // Only .clip is whitelisted as octet-stream, and it has no magic signature: accept only when nothing was detected.
+      if (found) await this.reject(file, staging, 'FILE_TYPE_NOT_ALLOWED', 415, 'File content does not match its type')
       mimeType = file.mimeType
     } else {
-      const allowed = found && ALLOWED_FILE_TYPES.find((t) => t.ext !== 'clip' && t.mime === found.mime)
-      if (!found || !allowed || allowed.kind !== file.kind) {
-        await this.reject(file, 'FILE_TYPE_NOT_ALLOWED', 415, 'File content does not match its type')
+      const detectedMime = found && normalizeMime(found.mime, file.mimeType)
+      const allowed = detectedMime && ALLOWED_FILE_TYPES.find((t) => t.ext !== 'clip' && t.mime === detectedMime)
+      if (!allowed || allowed.kind !== file.kind) {
+        await this.reject(file, staging, 'FILE_TYPE_NOT_ALLOWED', 415, 'File content does not match its type')
       }
-      mimeType = found!.mime
+      mimeType = detectedMime as string
     }
 
     const claimed = await this.files
@@ -119,10 +163,13 @@ export class UploadsService {
     return toDto(claimed)
   }
 
-  /** Removes the object, marks the file failed and throws. */
-  private async reject(file: FileDoc, code: 'FILE_TOO_LARGE' | 'FILE_TYPE_NOT_ALLOWED', status: number, message: string): Promise<never> {
-    await this.storage.remove(file.bucket, file.objectKey)
-    await this.files.updateOne({ _id: file._id }, { $set: { status: 'failed' } })
+  /** Marks the file failed (only if still uploading), removes both objects and throws. */
+  private async reject(file: FileDoc, staging: string, code: 'FILE_TOO_LARGE' | 'FILE_TYPE_NOT_ALLOWED', status: number, message: string): Promise<never> {
+    const res = await this.files.updateOne({ _id: file._id, status: 'uploading' }, { $set: { status: 'failed' } })
+    if (res.modifiedCount === 1) {
+      await this.storage.remove(file.bucket, file.objectKey)
+      await this.storage.remove(file.bucket, staging)
+    }
     throw new AppError(code, status, message)
   }
 

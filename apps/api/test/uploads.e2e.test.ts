@@ -128,6 +128,72 @@ describe('uploads', () => {
     await expect(uploadFixture(h, u, 'fake.zip', { mime: 'application/octet-stream', name: 'x.clip' })).rejects.toThrow(/415/)
   })
 
+  describe('hardening', () => {
+    const fixture = (n: string) => readFileSync(join(__dirname, 'fixtures', n))
+
+    it('re-POSTing to the presigned URL after complete cannot change the stored original', async () => {
+      const u = await createUser(h)
+      const png = fixture('tiny.png')
+      const p = await presign(u.token, { name: 'tiny.png', size: png.length, mime: 'image/png' })
+      expect((await postMultipart(p.body.url, p.body.fields, png)).ok).toBe(true)
+      expect((await complete(u.token, p.body.fileId)).status).toBe(200)
+      // the policy only bounds size, so a same-size payload is accepted by MinIO
+      const zip = Buffer.concat([fixture('fake.zip'), Buffer.alloc(Math.max(0, png.length - fixture('fake.zip').length))])
+      await postMultipart(p.body.url, p.body.fields, zip)
+      const doc = await h.db.collection('files').findOne({ _id: new Types.ObjectId(p.body.fileId) })
+      const head = await storage.readHead(ORIGINALS, doc!.objectKey, 8)
+      expect(head.equals(png.subarray(0, 8))).toBe(true)
+      expect((await complete(u.token, p.body.fileId)).body.status).toBe('processing')
+      expect(h.jobs.enqueued.filter((j) => j.name === 'process-file')).toHaveLength(1)
+    })
+
+    it('.clip name with a non-octet-stream mime must still pass magic-byte detection', async () => {
+      const u = await createUser(h)
+      const junk = Buffer.from('definitely not a psd')
+      const p = await presign(u.token, { name: 'x.clip', size: junk.length, mime: 'image/vnd.adobe.photoshop' })
+      expect(p.status).toBe(201)
+      expect((await postMultipart(p.body.url, p.body.fields, junk)).ok).toBe(true)
+      const res = await complete(u.token, p.body.fileId)
+      expect(res.status).toBe(415)
+      expect(res.body.error.code).toBe('FILE_TYPE_NOT_ALLOWED')
+    })
+
+    it('uploading more bytes than declared is rejected by the storage policy', async () => {
+      const u = await createUser(h)
+      const png = fixture('tiny.png')
+      const p = await presign(u.token, { name: 'tiny.png', size: 10, mime: 'image/png' })
+      const up = await postMultipart(p.body.url, p.body.fields, png)
+      expect(up.status).toBe(400)
+    })
+
+    it('object key extension comes from the mime whitelist, not the declared name', async () => {
+      const u = await createUser(h)
+      const p = await presign(u.token, { name: 'x.html', size: 10, mime: 'image/png' })
+      const doc = await h.db.collection('files').findOne({ _id: new Types.ObjectId(p.body.fileId) })
+      expect(doc!.objectKey).toBe(`${u.id}/${p.body.fileId}/original.png`)
+    })
+
+    it('legit mp4 and mp3 complete → processing', async () => {
+      const u = await createUser(h)
+      const mp4 = await uploadFixture(h, u, 'one-second.mp4', { mime: 'video/mp4', name: 'one-second.mp4' })
+      const mp3 = await uploadFixture(h, u, 'tone.mp3', { mime: 'audio/mpeg', name: 'tone.mp3' })
+      for (const id of [mp4, mp3]) {
+        const doc = await h.db.collection('files').findOne({ _id: new Types.ObjectId(id) })
+        expect(doc!.status).toBe('processing')
+      }
+    })
+
+    it('two concurrent completes enqueue once', async () => {
+      const u = await createUser(h)
+      const png = fixture('tiny.png')
+      const p = await presign(u.token, { name: 'tiny.png', size: png.length, mime: 'image/png' })
+      expect((await postMultipart(p.body.url, p.body.fields, png)).ok).toBe(true)
+      const [a, b] = await Promise.all([complete(u.token, p.body.fileId), complete(u.token, p.body.fileId)])
+      expect([a.status, b.status]).toEqual([200, 200])
+      expect(h.jobs.enqueued.filter((j) => j.name === 'process-file')).toHaveLength(1)
+    })
+  })
+
   describe('avatar/banner via PATCH /me', () => {
     it('avatarFileId of someone else’s file → 400 FILE_NOT_READY', async () => {
       const a = await createUser(h)
