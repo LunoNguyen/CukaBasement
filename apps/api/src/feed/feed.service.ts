@@ -1,22 +1,24 @@
 import { Injectable } from '@nestjs/common'
-import { InjectConnection, InjectModel } from '@nestjs/mongoose'
+import { InjectModel } from '@nestjs/mongoose'
 import { normalizeTag, type searchQuerySchema } from '@cuka/shared'
-import { type Connection, type Model, Types, type QueryFilter } from 'mongoose'
+import { type Model, Types, type QueryFilter } from 'mongoose'
 import type { z } from 'zod'
 import type { Viewer } from '../auth/viewer'
 import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
+import { FOLLOW_MODEL, type Follow } from '../interactions/interaction.schemas'
 import { POST_MODEL, type Post } from '../posts/post.schema'
 import { type CursorQuery, type PostCardDto, PostsService } from '../posts/posts.service'
 import { visiblePostsFilter } from '../posts/visibility'
 
 export type SearchQuery = z.infer<typeof searchQuerySchema>
+const MAX_FOLLOWEES = 5000
 type Page = { items: PostCardDto[]; nextCursor: string | null }
 
 @Injectable()
 export class FeedService {
   constructor(
     @InjectModel(POST_MODEL) private readonly posts: Model<Post>,
-    @InjectConnection() private readonly conn: Connection,
+    @InjectModel(FOLLOW_MODEL) private readonly follows: Model<Follow>,
     private readonly postsService: PostsService,
   ) {}
 
@@ -24,12 +26,13 @@ export class FeedService {
     return this.page(viewer, q, [])
   }
 
-  /** Posts by the viewer's followees. The `follows` collection is created by the follow feature; empty until then. */
+  /** Posts by the viewer's followees (the newest 5000 follows). */
   async following(viewer: Viewer, q: CursorQuery): Promise<Page> {
-    const follows = await this.conn
-      .collection<{ followerId: Types.ObjectId; followeeId: Types.ObjectId }>('follows')
-      .find({ followerId: new Types.ObjectId(viewer.id) })
-      .toArray()
+    const follows = await this.follows
+      .find({ followerId: new Types.ObjectId(viewer.id) }, { followeeId: 1 })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(MAX_FOLLOWEES)
+      .lean()
     if (follows.length === 0) return { items: [], nextCursor: null }
     return this.page(viewer, q, [{ authorId: { $in: follows.map((f) => f.followeeId) } }])
   }

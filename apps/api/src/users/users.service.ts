@@ -6,8 +6,9 @@ import { type Model, Types } from 'mongoose'
 import type { z } from 'zod'
 import { AUTH_TOKEN_MODEL, type AuthToken } from '../auth/auth-token.schema'
 import { hashToken } from '../auth/tokens'
-import { isAdult } from '../auth/viewer'
+import { isAdult, type Viewer } from '../auth/viewer'
 import { AppError } from '../common/app-error'
+import { FOLLOW_MODEL, type Follow } from '../interactions/interaction.schemas'
 import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 import { UploadsService } from '../uploads/uploads.service'
@@ -46,6 +47,9 @@ export interface PublicUserDto {
   isFollowing: boolean
 }
 
+/** A user as listed in followers/following: the public profile without counters. */
+export type PublicUserItemDto = Omit<PublicUserDto, 'stats'>
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>
 
@@ -59,6 +63,7 @@ export class UsersService {
     @InjectModel(USER_MODEL) private readonly users: Model<User>,
     @InjectModel(AUTH_TOKEN_MODEL) private readonly authTokens: Model<AuthToken>,
     @InjectModel(FILE_MODEL) private readonly files: Model<FileDoc>,
+    @InjectModel(FOLLOW_MODEL) private readonly follows: Model<Follow>,
     private readonly uploads: UploadsService,
     private readonly storage: StorageService,
   ) {}
@@ -122,23 +127,39 @@ export class UsersService {
     })
   }
 
-  async getPublic(username: string): Promise<PublicUserDto> {
+  async getPublic(username: string, viewer: Viewer | null = null): Promise<PublicUserDto> {
     const user = await this.users.findOne({ 'profile.username': username }).lean()
     if (!user || user.status === 'banned') throw new AppError('NOT_FOUND', 404, 'User not found')
-    const p = user.profile
-    const s = p.socialLinks
-    return {
-      id: user._id.toString(),
-      username: p.username,
-      displayName: p.displayName,
-      bio: p.bio,
-      avatarUrl: p.avatarFileId ? await this.publicAvatarUrl(p.avatarFileId.toString()) : null,
-      bannerUrl: p.bannerFileId ? await this.publicAvatarUrl(p.bannerFileId.toString()) : null,
-      socialLinks: { x: s.x, facebook: s.facebook, youtube: s.youtube, pixiv: s.pixiv },
-      stats: user.stats,
-      createdAt: user.createdAt.toISOString(),
-      isFollowing: false,
+    const [item] = await this.toPublicItems([user], viewer)
+    return { ...item!, stats: user.stats }
+  }
+
+  /** Public profiles without stats; `isFollowing` for all of them comes from one query. */
+  async toPublicItems(users: User[], viewer: Viewer | null): Promise<PublicUserItemDto[]> {
+    const following = new Set<string>()
+    if (viewer && users.length) {
+      const rows = await this.follows
+        .find({ followerId: new Types.ObjectId(viewer.id), followeeId: { $in: users.map((u) => u._id) } }, { followeeId: 1 })
+        .lean()
+      for (const r of rows) following.add(r.followeeId.toString())
     }
+    return Promise.all(
+      users.map(async (user) => {
+        const p = user.profile
+        const s = p.socialLinks
+        return {
+          id: user._id.toString(),
+          username: p.username,
+          displayName: p.displayName,
+          bio: p.bio,
+          avatarUrl: p.avatarFileId ? await this.publicAvatarUrl(p.avatarFileId.toString()) : null,
+          bannerUrl: p.bannerFileId ? await this.publicAvatarUrl(p.bannerFileId.toString()) : null,
+          socialLinks: { x: s.x, facebook: s.facebook, youtube: s.youtube, pixiv: s.pixiv },
+          createdAt: user.createdAt.toISOString(),
+          isFollowing: following.has(user._id.toString()),
+        }
+      }),
+    )
   }
 
   /** Public URL of the file's `thumb_md` variant; null when the file or variant does not exist. */

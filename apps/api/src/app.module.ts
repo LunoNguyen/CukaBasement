@@ -8,8 +8,10 @@ import { GlobalErrorFilter } from './common/error.filter'
 import { CONFIG, type Config, loadConfig } from './config/config'
 import { DatabaseModule } from './database/database.module'
 import { FeedModule } from './feed/feed.module'
+import { InteractionsModule } from './interactions/interactions.module'
 import { JobsModule } from './jobs/jobs.module'
 import { MailModule } from './mail/mail.module'
+import { NotificationsModule } from './notifications/notifications.module'
 import { PostsModule } from './posts/posts.module'
 import { SettingsModule } from './settings/settings.module'
 import { StorageModule } from './storage/storage.module'
@@ -53,6 +55,8 @@ export class HealthController {
     UploadsModule,
     PostsModule,
     FeedModule,
+    NotificationsModule,
+    InteractionsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],

@@ -7,6 +7,7 @@ import type { Viewer } from '../auth/viewer'
 import { AppError } from '../common/app-error'
 import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
 import { CONFIG, type Config } from '../config/config'
+import { BOOKMARK_MODEL, type Bookmark, LIKE_MODEL, type Like } from '../interactions/interaction.schemas'
 import { JOBS, type JobsPort } from '../jobs/jobs.port'
 import { SettingsService } from '../settings/settings.service'
 import { StorageService } from '../storage/storage.service'
@@ -94,6 +95,8 @@ export class PostsService {
     @InjectModel(POST_MODEL) private readonly posts: Model<Post>,
     @InjectModel(USER_MODEL) private readonly users: Model<User>,
     @InjectModel(FILE_MODEL) private readonly files: Model<FileDoc>,
+    @InjectModel(LIKE_MODEL) private readonly likes: Model<Like>,
+    @InjectModel(BOOKMARK_MODEL) private readonly bookmarks: Model<Bookmark>,
     @Inject(CONFIG) private readonly config: Config,
     @Inject(JOBS) private readonly jobs: JobsPort,
     private readonly uploads: UploadsService,
@@ -259,6 +262,7 @@ export class PostsService {
     const authors = await this.authorsOf([post.authorId])
     const files = await this.files.find({ _id: { $in: post.files.map((f) => f.fileId) } }).lean()
     const showReason = isStaff(viewer) || viewer?.id === post.authorId.toString()
+    const viewerState = await this.viewerStateOf(post._id, viewer)
     return {
       id: post._id.toString(),
       type: post.type,
@@ -272,11 +276,18 @@ export class PostsService {
       counts: post.counts,
       author: authors.get(post.authorId.toString())!,
       media: await buildMedia(post, files, viewer, this.mediaDeps),
-      // Filled in by the interactions task.
-      viewerState: { liked: false, bookmarked: false },
+      viewerState,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
     }
+  }
+
+  /** One lookup per interaction collection, both in parallel. */
+  private async viewerStateOf(postId: Types.ObjectId, viewer: Viewer | null): Promise<PostDto['viewerState']> {
+    if (!viewer) return { liked: false, bookmarked: false }
+    const key = { userId: new Types.ObjectId(viewer.id), postId }
+    const [liked, bookmarked] = await Promise.all([this.likes.exists(key), this.bookmarks.exists(key)])
+    return { liked: !!liked, bookmarked: !!bookmarked }
   }
 
   /** Author summaries keyed by id; an author missing from `users` gets an empty placeholder. */
