@@ -11,6 +11,7 @@ import { JobsModule } from './jobs/jobs.module'
 import { MailModule } from './mail/mail.module'
 import { SettingsModule } from './settings/settings.module'
 import { StorageModule } from './storage/storage.module'
+import { UploadsModule } from './uploads/uploads.module'
 
 /** Set only while createAppContext boots, so non-HTTP entry points can supply their own Config. */
 let configOverride: Config | undefined
@@ -47,6 +48,7 @@ export class HealthController {
       }),
     }),
     AuthModule,
+    UploadsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],

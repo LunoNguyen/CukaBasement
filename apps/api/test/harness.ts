@@ -3,6 +3,8 @@ import type { INestApplication } from '@nestjs/common'
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose'
 import { Test } from '@nestjs/testing'
 import type { Role, UserStatus } from '@cuka/shared'
+import { readFileSync } from 'node:fs'
+import { extname, join } from 'node:path'
 import * as argon2 from 'argon2'
 import type mongoose from 'mongoose'
 import { Client } from 'minio'
@@ -36,6 +38,32 @@ export async function postMultipart(url: string, fields: Record<string, string>,
   for (const [k, v] of Object.entries(fields)) form.append(k, v)
   form.append('file', new Blob([new Uint8Array(body)]), 'upload.bin')
   return fetch(url, { method: 'POST', body: form })
+}
+
+const FIXTURE_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.zip': 'application/zip' }
+
+/**
+ * Presigns, uploads `test/fixtures/<fixtureName>` straight to MinIO and calls complete.
+ * `declared` overrides the mime/name sent to the API (to simulate mislabelled uploads). Returns the fileId.
+ */
+export async function uploadFixture(
+  h: Harness,
+  user: { token: string },
+  fixtureName: string,
+  declared?: { mime: string; name: string },
+): Promise<string> {
+  const body = readFileSync(join(__dirname, 'fixtures', fixtureName))
+  const mime = declared?.mime ?? FIXTURE_MIME[extname(fixtureName)]
+  const name = declared?.name ?? fixtureName
+  const auth = { Authorization: `Bearer ${user.token}` }
+  const presign = await h.http().post('/api/uploads').set(auth).send({ name, size: body.length, mime })
+  if (presign.status !== 201) throw new Error(`presign failed: ${presign.status} ${JSON.stringify(presign.body)}`)
+  const { fileId, url, fields } = presign.body as { fileId: string; url: string; fields: Record<string, string> }
+  const up = await postMultipart(url, fields, body)
+  if (!up.ok) throw new Error(`upload to storage failed: ${up.status} ${await up.text()}`)
+  const done = await h.http().post(`/api/uploads/${fileId}/complete`).set(auth)
+  if (done.status !== 200) throw new Error(`complete failed: ${done.status} ${JSON.stringify(done.body)}`)
+  return fileId
 }
 
 export interface CreateUserOptions {

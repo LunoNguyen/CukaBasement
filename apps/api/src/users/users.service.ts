@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common'
-import { InjectConnection, InjectModel } from '@nestjs/mongoose'
+import { InjectModel } from '@nestjs/mongoose'
 import type { Locale, Role, updateProfileSchema, updateSettingsSchema, UserStatus } from '@cuka/shared'
 import * as argon2 from 'argon2'
-import { type Connection, type Model, Types } from 'mongoose'
+import { type Model, Types } from 'mongoose'
 import type { z } from 'zod'
 import { AUTH_TOKEN_MODEL, type AuthToken } from '../auth/auth-token.schema'
 import { hashToken } from '../auth/tokens'
 import { isAdult } from '../auth/viewer'
 import { AppError } from '../common/app-error'
 import { StorageService } from '../storage/storage.service'
+import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
+import { UploadsService } from '../uploads/uploads.service'
 import { USER_MODEL, type SocialLinks, type User } from './user.schema'
 
 export interface MeDto {
@@ -56,7 +58,8 @@ export class UsersService {
   constructor(
     @InjectModel(USER_MODEL) private readonly users: Model<User>,
     @InjectModel(AUTH_TOKEN_MODEL) private readonly authTokens: Model<AuthToken>,
-    @InjectConnection() private readonly conn: Connection,
+    @InjectModel(FILE_MODEL) private readonly files: Model<FileDoc>,
+    private readonly uploads: UploadsService,
     private readonly storage: StorageService,
   ) {}
 
@@ -74,12 +77,13 @@ export class UsersService {
     const $set: Record<string, unknown> = {}
     if (input.displayName !== undefined) $set['profile.displayName'] = input.displayName
     if (input.bio !== undefined) $set['profile.bio'] = input.bio
-    // File ownership/readiness is validated once the files model exists.
     for (const key of ['avatarFileId', 'bannerFileId'] as const) {
       const v = input[key]
       if (v === undefined) continue
       const oid = objectId(v)
       if (!oid) throw new AppError('VALIDATION_FAILED', 400, `Invalid ${key}`)
+      const [file] = await this.uploads.assertUsableFiles(id, [v])
+      if (file!.kind !== 'image') throw new AppError('FILE_NOT_READY', 400, `${key} must be an image`)
       $set[`profile.${key}`] = oid
     }
     for (const [k, v] of Object.entries(input.socialLinks ?? {})) {
@@ -141,14 +145,8 @@ export class UsersService {
   async publicAvatarUrl(fileId: string): Promise<string | null> {
     const oid = objectId(fileId)
     if (!oid) return null
-    const file = await this.conn.collection<any>('files').findOne({ _id: oid })
-    const variants: unknown = file?.variants
-    const list: Array<{ name?: string; objectKey?: string }> = Array.isArray(variants)
-      ? variants
-      : variants && typeof variants === 'object'
-        ? Object.entries(variants).map(([name, v]) => ({ name, ...(v as object) }))
-        : []
-    const key = list.find((v) => v.name === 'thumb_md')?.objectKey
+    const file = await this.files.findById(oid).lean()
+    const key = file?.variants.find((v) => v.name === 'thumb_md')?.objectKey
     return key ? this.storage.publicUrl(key) : null
   }
 

@@ -1,0 +1,63 @@
+import { FILE_KINDS, FILE_STATUSES, type FileKind, type FileStatus, VARIANT_NAMES, type VariantName } from '@cuka/shared'
+import { type HydratedDocument, Schema, Types } from 'mongoose'
+
+export interface FileVariant {
+  name: VariantName
+  bucket: string
+  objectKey: string
+  width: number | null
+  height: number | null
+}
+
+export interface FileDoc {
+  _id: Types.ObjectId
+  ownerId: Types.ObjectId
+  bucket: string
+  objectKey: string
+  originalName: string
+  mimeType: string
+  sizeBytes: number
+  kind: FileKind
+  width: number | null
+  height: number | null
+  durationSec: number | null
+  status: FileStatus
+  variants: FileVariant[]
+  createdAt: Date
+}
+
+export type FileDocument = HydratedDocument<FileDoc>
+
+export const FILE_MODEL = 'File'
+
+const variantSchema = new Schema<FileVariant>(
+  {
+    name: { type: String, enum: VARIANT_NAMES, required: true },
+    bucket: { type: String, required: true },
+    objectKey: { type: String, required: true },
+    width: { type: Number, default: null },
+    height: { type: Number, default: null },
+  },
+  { _id: false },
+)
+
+export const FileSchema = new Schema<FileDoc>(
+  {
+    ownerId: { type: Schema.Types.ObjectId, required: true },
+    bucket: { type: String, required: true },
+    objectKey: { type: String, required: true },
+    originalName: { type: String, required: true },
+    mimeType: { type: String, required: true },
+    sizeBytes: { type: Number, required: true },
+    kind: { type: String, enum: FILE_KINDS, required: true },
+    width: { type: Number, default: null },
+    height: { type: Number, default: null },
+    durationSec: { type: Number, default: null },
+    status: { type: String, enum: FILE_STATUSES, default: 'uploading' },
+    variants: { type: [variantSchema], default: [] },
+  },
+  { collection: 'files', timestamps: { createdAt: true, updatedAt: false } },
+)
+
+FileSchema.index({ status: 1, createdAt: 1 })
+FileSchema.index({ ownerId: 1, createdAt: -1 })
