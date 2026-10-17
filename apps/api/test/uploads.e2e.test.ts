@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { Logger } from '@nestjs/common'
 import { Types } from 'mongoose'
+import { vi } from 'vitest'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { UploadsService } from '../src/uploads/uploads.service'
 import { SettingsService } from '../src/settings/settings.service'
@@ -203,6 +205,39 @@ describe('uploads', () => {
       const doc = await h.db.collection('files').findOne({ _id: new Types.ObjectId(p.body.fileId) })
       expect((await storage.readHead(ORIGINALS, doc!.objectKey, 8)).equals(png.subarray(0, 8))).toBe(true)
       expect(h.jobs.enqueued.filter((j) => j.name === 'process-file')).toHaveLength(1)
+    })
+
+    it('an unexpected error after the claim reverts the file to uploading and a retry succeeds', async () => {
+      const u = await createUser(h)
+      const png = fixture('tiny.png')
+      const p = await presign(u.token, { name: 'tiny.png', size: png.length, mime: 'image/png' })
+      expect((await postMultipart(p.body.url, p.body.fields, png)).ok).toBe(true)
+      h.app.get(UploadsService).testHooks.afterCopy = async () => {
+        h.app.get(UploadsService).testHooks.afterCopy = undefined
+        throw new Error('boom')
+      }
+      const quiet = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {})
+      expect((await complete(u.token, p.body.fileId)).status).toBe(500)
+      quiet.mockRestore()
+      const doc = await h.db.collection('files').findOne({ _id: new Types.ObjectId(p.body.fileId) })
+      expect(doc!.status).toBe('uploading')
+      expect(h.jobs.enqueued).toHaveLength(0)
+      const retry = await complete(u.token, p.body.fileId)
+      expect(retry.status).toBe(200)
+      expect(retry.body.status).toBe('processing')
+    })
+
+    it('staging missing because a concurrent complete already finished → current state, not 400', async () => {
+      const u = await createUser(h)
+      const p = await presign(u.token, { name: 'a.png', size: 10, mime: 'image/png' })
+      const spy = vi.spyOn(storage, 'stat').mockImplementationOnce(async () => {
+        await h.db.collection('files').updateOne({ _id: new Types.ObjectId(p.body.fileId) }, { $set: { status: 'validating' } })
+        return null
+      })
+      const res = await complete(u.token, p.body.fileId)
+      spy.mockRestore()
+      expect(res.status).toBe(200)
+      expect(res.body.status).toBe('uploading')
     })
 
     it('presign reports maxBytes equal to the declared size', async () => {

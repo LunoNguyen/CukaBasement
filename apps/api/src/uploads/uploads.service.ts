@@ -61,7 +61,8 @@ function normalizeMime(detected: string, declared: string): string {
 }
 
 function toDto(f: FileDoc): FileDto {
-  return { id: f._id.toString(), kind: f.kind, mimeType: f.mimeType, sizeBytes: f.sizeBytes, status: f.status, originalName: f.originalName }
+  // `validating` is internal; callers see it as still uploading.
+  return { id: f._id.toString(), kind: f.kind, mimeType: f.mimeType, sizeBytes: f.sizeBytes, status: f.status === 'validating' ? 'uploading' : f.status, originalName: f.originalName }
 }
 
 @Injectable()
@@ -120,11 +121,14 @@ export class UploadsService {
 
     const staging = stagingKey(ownerId, file._id.toString(), file.objectKey.slice(file.objectKey.lastIndexOf('.') + 1))
     if (!(await this.storage.stat(file.bucket, staging))) {
+      // A concurrent complete may have finished (and removed staging) after we read the file.
+      const now = await this.files.findById(file._id).lean()
+      if (now && now.status !== 'uploading') return toDto(now)
       throw new AppError('UPLOAD_NOT_FOUND', 400, 'No uploaded object found for this file')
     }
 
     // Claim first: only the winner copies and validates; everyone else just sees the current state.
-    // A file stuck in 'validating' (crash mid-way) is left for the cleanup job (Task 18).
+    // A file stuck in 'validating' (process crash mid-way) is left for the cleanup job (Task 18).
     const claim = await this.files.findOneAndUpdate(
       { _id: file._id, ownerId, status: 'uploading' },
       { $set: { status: 'validating' } },
@@ -132,21 +136,27 @@ export class UploadsService {
     )
     if (!claim) return toDto((await this.files.findById(file._id).lean()) ?? file)
 
+    try {
+      return await this.validateClaimed(file, staging)
+    } catch (err) {
+      // No-op when reject() already marked the file failed; otherwise allow a retry.
+      await this.files.updateOne({ _id: file._id, status: 'validating' }, { $set: { status: 'uploading' } })
+      throw err
+    }
+  }
+
+  private async validateClaimed(file: FileDoc, staging: string): Promise<FileDto> {
     // Validate a server-side copy the client cannot overwrite through the presigned POST.
+    // Staging stays in place until success so a failed attempt can be retried.
     try {
       await this.storage.copy(file.bucket, staging, file.bucket, file.objectKey)
     } catch {
-      await this.files.updateOne({ _id: file._id, status: 'validating' }, { $set: { status: 'uploading' } })
       throw new AppError('UPLOAD_NOT_FOUND', 400, 'No uploaded object found for this file')
     }
-    await this.storage.remove(file.bucket, staging)
     await this.testHooks.afterCopy?.()
 
     const stat = await this.storage.stat(file.bucket, file.objectKey)
-    if (!stat) {
-      await this.files.updateOne({ _id: file._id, status: 'validating' }, { $set: { status: 'uploading' } })
-      throw new AppError('UPLOAD_NOT_FOUND', 400, 'No uploaded object found for this file')
-    }
+    if (!stat) throw new AppError('UPLOAD_NOT_FOUND', 400, 'No uploaded object found for this file')
     const s = await this.settings.get()
     if (stat.size > s.maxFileBytes || stat.size > file.sizeBytes) {
       await this.reject(file, staging, 'FILE_TOO_LARGE', 413, 'File is too large')
@@ -171,8 +181,10 @@ export class UploadsService {
     const done = await this.files
       .findOneAndUpdate({ _id: file._id, status: 'validating' }, { $set: { mimeType, sizeBytes: stat.size, status: 'processing' } }, { returnDocument: 'after' })
       .lean()
+    if (!done) return toDto((await this.files.findById(file._id).lean()) ?? file)
+    await this.storage.remove(file.bucket, staging)
     await this.jobs.enqueue('process-file', { fileId: file._id.toString() })
-    return toDto(done ?? file)
+    return toDto(done)
   }
 
   /** Removes both objects, marks the claimed file failed and throws. */
