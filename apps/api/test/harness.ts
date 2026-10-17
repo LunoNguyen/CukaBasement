@@ -16,6 +16,7 @@ import { CONFIG, type Config, loadConfig } from '../src/config/config'
 import type { JobDeps } from '../src/jobs/handlers/media'
 import { processFile } from '../src/jobs/handlers/process-file'
 import { relocateVariants } from '../src/jobs/handlers/relocate-variants'
+import { rewatermark } from '../src/jobs/handlers/rewatermark'
 import { JOBS, type JobName, type JobsPort } from '../src/jobs/jobs.port'
 import { SettingsService } from '../src/settings/settings.service'
 import { StorageService } from '../src/storage/storage.service'
@@ -225,7 +226,7 @@ export type CreatePostBody = {
   description: string
   rating: 'all' | 'r18'
   tags: string[]
-  sourceCredit: string
+  credit: Record<string, unknown>
   aiDeclaration: boolean
   files: Array<{ fileId: string; position: number; isCover: boolean }>
 }
@@ -237,7 +238,7 @@ export function jobDeps(h: Harness): JobDeps {
 
 /**
  * Uploads tiny.png (unless `overrides.files` is given), processes it inline and creates a post via HTTP.
- * Any relocate-variants job the create enqueued is run inline too, as the worker would. Returns the postId.
+ * Any relocate-variants / rewatermark job the create enqueued is run inline too, as the worker would. Returns the postId.
  */
 export async function createPost(h: Harness, user: { token: string }, overrides: Partial<CreatePostBody> = {}): Promise<string> {
   let files = overrides.files
@@ -252,7 +253,7 @@ export async function createPost(h: Harness, user: { token: string }, overrides:
     description: '',
     rating: 'all',
     tags: [],
-    sourceCredit: '',
+    credit: { isOwnWork: true },
     aiDeclaration: true,
     ...overrides,
     files,
@@ -261,7 +262,9 @@ export async function createPost(h: Harness, user: { token: string }, overrides:
   if (res.status !== 201) throw new Error(`create post failed: ${res.status} ${JSON.stringify(res.body)}`)
   const postId = res.body.id as string
   for (const job of h.jobs.enqueued) {
-    if (job.name === 'relocate-variants' && job.data.postId === postId) await relocateVariants(jobDeps(h), { postId })
+    if (job.data.postId !== postId) continue
+    if (job.name === 'relocate-variants') await relocateVariants(jobDeps(h), { postId })
+    if (job.name === 'rewatermark') await rewatermark(jobDeps(h), { postId })
   }
   return postId
 }

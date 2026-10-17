@@ -8,6 +8,9 @@ export type JobDeps = { conn: mongoose.Connection; storage: StorageService; conf
 
 export const MEDIA_TIMEOUT_MS = 60_000
 
+/** Explicit decompression-bomb guard for every untrusted image input. */
+export const SHARP_INPUT = { limitInputPixels: 100_000_000 }
+
 export class MediaTimeoutError extends Error {}
 
 /** Runs a binary to completion; rejects with its stderr on a non-zero exit, or SIGKILLs it after `timeoutMs`. */

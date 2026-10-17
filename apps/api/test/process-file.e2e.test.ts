@@ -10,6 +10,8 @@ import { AgendaJobs } from '../src/jobs/agenda-jobs'
 import { type JobDeps, run } from '../src/jobs/handlers/media'
 import { processFile, processFileHooks } from '../src/jobs/handlers/process-file'
 import { relocateVariants } from '../src/jobs/handlers/relocate-variants'
+import { rewatermark } from '../src/jobs/handlers/rewatermark'
+import { renderBlurred } from '../src/jobs/handlers/variants'
 import { StorageService } from '../src/storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../src/uploads/file.schema'
 import { createTestHarness, createUser, type Harness, uploadFixture } from './harness'
@@ -266,6 +268,178 @@ describe('process-file / relocate-variants', () => {
     const f = await load(fileId)
     expect(f.variants.map((v) => v.name).sort()).toEqual(['blurred', 'thumb_md', 'thumb_sm'])
     expect(f.variants.every((v) => v.bucket === bucketOriginals)).toBe(true)
+  })
+
+  describe('watermark', () => {
+    const repost = {
+      isOwnWork: false,
+      artistName: 'Ruri',
+      artistHandle: '@_rurisuisen',
+      platform: 'x',
+      sourceUrl: 'https://x.com/_rurisuisen/status/1890567100382544149',
+      permissionNote: '',
+    }
+
+    /** Mean absolute per-channel difference of two same-size images over a region given in fractions of the size. */
+    async function diff(a: Buffer, b: Buffer, region: 'bottomRight' | 'topLeft'): Promise<number> {
+      const meta = await sharp(a).metadata()
+      const [w, h] = [meta.width!, meta.height!]
+      const r = region === 'bottomRight'
+        ? { left: Math.floor(w * 0.6), top: Math.floor(h * 0.9), width: w - Math.floor(w * 0.6), height: h - Math.floor(h * 0.9) }
+        : { left: 0, top: 0, width: Math.floor(w * 0.4), height: Math.floor(h * 0.4) }
+      const raw = (buf: Buffer) => sharp(buf).removeAlpha().extract(r).raw().toBuffer()
+      const [x, y] = await Promise.all([raw(a), raw(b)])
+      let sum = 0
+      for (let i = 0; i < x.length; i++) sum += Math.abs(x[i]! - y[i]!)
+      return sum / x.length
+    }
+
+    async function seedPost(fileIds: string[], over: Record<string, unknown> = {}): Promise<string> {
+      const { insertedId: authorId } = await h.db.collection('users').insertOne({ profile: { username: 'du_ca' } })
+      const { insertedId } = await h.db.collection('posts').insertOne({
+        authorId,
+        rating: 'all',
+        credit: repost,
+        files: fileIds.map((id, i) => ({ fileId: new Types.ObjectId(id), position: i, isCover: i === 0 })),
+        deletedAt: null,
+        ...over,
+      })
+      return insertedId.toString()
+    }
+
+    const big = () => sharp({ create: { width: 1600, height: 1200, channels: 3, background: '#88aacc' } }).png().toBuffer()
+    const bytesOf = async (fileId: string, name: string) => {
+      const v = variant(await load(fileId), name)!
+      return storage.getBuffer(v.bucket, v.objectKey)
+    }
+
+    it('file of a credited post: watermarked thumbs differ from an unwatermarked render bottom-right only; original untouched', async () => {
+      const src = await big()
+      const plain = await seedFile('image', 'image/png', 'png', src)
+      const marked = await seedFile('image', 'image/png', 'png', src)
+      await seedPost([marked])
+      await processFile(deps, { fileId: plain })
+      await processFile(deps, { fileId: marked })
+
+      for (const name of ['thumb_md', 'thumb_sm']) {
+        const [a, b] = [await bytesOf(plain, name), await bytesOf(marked, name)]
+        expect(await diff(a, b, 'bottomRight'), name).toBeGreaterThan(5)
+        expect(await diff(a, b, 'topLeft'), name).toBeLessThan(1)
+        expect((await sharp(b).metadata()).exif).toBeUndefined()
+      }
+      const f = await load(marked)
+      expect(f.variants.every((v) => v.bucket === bucketPublic)).toBe(true)
+      expect((await storage.getBuffer(f.bucket, f.objectKey)).equals(src)).toBe(true)
+    })
+
+    it('file processed before its post exists: rewatermark adds the mark; a credit edit changes thumb_md bytes', async () => {
+      const src = await big()
+      const fileId = await seedFile('image', 'image/png', 'png', src)
+      await processFile(deps, { fileId })
+      const clean = await bytesOf(fileId, 'thumb_md')
+
+      const postId = await seedPost([fileId])
+      await rewatermark(deps, { postId })
+      const first = await bytesOf(fileId, 'thumb_md')
+      expect(await diff(clean, first, 'bottomRight')).toBeGreaterThan(5)
+      expect(await diff(clean, first, 'topLeft')).toBeLessThan(1)
+
+      await h.db.collection('posts').updateOne({ _id: new Types.ObjectId(postId) }, { $set: { credit: { ...repost, artistHandle: 'someone_else', platform: 'pixiv' } } })
+      await rewatermark(deps, { postId })
+      const second = await bytesOf(fileId, 'thumb_md')
+      expect(second.equals(first)).toBe(false)
+      const f = await load(fileId)
+      expect(f.status).toBe('ready')
+      expect((await storage.getBuffer(f.bucket, f.objectKey)).equals(src)).toBe(true)
+    })
+
+    it('post appearing while the file is processing still gets the watermark', async () => {
+      const src = await big()
+      const plain = await seedFile('image', 'image/png', 'png', src)
+      await processFile(deps, { fileId: plain })
+      const fileId = await seedFile('image', 'image/png', 'png', src)
+      processFileHooks.beforeStore = async () => {
+        await seedPost([fileId])
+      }
+      try {
+        await processFile(deps, { fileId })
+      } finally {
+        processFileHooks.beforeStore = undefined
+      }
+      expect(await diff(await bytesOf(plain, 'thumb_md'), await bytesOf(fileId, 'thumb_md'), 'bottomRight')).toBeGreaterThan(5)
+    })
+
+    it('r18 post: rewatermark keeps every variant in the originals bucket and marks blurred after blurring', async () => {
+      const src = await big()
+      const fileId = await seedFile('image', 'image/png', 'png', src)
+      await processFile(deps, { fileId })
+      const clean = await bytesOf(fileId, 'thumb_md')
+      const postId = await seedPost([fileId], { rating: 'r18' })
+      await relocateVariants(deps, { postId })
+      await rewatermark(deps, { postId })
+
+      const f = await load(fileId)
+      expect(f.variants.map((v) => v.name).sort()).toEqual(['blurred', 'thumb_md', 'thumb_sm'])
+      for (const v of f.variants) {
+        expect(v.bucket).toBe(bucketOriginals)
+        expect(await exists(bucketOriginals, v.objectKey)).toBe(true)
+        expect(await exists(bucketPublic, v.objectKey)).toBe(false)
+      }
+      const plainBlurred = (await renderBlurred(clean)).body
+      expect(await diff(plainBlurred, await bytesOf(fileId, 'blurred'), 'bottomRight')).toBeGreaterThan(5)
+
+      // Back to all: rewatermark alone drops blurred from both buckets and publishes the rest.
+      await h.db.collection('posts').updateOne({ _id: new Types.ObjectId(postId) }, { $set: { rating: 'all' } })
+      const blurredKey = variant(f, 'blurred')!.objectKey
+      await rewatermark(deps, { postId })
+      const all = await load(fileId)
+      expect(all.variants.map((v) => v.name).sort()).toEqual(['thumb_md', 'thumb_sm'])
+      expect(all.variants.every((v) => v.bucket === bucketPublic)).toBe(true)
+      expect(await exists(bucketOriginals, blurredKey)).toBe(false)
+      expect(await exists(bucketPublic, blurredKey)).toBe(false)
+      for (const v of all.variants) expect(await exists(bucketOriginals, v.objectKey)).toBe(false)
+    })
+
+    it('relocate to r18 of a watermarked file marks the new blurred variant', async () => {
+      const src = await big()
+      const fileId = await seedFile('image', 'image/png', 'png', src)
+      const postId = await seedPost([fileId])
+      await processFile(deps, { fileId })
+      const md = await bytesOf(fileId, 'thumb_md')
+      await h.db.collection('posts').updateOne({ _id: new Types.ObjectId(postId) }, { $set: { rating: 'r18' } })
+      await relocateVariants(deps, { postId })
+      const blurred = await bytesOf(fileId, 'blurred')
+      // Blurring the watermarked thumb_md smears the mark; a fresh mark must be drawn on top.
+      expect(await diff((await renderBlurred(md)).body, blurred, 'bottomRight')).toBeGreaterThan(5)
+    })
+
+    it('video: poster-derived preview and thumbs are watermarked; the video itself is untouched', async () => {
+      const u = await createUser(h)
+      const plain = await uploadFixture(h, u, 'one-second.mp4')
+      const marked = await uploadFixture(h, u, 'one-second.mp4')
+      await seedPost([marked])
+      await processFile(deps, { fileId: plain })
+      await processFile(deps, { fileId: marked })
+      for (const name of ['preview', 'thumb_md', 'thumb_sm']) {
+        expect(await diff(await bytesOf(plain, name), await bytesOf(marked, name), 'bottomRight'), name).toBeGreaterThan(5)
+      }
+      const f = await load(marked)
+      const original = await storage.getBuffer(f.bucket, f.objectKey)
+      expect(original.equals(readFileSync(join(__dirname, 'fixtures', 'one-second.mp4')))).toBe(true)
+    })
+
+    it('rewatermark leaves audio, archives and not-ready files alone', async () => {
+      const u = await createUser(h)
+      const audio = await uploadFixture(h, u, 'tone.mp3')
+      await processFile(deps, { fileId: audio })
+      const pending = await seedFile('image', 'image/png', 'png', await big())
+      const postId = await seedPost([audio, pending])
+      await rewatermark(deps, { postId })
+      expect((await load(audio)).variants).toEqual([])
+      expect(await load(pending)).toMatchObject({ status: 'processing', variants: [] })
+      await rewatermark(deps, { postId: new Types.ObjectId().toString() })
+      await rewatermark(deps, { postId: 'nope' })
+    })
   })
 
   it('run() kills a hung ffmpeg after the timeout', async () => {
