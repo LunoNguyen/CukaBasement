@@ -56,6 +56,7 @@ export const MOD_ACTIONS = [
   'delete_comment',
   'update_setting',
   'auto_hide',
+  'update_credit',
 ] as const
 export type ModAction = (typeof MOD_ACTIONS)[number]
 

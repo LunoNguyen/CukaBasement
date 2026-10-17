@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CREDIT_PLATFORMS,
+  creditSchema,
+  ERROR_CODES,
+  MOD_ACTIONS,
+  PLATFORM_LABELS,
   adminSettingsSchema,
   createPostSchema,
   cursorQuerySchema,
@@ -15,8 +20,19 @@ const validPost = {
   rating: 'all',
   tags: ['a'],
   aiDeclaration: true,
+  credit: { isOwnWork: true },
   files: [{ fileId: 'f1', position: 0, isCover: true }],
 }
+const repostCredit = {
+  isOwnWork: false,
+  artistName: 'Ruri',
+  artistHandle: '@_rurisuisen',
+  platform: 'x',
+  sourceUrl: 'https://x.com/_rurisuisen/status/1890567100382544149',
+  permissionNote: '',
+}
+const creditCode = (r: { success: boolean; error?: { issues: Array<{ code: string; params?: Record<string, unknown> }> } }) =>
+  r.error?.issues.find((i) => i.code === 'custom')?.params?.code
 const validReg = {
   email: 'a@b.co',
   password: 'password1',
@@ -28,7 +44,46 @@ describe('schemas', () => {
   it('accepts valid post and applies defaults', () => {
     const r = createPostSchema.parse(validPost)
     expect(r.description).toBe('')
-    expect(r.sourceCredit).toBe('')
+    expect(r).not.toHaveProperty('sourceCredit')
+    expect(r.credit).toEqual({ isOwnWork: true, artistName: '', artistHandle: '', platform: 'other', sourceUrl: '', permissionNote: '' })
+  })
+  it('createPost requires credit; updatePost leaves it optional', () => {
+    const { credit: _, ...noCredit } = validPost
+    expect(createPostSchema.safeParse(noCredit).success).toBe(false)
+    expect(updatePostSchema.safeParse({ title: 'x' }).success).toBe(true)
+    expect(updatePostSchema.parse({ credit: repostCredit }).credit).toEqual(repostCredit)
+  })
+  it('repost credit needs artistName, platform and sourceUrl (CREDIT_REQUIRED)', () => {
+    expect(createPostSchema.safeParse({ ...validPost, credit: repostCredit }).success).toBe(true)
+    for (const missing of ['artistName', 'platform', 'sourceUrl'] as const) {
+      const { [missing]: _, ...credit } = repostCredit
+      const r = createPostSchema.safeParse({ ...validPost, credit })
+      expect(r.success, missing).toBe(false)
+      expect(creditCode(r), missing).toBe('CREDIT_REQUIRED')
+    }
+    const blank = creditSchema.safeParse({ ...repostCredit, artistName: '  ', sourceUrl: '' })
+    expect(blank.success).toBe(false)
+    expect(creditCode(blank)).toBe('CREDIT_REQUIRED')
+    expect(updatePostSchema.safeParse({ credit: { isOwnWork: false } }).success).toBe(false)
+  })
+  it('own work passes without artist fields', () => {
+    expect(creditSchema.safeParse({ isOwnWork: true }).success).toBe(true)
+    expect(creditSchema.safeParse({ isOwnWork: true, artistName: '', sourceUrl: '' }).success).toBe(true)
+  })
+  it('credit field limits and url/platform checks', () => {
+    expect(creditSchema.safeParse({ ...repostCredit, artistName: 'a'.repeat(101) }).success).toBe(false)
+    expect(creditSchema.safeParse({ ...repostCredit, artistHandle: 'a'.repeat(101) }).success).toBe(false)
+    expect(creditSchema.safeParse({ ...repostCredit, permissionNote: 'a'.repeat(301) }).success).toBe(false)
+    expect(creditSchema.safeParse({ ...repostCredit, sourceUrl: `https://x.com/${'a'.repeat(500)}` }).success).toBe(false)
+    expect(creditSchema.safeParse({ ...repostCredit, sourceUrl: 'not a url' }).success).toBe(false)
+    expect(creditSchema.safeParse({ ...repostCredit, sourceUrl: 'javascript:alert(1)' }).success).toBe(false)
+    expect(creditSchema.safeParse({ ...repostCredit, platform: 'tumblr' }).success).toBe(false)
+  })
+  it('exports credit platforms, labels, error code and mod action', () => {
+    expect(CREDIT_PLATFORMS).toEqual(['x', 'facebook', 'pixiv', 'deviantart', 'instagram', 'youtube', 'other'])
+    expect(PLATFORM_LABELS).toEqual({ x: 'X', facebook: 'Facebook', pixiv: 'pixiv', deviantart: 'DeviantArt', instagram: 'Instagram', youtube: 'YouTube', other: '' })
+    expect(ERROR_CODES).toContain('CREDIT_REQUIRED')
+    expect(MOD_ACTIONS).toContain('update_credit')
   })
   it('requires aiDeclaration true', () =>
     expect(createPostSchema.safeParse({ ...validPost, aiDeclaration: false }).success).toBe(false))
