@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module'
 import { GlobalErrorFilter } from './common/error.filter'
 import { CONFIG, type Config, loadConfig } from './config/config'
 import { DatabaseModule } from './database/database.module'
+import { CommentsModule } from './comments/comments.module'
 import { FeedModule } from './feed/feed.module'
 import { InteractionsModule } from './interactions/interactions.module'
 import { JobsModule } from './jobs/jobs.module'
@@ -57,6 +58,7 @@ export class HealthController {
     FeedModule,
     NotificationsModule,
     InteractionsModule,
+    CommentsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],
