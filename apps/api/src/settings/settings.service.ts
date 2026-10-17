@@ -16,6 +16,10 @@ export class SettingsService {
     return this.conn.collection<any>('settings')
   }
 
+  clearCache(): void {
+    this.cache = undefined
+  }
+
   async get(): Promise<GlobalSettings> {
     if (this.cache && Date.now() - this.cache.at < CACHE_MS) return this.cache.value
     const doc = await this.col().findOne({ _id: 'global' })

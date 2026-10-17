@@ -1,7 +1,9 @@
 import 'reflect-metadata'
 import { DEFAULT_SETTINGS } from '@cuka/shared'
 import { Client } from 'minio'
-import mongoose from 'mongoose'
+import { getConnectionToken } from '@nestjs/mongoose'
+import type mongoose from 'mongoose'
+import { createAppContext } from '../app.module'
 import { type Config, loadConfig } from '../config/config'
 import { ensureIndexes } from '../database/indexes'
 
@@ -12,8 +14,9 @@ async function ensureBucket(client: Client, bucket: string): Promise<boolean> {
 }
 
 export async function runSetup(cfg: Config, log: (line: string) => void = () => {}): Promise<void> {
-  const conn = await mongoose.createConnection(cfg.mongoUri).asPromise()
+  const app = await createAppContext(cfg)
   try {
+    const conn = app.get<mongoose.Connection>(getConnectionToken())
     await ensureIndexes(conn)
     log(`indexes: synced ${Object.keys(conn.models).length} models`)
     const res = await conn
@@ -21,7 +24,7 @@ export async function runSetup(cfg: Config, log: (line: string) => void = () => 
       .updateOne({ _id: 'global' }, { $setOnInsert: { ...DEFAULT_SETTINGS } }, { upsert: true })
     log(`settings: ${res.upsertedCount ? 'created with defaults' : 'kept existing'}`)
   } finally {
-    await conn.close()
+    await app.close()
   }
 
   const m = cfg.minio

@@ -8,6 +8,7 @@ import supertest from 'supertest'
 import { AppModule, configureApp } from '../src/app.module'
 import { CONFIG, type Config, loadConfig } from '../src/config/config'
 import { JOBS, type JobName, type JobsPort } from '../src/jobs/jobs.port'
+import { SettingsService } from '../src/settings/settings.service'
 import { MAIL, type MailMessage, type MailPort } from '../src/mail/mail.port'
 
 const DEFAULT_TEST_URI = 'mongodb://127.0.0.1:27017/CukaDB_test'
@@ -120,6 +121,7 @@ export async function createTestHarness(): Promise<Harness> {
       await Promise.all(collections.map((c) => db.dropCollection(c.name)))
       await Promise.all(Object.values(db.models).map((m) => m.createIndexes()))
       await resetBuckets(config)
+      app.get(SettingsService).clearCache()
       sent.length = 0
       enqueued.length = 0
     },
