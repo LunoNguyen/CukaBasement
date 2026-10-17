@@ -45,6 +45,10 @@ export class GlobalErrorFilter implements ExceptionFilter {
     if (e instanceof NotFoundException) {
       return [404, envelope('NOT_FOUND', e.message)]
     }
+    if (e instanceof HttpException && e.getStatus() < 500) {
+      const status = e.getStatus()
+      return [status, envelope(codeForStatus(status), e.message)]
+    }
     this.logger.error(e instanceof Error ? (e.stack ?? e.message) : String(e))
     const message = this.config.nodeEnv === 'production' || !(e instanceof Error) ? 'Internal server error' : e.message
     return [500, envelope('INTERNAL', message)]
@@ -53,6 +57,21 @@ export class GlobalErrorFilter implements ExceptionFilter {
 
 function envelope(code: ErrorCode, message: string, details?: unknown): ErrorBody {
   return { error: details === undefined ? { code, message } : { code, message, details } }
+}
+
+function codeForStatus(status: number): ErrorCode {
+  switch (status) {
+    case 401:
+      return 'UNAUTHENTICATED'
+    case 403:
+      return 'FORBIDDEN'
+    case 404:
+      return 'NOT_FOUND'
+    case 429:
+      return 'RATE_LIMITED'
+    default:
+      return 'VALIDATION_FAILED' // 400, 413, 422 and any other 4xx
+  }
 }
 
 function isDuplicateKey(e: unknown): boolean {

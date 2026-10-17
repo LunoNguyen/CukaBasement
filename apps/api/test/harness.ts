@@ -32,17 +32,12 @@ function dbNameOf(uri: string): string {
 export function testConfig(): Config {
   const mongoUri = process.env.MONGODB_URI_TEST || DEFAULT_TEST_URI
   if (!dbNameOf(mongoUri).endsWith('_test')) throw new Error('Refusing to run tests against non-_test database')
-  const base = loadConfig({ NODE_ENV: 'test' })
+  const base = loadConfig({ MINIO_ENDPOINT: '127.0.0.1', ...process.env, NODE_ENV: 'test' })
   return {
     ...base,
     mongoUri,
     smtpUrl: undefined,
-    minio: {
-      ...base.minio,
-      endPoint: '127.0.0.1',
-      bucketOriginals: 'test-cuka-originals',
-      bucketPublic: 'test-cuka-public',
-    },
+    minio: { ...base.minio, bucketOriginals: 'test-cuka-originals', bucketPublic: 'test-cuka-public' },
   }
 }
 
@@ -96,6 +91,8 @@ export async function createTestHarness(): Promise<Harness> {
       },
     },
     async reset() {
+      // Let Mongoose's automatic index builds settle first so they cannot race the drop.
+      await Promise.all(Object.values(db.models).map((m) => m.init()))
       const collections = await db.listCollections()
       await Promise.all(collections.map((c) => db.dropCollection(c.name)))
       await Promise.all(Object.values(db.models).map((m) => m.createIndexes()))

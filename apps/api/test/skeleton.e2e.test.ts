@@ -19,6 +19,11 @@ describe('skeleton', () => {
     expect(r.body).toEqual({ error: { code: 'NOT_FOUND', message: expect.any(String) } })
   })
 
+  it('malformed JSON body → 400 VALIDATION_FAILED envelope', async () => {
+    const r = await h.http().post('/api/health').set('Content-Type', 'application/json').send('{bad').expect(400)
+    expect(r.body).toEqual({ error: { code: 'VALIDATION_FAILED', message: expect.any(String) } })
+  })
+
   it('harness refuses non-test db', async () => {
     const prev = process.env.MONGODB_URI_TEST
     try {
