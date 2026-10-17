@@ -2,27 +2,20 @@
   "name": "cukabasement",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "run-p type-check \"build-only {@}\" --",
-    "preview": "vite preview",
-    "build-only": "vite build",
-    "type-check": "vue-tsc --build"
-  },
-  "dependencies": {
-    "vue": "rc"
+    "dev": "concurrently -n shared,api,worker,web \"npm -w @cuka/shared run dev\" \"npm -w @cuka/api run dev\" \"npm -w @cuka/worker run dev\" \"npm -w @cuka/web run dev\"",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "type-check": "npm run type-check --workspaces --if-present",
+    "setup": "npm -w @cuka/api run setup",
+    "create-admin": "npm -w @cuka/api run create-admin --"
   },
   "devDependencies": {
-    "@tsconfig/node24": "^24.0.5",
-    "@types/node": "^24.13.4",
-    "@vitejs/plugin-vue": "^6.0.8",
-    "@vue/tsconfig": "^0.9.1",
-    "npm-run-all2": "^9.0.3",
-    "typescript": "~6.0.0",
-    "vite": "^8.2.2",
-    "vite-plugin-vue-devtools": "^8.2.1",
-    "vue-tsc": "^3.3.11"
+    "concurrently": "^10.0.6"
   },
   "engines": {
     "node": "^22.18.0 || >=24.12.0"

@@ -23,20 +23,18 @@ TypeScript cannot handle type information for `.vue` imports by default, so we r
 
 See [Vite Configuration Reference](https://vite.dev/config/).
 
-## Project Setup
+## Cài đặt
+
+**Yêu cầu:** Node.js (theo `engines` trong `package.json`), MongoDB đang chạy với database `CukaDB`, MinIO đang chạy local, và ffmpeg có trong `PATH`.
+
+**CORS cho MinIO:** cho phép origin của `APP_URL` (mặc định `http://localhost:5173`) thực hiện POST, để trình duyệt upload trực tiếp lên MinIO.
 
 ```sh
+cp .env.example .env        # rồi chỉnh các giá trị cho phù hợp
 npm install
+npm run setup               # tạo index MongoDB, bucket MinIO và settings (chạy lại an toàn)
+npm run create-admin -- --email <email> --password <mật khẩu> --username <tên>
+npm run dev                 # chạy song song shared, api, worker, web
 ```
 
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
+Các lệnh khác: `npm run build`, `npm test`, `npm run type-check`.
