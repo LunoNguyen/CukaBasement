@@ -34,6 +34,8 @@ export const LikeSchema = new Schema<Like>(
   { collection: 'likes', timestamps: createdOnly },
 )
 LikeSchema.index({ userId: 1, postId: 1 }, { unique: true })
+// Per-post lookups by the nightly reconcile and the purge job.
+LikeSchema.index({ postId: 1 })
 
 export const BookmarkSchema = new Schema<Bookmark>(
   { userId: ref, postId: ref, isPrivate: { type: Boolean, default: false } },
@@ -41,6 +43,7 @@ export const BookmarkSchema = new Schema<Bookmark>(
 )
 BookmarkSchema.index({ userId: 1, postId: 1 }, { unique: true })
 BookmarkSchema.index({ userId: 1, createdAt: -1 })
+BookmarkSchema.index({ postId: 1 })
 
 export const FollowSchema = new Schema<Follow>(
   { followerId: ref, followeeId: ref },

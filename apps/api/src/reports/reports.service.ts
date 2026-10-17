@@ -26,21 +26,28 @@ function postNotFound(): AppError {
   return new AppError('POST_NOT_FOUND', 404, 'Post not found')
 }
 
+/** Counts `open` reports per post for the given posts (absent ones count zero). Shared with the nightly reconcile. */
+export async function countOpenReports(conn: Connection, postIds: Types.ObjectId[]): Promise<Map<string, ReportCounts>> {
+  const rows = await conn
+    .collection('reports')
+    .aggregate<ReportCounts & { _id: Types.ObjectId }>([
+      { $match: { postId: { $in: postIds }, status: 'open' } },
+      { $group: { _id: '$postId', total: { $sum: 1 }, ai_art: { $sum: { $cond: [{ $eq: ['$reason', 'ai_art'] }, 1, 0] } } } },
+    ])
+    .toArray()
+  const out = new Map<string, ReportCounts>()
+  for (const id of postIds) out.set(id.toString(), { total: 0, ai_art: 0 })
+  for (const r of rows) out.set(r._id.toString(), { total: r.total, ai_art: r.ai_art })
+  return out
+}
+
 /**
  * Recomputes `posts.reportCounts` from the post's `open` reports and stores it. A plain function
- * over the connection so jobs (nightly reconcile) can use it without Nest DI.
+ * over the connection so jobs can use it without Nest DI.
  */
 export async function recountOpenReports(conn: Connection, postId: string): Promise<ReportCounts> {
   const _id = new Types.ObjectId(postId)
-  const [row] = await conn
-    .collection('reports')
-    .aggregate<ReportCounts>([
-      { $match: { postId: _id, status: 'open' } },
-      { $group: { _id: null, total: { $sum: 1 }, ai_art: { $sum: { $cond: [{ $eq: ['$reason', 'ai_art'] }, 1, 0] } } } },
-      { $project: { _id: 0, total: 1, ai_art: 1 } },
-    ])
-    .toArray()
-  const counts = { total: row?.total ?? 0, ai_art: row?.ai_art ?? 0 }
+  const counts = (await countOpenReports(conn, [_id])).get(_id.toString())!
   // The raw driver leaves `updatedAt` alone: a recount is not an edit.
   await conn.collection('posts').updateOne({ _id }, { $set: { reportCounts: counts } })
   return counts

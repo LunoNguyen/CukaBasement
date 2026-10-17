@@ -10,7 +10,10 @@ import { AppModule } from '@cuka/api/app.module'
 import { CONFIG, type Config } from '@cuka/api/config/config'
 import type { AgendaJobs } from '@cuka/api/jobs/agenda-jobs'
 import type { JobDeps } from '@cuka/api/jobs/handlers/media'
+import { cleanupUploads } from '@cuka/api/jobs/handlers/cleanup-uploads'
 import { processFile } from '@cuka/api/jobs/handlers/process-file'
+import { purgeDeletedPosts } from '@cuka/api/jobs/handlers/purge-deleted-posts'
+import { reconcileCounters } from '@cuka/api/jobs/handlers/reconcile-counters'
 import { relocateVariants } from '@cuka/api/jobs/handlers/relocate-variants'
 import { JOBS } from '@cuka/api/jobs/jobs.port'
 import { StorageService } from '@cuka/api/storage/storage.service'
@@ -28,10 +31,14 @@ async function bootstrap(): Promise<void> {
     storage: app.get(StorageService),
     config: app.get<Config>(CONFIG),
   }
-  const { agenda } = app.get<AgendaJobs>(JOBS)
+  const jobs = app.get<AgendaJobs>(JOBS)
+  const { agenda } = jobs
 
   agenda.define<{ fileId: string }>('process-file', (job) => processFile(deps, job.attrs.data), { concurrency: 2 })
   agenda.define<{ postId: string }>('relocate-variants', (job) => relocateVariants(deps, job.attrs.data), { concurrency: 2 })
+  agenda.define('cleanup-uploads', async () => void (await cleanupUploads({ ...deps, jobs })), { concurrency: 1 })
+  agenda.define('purge-deleted-posts', async () => void (await purgeDeletedPosts(deps)), { concurrency: 1 })
+  agenda.define('reconcile-counters', async () => void (await reconcileCounters(deps)), { concurrency: 1 })
 
   // Runs synchronously before Agenda persists the job state, so the new nextRunAt is saved with it.
   agenda.on('fail', (err: Error, job: Job) => {
@@ -60,6 +67,10 @@ async function bootstrap(): Promise<void> {
   process.once('SIGTERM', () => void shutdown())
 
   await agenda.start()
+  // Cron times are server local time.
+  await agenda.every('1 hour', 'cleanup-uploads')
+  await agenda.every('0 3 * * *', 'purge-deleted-posts')
+  await agenda.every('30 3 * * *', 'reconcile-counters')
   logger.log('worker ready')
 }
 

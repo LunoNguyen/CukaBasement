@@ -32,3 +32,5 @@ export const NotificationSchema = new Schema<Notification>(
 
 NotificationSchema.index({ userId: 1, readAt: 1, createdAt: -1 })
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: NINETY_DAYS_SECONDS })
+// The purge job removes a post's notifications.
+NotificationSchema.index({ postId: 1 }, { partialFilterExpression: { postId: { $type: 'objectId' } } })

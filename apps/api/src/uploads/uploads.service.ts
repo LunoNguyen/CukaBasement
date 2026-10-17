@@ -38,7 +38,7 @@ function extOf(name: string): string {
 }
 
 /** Where the client's presigned POST writes; never the validated objectKey. */
-function stagingKey(ownerId: string, fileId: string, ext: string): string {
+export function stagingKey(ownerId: string, fileId: string, ext: string): string {
   return `${ownerId}/${fileId}/upload.${ext}`
 }
 
