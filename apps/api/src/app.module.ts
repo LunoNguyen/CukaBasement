@@ -6,6 +6,8 @@ import { CONFIG, type Config, loadConfig } from './config/config'
 import { DatabaseModule } from './database/database.module'
 import { JobsModule } from './jobs/jobs.module'
 import { MailModule } from './mail/mail.module'
+import { SettingsModule } from './settings/settings.module'
+import { StorageModule } from './storage/storage.module'
 
 @Global()
 @Module({
@@ -23,7 +25,7 @@ export class HealthController {
 }
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, MailModule, JobsModule],
+  imports: [ConfigModule, DatabaseModule, MailModule, JobsModule, SettingsModule, StorageModule],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],
 })

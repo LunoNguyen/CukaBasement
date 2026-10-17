@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common'
 import { getConnectionToken } from '@nestjs/mongoose'
 import { Test } from '@nestjs/testing'
 import type mongoose from 'mongoose'
+import { Client } from 'minio'
 import supertest from 'supertest'
 import { AppModule, configureApp } from '../src/app.module'
 import { CONFIG, type Config, loadConfig } from '../src/config/config'
@@ -19,6 +20,28 @@ export interface Harness {
   jobs: { enqueued: Array<{ name: JobName; data: Record<string, unknown> }>; clear(): void }
   reset(): Promise<void>
   close(): Promise<void>
+}
+
+/** POSTs a presigned-POST form; the `file` field must come last. */
+export async function postMultipart(url: string, fields: Record<string, string>, body: Buffer): Promise<Response> {
+  const form = new FormData()
+  for (const [k, v] of Object.entries(fields)) form.append(k, v)
+  form.append('file', new Blob([new Uint8Array(body)]), 'upload.bin')
+  return fetch(url, { method: 'POST', body: form })
+}
+
+async function resetBuckets(config: Config): Promise<void> {
+  const m = config.minio
+  const client = new Client({ endPoint: m.endPoint, port: m.port, useSSL: m.useSSL, accessKey: m.accessKey, secretKey: m.secretKey })
+  for (const bucket of [m.bucketOriginals, m.bucketPublic]) {
+    if (!(await client.bucketExists(bucket))) {
+      await client.makeBucket(bucket)
+      continue
+    }
+    const keys: string[] = []
+    for await (const o of client.listObjectsV2(bucket, '', true)) if (o.name) keys.push(o.name)
+    if (keys.length) await client.removeObjects(bucket, keys)
+  }
 }
 
 function dbNameOf(uri: string): string {
@@ -96,6 +119,7 @@ export async function createTestHarness(): Promise<Harness> {
       const collections = await db.listCollections()
       await Promise.all(collections.map((c) => db.dropCollection(c.name)))
       await Promise.all(Object.values(db.models).map((m) => m.createIndexes()))
+      await resetBuckets(config)
       sent.length = 0
       enqueued.length = 0
     },
