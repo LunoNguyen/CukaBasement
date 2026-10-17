@@ -8,7 +8,12 @@ import type { CursorQuery } from '../posts/posts.service'
 import { ModerationService, type QueueQuery } from './moderation.service'
 
 const queueQuerySchema = cursorQuerySchema.extend({ status: z.enum(['pending', 'rejected']).default('pending') })
-const hideSchema = z.object({ note: z.string().max(500).optional() })
+// `.default({})`: Express 5 leaves `req.body` undefined when no body is sent, and the note is optional.
+const hideSchema = z.object({ note: z.string().max(500).optional() }).default({})
+const hiddenCommentsQuerySchema = cursorQuerySchema.extend({ status: z.literal('hidden') })
+
+/** Every moderation write refuses suspended staff (spec §5.2: suspended is read-only). */
+const MOD_WRITE = Auth({ roles: ['moderator', 'admin'], write: true })
 
 @Controller('mod')
 @Auth({ roles: ['moderator', 'admin'] })
@@ -20,24 +25,28 @@ export class ModerationController {
     return this.mod.queue(v, q)
   }
 
+  @MOD_WRITE
   @Post('posts/:id/approve')
   @HttpCode(200)
   approve(@CurrentViewer() v: Viewer, @Param('id') id: string) {
     return this.mod.approve(v, id)
   }
 
+  @MOD_WRITE
   @Post('posts/:id/reject')
   @HttpCode(200)
   reject(@CurrentViewer() v: Viewer, @Param('id') id: string, @Body(new ZodPipe(rejectSchema)) body: z.infer<typeof rejectSchema>) {
     return this.mod.reject(v, id, body.reason)
   }
 
+  @MOD_WRITE
   @Post('posts/:id/hide')
   @HttpCode(200)
   hide(@CurrentViewer() v: Viewer, @Param('id') id: string, @Body(new ZodPipe(hideSchema)) body: z.infer<typeof hideSchema>) {
     return this.mod.hide(v, id, body.note)
   }
 
+  @MOD_WRITE
   @Post('posts/:id/restore')
   @HttpCode(200)
   restore(@CurrentViewer() v: Viewer, @Param('id') id: string) {
@@ -50,6 +59,7 @@ export class ModerationController {
     return this.mod.reportQueue(v, q.limit)
   }
 
+  @MOD_WRITE
   @Post('reports/posts/:postId/resolve')
   @HttpCode(200)
   resolve(
@@ -60,9 +70,22 @@ export class ModerationController {
     return this.mod.resolve(v, postId, body.decision, body.note)
   }
 
+  @MOD_WRITE
   @Post('comments/:id/hide')
   @HttpCode(200)
   hideComment(@CurrentViewer() v: Viewer, @Param('id') id: string) {
     return this.mod.hideComment(v, id)
+  }
+
+  @MOD_WRITE
+  @Post('comments/:id/restore')
+  @HttpCode(200)
+  restoreComment(@CurrentViewer() v: Viewer, @Param('id') id: string) {
+    return this.mod.restoreComment(v, id)
+  }
+
+  @Get('comments')
+  hiddenComments(@Query(new ZodPipe(hiddenCommentsQuerySchema)) q: CursorQuery) {
+    return this.mod.hiddenComments(q)
   }
 }

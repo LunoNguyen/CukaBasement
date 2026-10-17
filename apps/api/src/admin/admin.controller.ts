@@ -49,6 +49,7 @@ export class AdminController {
   }
 
   @Patch('settings')
+  @Auth({ roles: ['admin'], write: true })
   updateSettings(@CurrentViewer() v: Viewer, @Body(new ZodPipe(adminSettingsSchema)) body: z.infer<typeof adminSettingsSchema>) {
     return this.admin.updateSettings(this.viewer(v), body)
   }

@@ -204,6 +204,15 @@ describe('admin', () => {
     expect(await logs({ action: 'update_setting' })).toHaveLength(1)
   })
 
+  it('suspended admin cannot PATCH settings → 403 ACCOUNT_SUSPENDED; can still GET', async () => {
+    const admin = await createUser(h, { role: 'admin', status: 'suspended' })
+    const res = await h.http().patch('/api/admin/settings').set(auth(admin.token)).send({ reportHideThreshold: 3 })
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('ACCOUNT_SUSPENDED')
+    expect((await h.http().get('/api/admin/settings').set(auth(admin.token))).body.reportHideThreshold).toBe(5)
+    expect(await logs({ action: 'update_setting' })).toHaveLength(0)
+  })
+
   it('reportHideThreshold 3 applies to reports', async () => {
     const admin = await createUser(h, { role: 'admin' })
     const author = await createUser(h)

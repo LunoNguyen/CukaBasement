@@ -4,14 +4,15 @@ import { REPORT_REASONS, type ReportReason, type ReviewStatus, type Role, type V
 import { type Model, type QueryFilter, Types } from 'mongoose'
 import type { Viewer } from '../auth/viewer'
 import { AppError } from '../common/app-error'
-import { decodeCursor, pageOf } from '../common/cursor'
-import { COMMENT_MODEL, type Comment } from '../comments/comment.schema'
+import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
+import { COMMENT_MODEL, type Comment, type CommentStatus } from '../comments/comment.schema'
 import { NotificationsService } from '../notifications/notifications.service'
 import { POST_MODEL, type Post } from '../posts/post.schema'
-import { type CursorQuery, type PostCardDto, PostsService } from '../posts/posts.service'
+import { type AuthorDto, type CursorQuery, type PostCardDto, PostsService } from '../posts/posts.service'
 import { REPORT_MODEL, type Report } from '../reports/report.schema'
 import { ReportsService } from '../reports/reports.service'
 import { USER_MODEL, type User } from '../users/user.schema'
+import { UsersService } from '../users/users.service'
 import { ModerationLogService } from './moderation-log.service'
 
 export type QueueQuery = CursorQuery & { status: 'pending' | 'rejected' }
@@ -28,6 +29,16 @@ export interface ReportGroupDto {
   aiArt: number
   reasons: Record<ReportReason, number>
   latest: Array<{ reason: ReportReason; detail: string; reporter: { username: string }; createdAt: string }>
+}
+
+export interface HiddenCommentDto {
+  id: string
+  body: string
+  status: 'hidden'
+  parentId: string | null
+  post: { id: string; title: string }
+  author: AuthorDto
+  createdAt: string
 }
 
 /** Spec §5.2: a moderator may not act on content or accounts of another moderator or an admin; admins may. */
@@ -61,6 +72,7 @@ export class ModerationService {
     private readonly reportsService: ReportsService,
     private readonly modLog: ModerationLogService,
     private readonly notifications: NotificationsService,
+    private readonly usersService: UsersService,
   ) {}
 
   /** FIFO over (createdAt asc, _id asc). Staff viewers get full media, r18 included. */
@@ -181,14 +193,64 @@ export class ModerationService {
     return { ...this.result(current), resolved: res.modifiedCount }
   }
 
-  async hideComment(actor: Viewer, id: string): Promise<{ id: string; status: 'hidden' }> {
+  hideComment(actor: Viewer, id: string): Promise<{ id: string; status: 'hidden' }> {
+    return this.setCommentStatus(actor, id, 'visible', 'hidden', 'hide_comment')
+  }
+
+  restoreComment(actor: Viewer, id: string): Promise<{ id: string; status: 'visible' }> {
+    return this.setCommentStatus(actor, id, 'hidden', 'visible', 'restore')
+  }
+
+  /** Hidden, non-deleted comments, newest first, with their post (deleted posts included) and author. */
+  async hiddenComments(q: CursorQuery): Promise<{ items: HiddenCommentDto[]; nextCursor: string | null }> {
+    const cursor = decodeCursor(q.cursor)
+    const docs = await this.comments
+      .find({ status: 'hidden', deletedAt: null, ...(cursor ? cursorFilter(cursor) : {}) })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(q.limit + 1)
+      .lean()
+    const page = pageOf(docs, q.limit)
+    const [posts, users] = await Promise.all([
+      this.posts.find({ _id: { $in: page.items.map((c) => c.postId) } }, { title: 1 }).lean(),
+      this.users.find({ _id: { $in: page.items.map((c) => c.authorId) } }, { profile: 1 }).lean(),
+    ])
+    const titles = new Map(posts.map((p) => [p._id.toString(), p.title]))
+    const authors = new Map<string, AuthorDto>()
+    for (const u of users) {
+      const avatarUrl = u.profile.avatarFileId ? await this.usersService.publicAvatarUrl(u.profile.avatarFileId.toString()) : null
+      authors.set(u._id.toString(), { id: u._id.toString(), username: u.profile.username, displayName: u.profile.displayName, avatarUrl })
+    }
+    const items = page.items.map((c) => {
+      const postId = c.postId.toString()
+      const authorId = c.authorId.toString()
+      return {
+        id: c._id.toString(),
+        body: c.body,
+        status: 'hidden' as const,
+        parentId: c.parentId?.toString() ?? null,
+        post: { id: postId, title: titles.get(postId) ?? '' },
+        author: authors.get(authorId) ?? { id: authorId, username: '', displayName: '', avatarUrl: null },
+        createdAt: c.createdAt.toISOString(),
+      }
+    })
+    return { items, nextCursor: page.nextCursor }
+  }
+
+  /** One conditional update, so a repeated or concurrent request logs once; already in `to` → unchanged (idempotent). */
+  private async setCommentStatus<T extends CommentStatus>(
+    actor: Viewer,
+    id: string,
+    from: CommentStatus,
+    to: T,
+    action: 'hide_comment' | 'restore',
+  ): Promise<{ id: string; status: T }> {
     const _id = oid(id)
     const comment = _id ? await this.comments.findOne({ _id, deletedAt: null }).lean() : null
     if (!comment) throw new AppError('COMMENT_NOT_FOUND', 404, 'Comment not found')
     assertCanModerate(actor, await this.roleOf(comment.authorId))
-    const res = await this.comments.updateOne({ _id, status: 'visible', deletedAt: null }, { $set: { status: 'hidden' } })
-    if (res.modifiedCount > 0) await this.modLog.log(actor.id, 'hide_comment', 'comment', id)
-    return { id, status: 'hidden' }
+    const res = await this.comments.updateOne({ _id, status: from, deletedAt: null }, { $set: { status: to } })
+    if (res.modifiedCount > 0) await this.modLog.log(actor.id, action, 'comment', id)
+    return { id, status: to }
   }
 
   /**

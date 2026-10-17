@@ -352,4 +352,107 @@ describe('moderation', () => {
       expect(l.actorId.toString()).toBe(mod.id)
     }
   })
+
+  it('hide with no request body → 200 (note optional)', async () => {
+    const mod = await createUser(h, { role: 'moderator' })
+    const author = await createUser(h)
+    const postId = await seed(author.id)
+    const res = await h.http().post(`/api/mod/posts/${postId}/hide`).set(auth(mod.token))
+    expect(res.status).toBe(200)
+    expect(res.body.visibility).toBe('removed')
+    expect(await logs({ action: 'hide', targetId: postId, note: '' })).toHaveLength(1)
+  })
+
+  it('suspended moderator cannot moderate → 403 ACCOUNT_SUSPENDED on every POST; can still read the queue', async () => {
+    const mod = await createUser(h, { role: 'moderator', status: 'suspended' })
+    const author = await createUser(h)
+    const pending = { status: 'pending', reason: null, by: null, at: null }
+    const postId = await seed(author.id, { review: pending })
+    const commentId = new Types.ObjectId().toString()
+    for (const [path, body] of [
+      [`/api/mod/posts/${postId}/approve`, {}],
+      [`/api/mod/posts/${postId}/reject`, { reason: 'x' }],
+      [`/api/mod/posts/${postId}/hide`, {}],
+      [`/api/mod/posts/${postId}/restore`, {}],
+      [`/api/mod/reports/posts/${postId}/resolve`, { decision: 'keep' }],
+      [`/api/mod/comments/${commentId}/hide`, {}],
+      [`/api/mod/comments/${commentId}/restore`, {}],
+    ] as const) {
+      const res = await h.http().post(path).set(auth(mod.token)).send(body)
+      expect(res.status, path).toBe(403)
+      expect(res.body.error.code, path).toBe('ACCOUNT_SUSPENDED')
+    }
+    expect((await postDoc(postId))!.review.status).toBe('pending')
+    expect((await h.http().get('/api/mod/queue').set(auth(mod.token))).status).toBe(200)
+  })
+
+  describe('hidden comments', () => {
+    async function hiddenComment(token: string, postId: string, body: string): Promise<string> {
+      const c = await h.http().post(`/api/posts/${postId}/comments`).set(auth(token)).send({ body })
+      expect(c.status).toBe(201)
+      await h.db.collection('comments').updateOne({ _id: new Types.ObjectId(c.body.id) }, { $set: { status: 'hidden' } })
+      return c.body.id as string
+    }
+
+    it('GET /mod/comments?status=hidden lists hidden comments newest first with post and author, paginated', async () => {
+      const mod = await createUser(h, { role: 'moderator' })
+      const author = await createUser(h)
+      const postId = await seed(author.id, { title: 'The post' })
+      const a = await hiddenComment(author.token, postId, 'first')
+      const b = await hiddenComment(author.token, postId, 'second')
+      const c = await hiddenComment(author.token, postId, 'third')
+      const visible = await h.http().post(`/api/posts/${postId}/comments`).set(auth(author.token)).send({ body: 'ok' })
+      const deleted = await hiddenComment(author.token, postId, 'gone')
+      await h.db.collection('comments').updateOne({ _id: new Types.ObjectId(deleted) }, { $set: { deletedAt: new Date() } })
+
+      const p1 = await h.http().get('/api/mod/comments?status=hidden&limit=2').set(auth(mod.token))
+      expect(p1.status).toBe(200)
+      expect(p1.body.items.map((x: { id: string }) => x.id)).toEqual([c, b])
+      expect(p1.body.items[0]).toMatchObject({
+        id: c,
+        body: 'third',
+        status: 'hidden',
+        post: { id: postId, title: 'The post' },
+        author: { id: author.id, username: author.username },
+      })
+      expect(typeof p1.body.items[0].createdAt).toBe('string')
+      expect(p1.body.nextCursor).toEqual(expect.any(String))
+      const p2 = await h.http().get(`/api/mod/comments?status=hidden&limit=2&cursor=${p1.body.nextCursor}`).set(auth(mod.token))
+      expect(p2.body.items.map((x: { id: string }) => x.id)).toEqual([a])
+      expect(p2.body.nextCursor).toBeNull()
+      expect(JSON.stringify(p1.body) + JSON.stringify(p2.body)).not.toContain(visible.body.id)
+
+      const user = await createUser(h)
+      expect((await h.http().get('/api/mod/comments?status=hidden').set(auth(user.token))).status).toBe(403)
+      expect((await h.http().get('/api/mod/comments?status=bogus').set(auth(mod.token))).status).toBe(400)
+    })
+
+    it('POST /mod/comments/:id/restore makes it visible and logs restore once; peer rule applies; unknown → 404', async () => {
+      const mod = await createUser(h, { role: 'moderator' })
+      const admin = await createUser(h, { role: 'admin' })
+      const author = await createUser(h)
+      const postId = await seed(author.id)
+      const id = await hiddenComment(author.token, postId, 'rude')
+
+      const res = await h.http().post(`/api/mod/comments/${id}/restore`).set(auth(mod.token))
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ id, status: 'visible' })
+      expect((await h.db.collection('comments').findOne({ _id: new Types.ObjectId(id) }))!.status).toBe('visible')
+      expect((await h.http().post(`/api/mod/comments/${id}/restore`).set(auth(mod.token))).status).toBe(200)
+      const restoreLogs = await logs({ action: 'restore', targetType: 'comment', targetId: id })
+      expect(restoreLogs).toHaveLength(1)
+      expect(restoreLogs[0]!.actorId.toString()).toBe(mod.id)
+
+      const adminComment = await hiddenComment(admin.token, postId, 'staff')
+      const peer = await h.http().post(`/api/mod/comments/${adminComment}/restore`).set(auth(mod.token))
+      expect(peer.status).toBe(403)
+      expect(peer.body.error.code).toBe('CANNOT_MODERATE_PEER')
+
+      for (const bad of [new Types.ObjectId().toString(), 'bad']) {
+        const r = await h.http().post(`/api/mod/comments/${bad}/restore`).set(auth(mod.token))
+        expect(r.status).toBe(404)
+        expect(r.body.error.code).toBe('COMMENT_NOT_FOUND')
+      }
+    })
+  })
 })
