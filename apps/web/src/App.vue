@@ -1,11 +1,12 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import AppHeader from '@/components/layout/AppHeader.vue'
+import ToastHost from '@/components/layout/ToastHost.vue'
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <AppHeader />
+  <main class="mx-auto max-w-screen-2xl px-3 py-4">
+    <RouterView />
+  </main>
+  <ToastHost />
 </template>
-
-<style scoped></style>
