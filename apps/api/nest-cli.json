@@ -1,1 +1,8 @@
-{"compilerOptions": {"builder": "swc", "typeCheck": true, "assets": ["seed/*.json"]}}
+{
+  "compilerOptions": {
+    "builder": "tsc",
+    "assets": [
+      "seed/*.json"
+    ]
+  }
+}

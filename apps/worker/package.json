@@ -9,7 +9,8 @@
     "prebuild": "npm -w @cuka/api run build",
     "build": "nest build",
     "start": "node dist/main.js",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "pretype-check": "npm -w @cuka/api run build"
   },
   "dependencies": {
     "@cuka/api": "*",
@@ -22,8 +23,6 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.8",
-    "@swc/cli": "^0.7.8",
-    "@swc/core": "^1.16.18",
     "@types/node": "^22.18.0",
     "typescript": "~6.0.0"
   }

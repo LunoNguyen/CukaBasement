@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "builder": { "type": "swc", "options": { "stripLeadingPaths": true } },
-    "typeCheck": true,
+    "builder": "tsc",
     "tsConfigPath": "tsconfig.json"
   }
 }
