@@ -17,6 +17,7 @@ withDefaults(defineProps<{ variant?: 'primary' | 'ghost' | 'danger'; loading?: b
       'bg-red-600 text-white': variant === 'danger',
     }"
     :disabled="loading"
+    :aria-busy="loading ? true : undefined"
   >
     <Spinner v-if="loading" />
     <slot />
