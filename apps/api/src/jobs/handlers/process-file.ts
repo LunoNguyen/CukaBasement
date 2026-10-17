@@ -6,6 +6,7 @@ import { Types } from 'mongoose'
 import sharp from 'sharp'
 import type { FileDoc, FileVariant } from '../../uploads/file.schema'
 import { extractFrame, type JobDeps, probe, SHARP_INPUT } from './media'
+import { watermarkHash } from './watermark'
 import { findContextForFile, type Rendered, render, sameContext, storeFinalVariants, type VariantContext } from './variants'
 
 export { findRatingForFile } from './variants'
@@ -70,14 +71,14 @@ export async function renderCleanVariants(deps: JobDeps, file: FileDoc, tmp: str
 export async function publishVariants(deps: JobDeps, file: FileDoc, clean: Rendered[], ctx: VariantContext, set: Partial<FileDoc>): Promise<void> {
   const files = deps.conn.collection<FileDoc>('files')
   let variants: FileVariant[] = await storeFinalVariants(deps, file, clean, ctx)
-  await files.updateOne({ _id: file._id }, { $set: { ...set, variants } })
+  await files.updateOne({ _id: file._id }, { $set: { ...set, variants, watermarkedFor: clean.length ? watermarkHash(ctx.watermark) : '' } })
   if (clean.length === 0) return
   for (let i = 0; i < MAX_REDRAWS; i++) {
     const now = await findContextForFile(deps.conn, file._id)
     if (sameContext(now, ctx)) return
     ctx = now
     variants = await storeFinalVariants(deps, file, clean, ctx)
-    await files.updateOne({ _id: file._id }, { $set: { variants } })
+    await files.updateOne({ _id: file._id }, { $set: { variants, watermarkedFor: watermarkHash(ctx.watermark) } })
   }
 }
 

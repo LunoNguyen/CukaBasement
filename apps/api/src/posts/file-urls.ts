@@ -1,4 +1,5 @@
 import type { FileKind, FileStatus, VariantName } from '@cuka/shared'
+import { watermarkHash, watermarkText } from '../jobs/handlers/watermark'
 import { canSeeR18, type Viewer } from '../auth/viewer'
 import type { StorageService } from '../storage/storage.service'
 import type { FileDoc, FileVariant } from '../uploads/file.schema'
@@ -37,13 +38,23 @@ export function canSeeFullMedia(viewer: Viewer | null, context: MediaContext = '
 }
 
 /**
+ * For a repost, the watermarkHash its image/video files must carry before their variants are served (null: no gate).
+ * A repost's text does not depend on the uploader, so it is known from the credit alone.
+ */
+export function expectedWatermark(post: Partial<Pick<Post, 'credit'>>): string | null {
+  return post.credit && !post.credit.isOwnWork ? watermarkHash(watermarkText(post.credit, '')) : null
+}
+
+/**
  * Media of `post` in position order (files missing from `files` are skipped).
  * `all`: public URLs (presigned while a variant still sits in the private bucket after a rating change).
  * `r18` for an ineligible viewer: only the presigned `blurred` variant, as both thumbnails.
- * `r18` for an eligible viewer: presigned URLs. Files not `ready` yet: null URLs.
+ * `r18` for an eligible viewer: presigned URLs. Files not `ready` yet: null URLs. A repost's image/video whose
+ * variants do not carry the current credit yet (rewatermark pending) is reported as `processing` with null URLs,
+ * so clean renders of someone else's art are never served.
  */
 export async function buildMedia(
-  post: Pick<Post, 'rating' | 'files'>,
+  post: Pick<Post, 'rating' | 'files'> & Partial<Pick<Post, 'credit'>>,
   files: FileDoc[],
   viewer: Viewer | null,
   { storage, publicBucket }: MediaDeps,
@@ -51,11 +62,13 @@ export async function buildMedia(
 ): Promise<PostMediaDto[]> {
   const byId = new Map(files.map((f) => [f._id.toString(), f]))
   const blurred = post.rating === 'r18' && !canSeeFullMedia(viewer, context)
+  const expected = expectedWatermark(post)
   const out: PostMediaDto[] = []
   for (const pf of [...post.files].sort((a, b) => a.position - b.position)) {
     const file = byId.get(pf.fileId.toString())
     if (!file) continue
-    const ready = file.status === 'ready'
+    const unmarked = expected !== null && (file.kind === 'image' || file.kind === 'video') && (file.watermarkedFor ?? '') !== expected
+    const ready = file.status === 'ready' && !unmarked
     const variant = (name: VariantName) => (ready ? file.variants.find((v) => v.name === name) : undefined)
     const url = async (v: FileVariant | undefined): Promise<string | null> => {
       if (!v) return null
@@ -74,7 +87,7 @@ export async function buildMedia(
       kind: file.kind,
       position: pf.position,
       isCover: pf.isCover,
-      status: file.status === 'validating' ? 'uploading' : file.status,
+      status: file.status === 'validating' ? 'uploading' : file.status === 'ready' && unmarked ? 'processing' : file.status,
       ...(file.width != null ? { width: file.width } : {}),
       ...(file.height != null ? { height: file.height } : {}),
       ...(file.durationSec != null ? { durationSec: file.durationSec } : {}),

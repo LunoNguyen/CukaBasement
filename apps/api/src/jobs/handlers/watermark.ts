@@ -1,4 +1,5 @@
 import { artistTag, type Credit, PLATFORM_LABELS } from '@cuka/shared'
+import { createHash } from 'node:crypto'
 import sharp from 'sharp'
 import { SHARP_INPUT } from './media'
 
@@ -23,13 +24,24 @@ export function watermarkText(credit: Credit | null | undefined, uploaderUsernam
   return { full: label ? `© ${tag} · ${label}` : `© ${tag}`, short: tag }
 }
 
+/**
+ * Identifies the burned-in text, stored as `files.watermarkedFor`; '' for clean (unwatermarked) renders. A repost's
+ * media is only served once its files carry the hash of the post's current credit.
+ */
+export function watermarkHash(text: WatermarkText | null): string {
+  return text ? createHash('sha1').update(JSON.stringify([text.full, text.short])).digest('hex') : ''
+}
+
 const FONT_FAMILY = 'DejaVu Sans, FreeSans, Arial, sans-serif'
 /** Average advance of a DejaVu Sans glyph in em, rounded up so the strip is never narrower than the text. */
 const EM_PER_CHAR = 0.58
 const WEBP = { quality: 82 }
 
-function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
+/** Escapes markup and drops characters XML 1.0 forbids (they make librsvg reject the whole SVG). */
+export function escapeXml(s: string): string {
+  return s
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }
 
 /**

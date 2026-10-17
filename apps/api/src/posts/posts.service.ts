@@ -66,6 +66,8 @@ export interface PostCardDto {
 }
 
 const MEDIA_KINDS = new Set(['image', 'video', 'audio'])
+/** Repost originals anyone who can view the post may fetch: the player needs them (ruling R19). */
+const PLAYABLE_KINDS = new Set(['video', 'audio'])
 
 function oid(id: string): Types.ObjectId | null {
   return /^[0-9a-fA-F]{24}$/.test(id) ? new Types.ObjectId(id) : null
@@ -159,8 +161,8 @@ export class PostsService {
     await this.users.updateOne({ _id: post.authorId }, { $inc: { 'stats.postCount': 1 } })
     await this.tags.applyDelta(input.tags, [])
     // Files processed before the post existed have public variants; move them to the private bucket.
-    if (post.rating === 'r18') await this.jobs.enqueue('relocate-variants', { postId: post._id.toString() })
-    // Files are usually processed before the post exists, so their variants carry no watermark yet.
+    // Files are usually processed before the post exists, so their variants carry no watermark yet. rewatermark also
+    // stores them in the bucket of the post's rating, so no relocate-variants (two jobs would race on the same keys).
     await this.jobs.enqueue('rewatermark', { postId: post._id.toString() })
     return this.toDto(post, viewer)
   }
@@ -223,10 +225,10 @@ export class PostsService {
         post.tags.filter((t) => !after.has(t)),
       )
     }
-    // Variants live in the bucket of the post's rating: a new rating, or newly attached files, need relocating.
-    if (ratingChanged || filesChanged) await this.jobs.enqueue('relocate-variants', { postId: post._id.toString() })
-    // The watermark shows the credit: redraw it for a new credit or newly attached files.
+    // The watermark shows the credit: redraw it for a new credit or newly attached files. rewatermark also places the
+    // variants in the bucket of the current rating, so it replaces relocate-variants rather than racing it.
     if (input.credit !== undefined || filesChanged) await this.jobs.enqueue('rewatermark', { postId: post._id.toString() })
+    else if (ratingChanged) await this.jobs.enqueue('relocate-variants', { postId: post._id.toString() })
     return this.toDto(updated, viewer)
   }
 
@@ -249,15 +251,16 @@ export class PostsService {
 
   /**
    * Presigned download of a post file's original; r18 originals only for eligible viewers. A repost's clean
-   * (unwatermarked) original is only for its uploader and staff.
+   * (unwatermarked) image, source and archive originals are only for its uploader and staff; its video and audio
+   * stay playable for every viewer of the post (ruling R19).
    */
   async fileUrl(viewer: Viewer | null, id: string, fileId: string): Promise<{ url: string }> {
     const post = await this.findViewable(viewer, id)
     if (post.rating === 'r18' && !canSeeFullMedia(viewer)) throw notFound()
-    const repost = post.credit && !post.credit.isOwnWork
-    if (repost && viewer?.id !== post.authorId.toString() && !isStaff(viewer)) throw notFound()
     const fid = oid(fileId)
     const file = fid && post.files.some((f) => f.fileId.equals(fid)) ? await this.files.findById(fid).lean() : null
+    const repost = post.credit && !post.credit.isOwnWork
+    if (repost && !PLAYABLE_KINDS.has(file?.kind ?? '') && viewer?.id !== post.authorId.toString() && !isStaff(viewer)) throw notFound()
     if (!file || (file.status !== 'processing' && file.status !== 'ready')) throw new AppError('NOT_FOUND', 404, 'File not found')
     return { url: await this.storage.presignGet(file.bucket, file.objectKey, { downloadName: file.originalName }) }
   }
@@ -283,7 +286,7 @@ export class PostsService {
     return Promise.all(
       posts.map(async (p, i) => {
         const cover = covers[i]
-        const media = cover ? await buildMedia({ rating: p.rating, files: [cover] }, files, viewer, this.mediaDeps, context) : []
+        const media = cover ? await buildMedia({ rating: p.rating, files: [cover], credit: p.credit }, files, viewer, this.mediaDeps, context) : []
         return {
           id: p._id.toString(),
           type: p.type,
@@ -293,7 +296,8 @@ export class PostsService {
           pageCount: p.files.length,
           counts: p.counts,
           author: authors.get(p.authorId.toString())!,
-          credit: p.credit ?? OWN_WORK,
+          // Cards never carry the permission note (ruling R20).
+          credit: { ...(p.credit ?? OWN_WORK), permissionNote: '' },
           createdAt: p.createdAt.toISOString(),
         }
       }),
@@ -312,7 +316,8 @@ export class PostsService {
       description: post.description,
       rating: post.rating,
       tags: post.tags,
-      credit: post.credit ?? OWN_WORK,
+      // The permission note is for the uploader and staff only (ruling R20).
+      credit: { ...(post.credit ?? OWN_WORK), ...(showReason ? {} : { permissionNote: '' }) },
       review: { status: post.review.status, ...(showReason && post.review.reason ? { reason: post.review.reason } : {}) },
       visibility: post.visibility,
       counts: post.counts,

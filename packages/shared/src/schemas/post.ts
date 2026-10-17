@@ -3,6 +3,11 @@ import { LIMITS } from '../limits'
 import { CREDIT_PLATFORMS } from '../credit'
 import { POST_TYPES, RATINGS } from '../enums'
 
+/** Characters XML 1.0 forbids (tab, LF and CR are allowed): they would break the watermark SVG. */
+const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/
+const xmlSafe = (s: string) => !XML_INVALID.test(s)
+const creditText = (max: number) => z.string().trim().max(max).refine(xmlSafe, 'Contains control characters').default('')
+
 /**
  * Fanart credit. A repost (`isOwnWork: false`) must name the artist, the platform and the source URL; an issue
  * carrying `params.code = 'CREDIT_REQUIRED'` is reported when one is missing (the API answers 400 CREDIT_REQUIRED).
@@ -11,11 +16,11 @@ import { POST_TYPES, RATINGS } from '../enums'
 export const creditSchema = z
   .object({
     isOwnWork: z.boolean(),
-    artistName: z.string().trim().max(100).default(''),
-    artistHandle: z.string().trim().max(100).default(''),
+    artistName: creditText(100),
+    artistHandle: creditText(100),
     platform: z.enum(CREDIT_PLATFORMS).optional(),
-    sourceUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ }).max(500)]).default(''),
-    permissionNote: z.string().trim().max(300).default(''),
+    sourceUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ }).max(500).refine(xmlSafe, 'Contains control characters')]).default(''),
+    permissionNote: creditText(300),
   })
   .superRefine((c, ctx) => {
     if (c.isOwnWork) return

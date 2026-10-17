@@ -1,6 +1,6 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
-import { applyWatermark, watermarkText } from '../src/jobs/handlers/watermark'
+import { applyWatermark, escapeXml, watermarkHash, watermarkText } from '../src/jobs/handlers/watermark'
 
 const repost = {
   isOwnWork: false,
@@ -43,6 +43,23 @@ describe('watermarkText', () => {
   })
 })
 
+describe('escapeXml / watermarkHash', () => {
+  it('escapes markup and strips XML-invalid control characters', () => {
+    expect(escapeXml('a\u0001b')).toBe('ab')
+    expect(escapeXml('x\u0000\u0008\u000B\u000C\u000E\u001F\uFFFE\uFFFFy')).toBe('xy')
+    expect(escapeXml(`<&>"'`)).toBe('&lt;&amp;&gt;&quot;&apos;')
+    expect(escapeXml('tab\there')).toBe('tab\there')
+  })
+
+  it('hash is "" for no watermark and differs per text', () => {
+    expect(watermarkHash(null)).toBe('')
+    const a = watermarkHash(watermarkText(repost, ''))
+    expect(a).toMatch(/^[0-9a-f]{40}$/)
+    expect(watermarkHash(watermarkText(repost, 'someone'))).toBe(a)
+    expect(watermarkHash(watermarkText({ ...repost, platform: 'pixiv' }, ''))).not.toBe(a)
+  })
+})
+
 describe('applyWatermark', () => {
   const W = 1200
   const H = 800
@@ -79,6 +96,12 @@ describe('applyWatermark', () => {
     const input = await source()
     const out = await applyWatermark(input, `© @<script>&"'</script>`, { scale: 'full' })
     expect((await sharp(out).metadata()).format).toBe('webp')
+    expect(await regionDiff(input, out, { left: W - 200, top: H - 50, width: 200, height: 50 })).toBeGreaterThan(5)
+  })
+
+  it('control characters in the text do not break the SVG', async () => {
+    const input = await source()
+    const out = await applyWatermark(input, '© @a\u0001b\uFFFF', { scale: 'full' })
     expect(await regionDiff(input, out, { left: W - 200, top: H - 50, width: 200, height: 50 })).toBeGreaterThan(5)
   })
 

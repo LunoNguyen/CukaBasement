@@ -12,6 +12,7 @@ import { processFile, processFileHooks } from '../src/jobs/handlers/process-file
 import { relocateVariants } from '../src/jobs/handlers/relocate-variants'
 import { rewatermark } from '../src/jobs/handlers/rewatermark'
 import { renderBlurred } from '../src/jobs/handlers/variants'
+import { watermarkHash, watermarkText } from '../src/jobs/handlers/watermark'
 import { StorageService } from '../src/storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../src/uploads/file.schema'
 import { createTestHarness, createUser, type Harness, uploadFixture } from './harness'
@@ -426,6 +427,15 @@ describe('process-file / relocate-variants', () => {
       const f = await load(marked)
       const original = await storage.getBuffer(f.bucket, f.objectKey)
       expect(original.equals(readFileSync(join(__dirname, 'fixtures', 'one-second.mp4')))).toBe(true)
+    })
+
+    it('watermarkedFor records the burned-in text: "" for clean renders, its hash after rewatermark', async () => {
+      const fileId = await seedFile('image', 'image/png', 'png', await big())
+      await processFile(deps, { fileId })
+      expect((await load(fileId)).watermarkedFor).toBe('')
+      const postId = await seedPost([fileId])
+      await rewatermark(deps, { postId })
+      expect((await load(fileId)).watermarkedFor).toBe(watermarkHash(watermarkText(repost as never, '')))
     })
 
     it('rewatermark leaves audio, archives and not-ready files alone', async () => {

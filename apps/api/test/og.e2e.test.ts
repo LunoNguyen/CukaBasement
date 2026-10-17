@@ -72,6 +72,16 @@ describe('GET /og/posts/:id', () => {
     expect((await og(own)).text).toContain('<meta property="og:description" content="Mine">')
   })
 
+  it('approved repost shares its cover only once it carries the current credit', async () => {
+    const author = await createUser(h)
+    const credit = { isOwnWork: false, artistName: 'Ruri', artistHandle: '_rurisuisen', platform: 'x', sourceUrl: 'https://x.com/_rurisuisen/status/1', permissionNote: '' }
+    const postId = await createPost(h, author, { credit })
+    await approve(h, postId)
+    expect((await og(postId)).text).toMatch(/thumb_md\.webp"/)
+    await h.db.collection('files').updateMany({}, { $set: { watermarkedFor: '' } })
+    expect((await og(postId)).text).toContain(`<meta property="og:image" content="${appUrl}/og-default.png">`)
+  })
+
   it('unknown, invalid, hidden and deleted posts give 404 html with default image', async () => {
     const author = await createUser(h)
     const hidden = await createPost(h, author)

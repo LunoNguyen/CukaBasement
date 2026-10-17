@@ -79,6 +79,14 @@ describe('schemas', () => {
     expect(creditSchema.safeParse({ ...repostCredit, sourceUrl: 'javascript:alert(1)' }).success).toBe(false)
     expect(creditSchema.safeParse({ ...repostCredit, platform: 'tumblr' }).success).toBe(false)
   })
+  it('credit strings reject XML-invalid control characters (tab/newline allowed in the note)', () => {
+    for (const field of ['artistName', 'artistHandle', 'permissionNote'] as const) {
+      expect(creditSchema.safeParse({ ...repostCredit, [field]: 'a\u0001b' }).success, field).toBe(false)
+      expect(creditSchema.safeParse({ ...repostCredit, [field]: 'a\uFFFEb' }).success, field).toBe(false)
+    }
+    expect(creditSchema.safeParse({ ...repostCredit, sourceUrl: 'https://x.com/a\u0001b' }).success).toBe(false)
+    expect(creditSchema.safeParse({ ...repostCredit, permissionNote: 'line one\nline\ttwo' }).success).toBe(true)
+  })
   it('exports credit platforms, labels, error code and mod action', () => {
     expect(CREDIT_PLATFORMS).toEqual(['x', 'facebook', 'pixiv', 'deviantart', 'instagram', 'youtube', 'other'])
     expect(PLATFORM_LABELS).toEqual({ x: 'X', facebook: 'Facebook', pixiv: 'pixiv', deviantart: 'DeviantArt', instagram: 'Instagram', youtube: 'YouTube', other: '' })

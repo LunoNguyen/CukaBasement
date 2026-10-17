@@ -4,6 +4,7 @@ import { artistTag, type Credit, PLATFORM_LABELS } from '@cuka/shared'
 import type { Response } from 'express'
 import { type Model, Types } from 'mongoose'
 import { CONFIG, type Config } from '../config/config'
+import { expectedWatermark } from '../posts/file-urls'
 import { POST_MODEL, type Post } from '../posts/post.schema'
 import { canViewPost } from '../posts/visibility'
 import { StorageService } from '../storage/storage.service'
@@ -44,7 +45,10 @@ export class OgController {
     if (post.review.status === 'approved' && post.visibility === 'public' && post.rating === 'all') {
       const cover = post.files.find((f) => f.isCover) ?? [...post.files].sort((a, b) => a.position - b.position)[0]
       const file = cover ? await this.files.findById(cover.fileId).lean() : null
-      const variant = file?.status === 'ready' ? file.variants.find((v) => v.name === 'thumb_md') : undefined
+      // A repost's cover is only shared once it carries the current credit (same gate as buildMedia).
+      const expected = expectedWatermark(post)
+      const marked = expected === null || file?.watermarkedFor === expected
+      const variant = file?.status === 'ready' && marked ? file.variants.find((v) => v.name === 'thumb_md') : undefined
       if (variant && variant.bucket === this.config.minio.bucketPublic) image = this.storage.publicUrl(variant.objectKey)
     }
     res.send(

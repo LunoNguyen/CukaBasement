@@ -24,6 +24,8 @@ export interface FileDoc {
   /** `validating` is internal: a complete() call has claimed the file and is checking its bytes. */
   status: FileStatus | 'validating'
   variants: FileVariant[]
+  /** watermarkHash of the text burned into the variants; '' for clean renders (see buildMedia's repost gate). */
+  watermarkedFor: string
   createdAt: Date
 }
 
@@ -56,6 +58,7 @@ export const FileSchema = new Schema<FileDoc>(
     durationSec: { type: Number, default: null },
     status: { type: String, enum: [...FILE_STATUSES, 'validating'], default: 'uploading' },
     variants: { type: [variantSchema], default: [] },
+    watermarkedFor: { type: String, default: '' },
   },
   { collection: 'files', timestamps: { createdAt: true, updatedAt: false } },
 )

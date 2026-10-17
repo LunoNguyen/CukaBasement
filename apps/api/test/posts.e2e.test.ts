@@ -1,6 +1,7 @@
 import { Types } from 'mongoose'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { processFile } from '../src/jobs/handlers/process-file'
+import { rewatermark } from '../src/jobs/handlers/rewatermark'
 import { SettingsService } from '../src/settings/settings.service'
 import { StorageService } from '../src/storage/storage.service'
 import { approve, createPost, createTestHarness, createUser, type Harness, jobDeps, uploadFixture } from './harness'
@@ -154,7 +155,7 @@ describe('posts', () => {
         description: '',
         rating: 'all',
         tags: [],
-        credit: repost,
+        credit: { ...repost, permissionNote: '' },
         review: { status: 'pending' },
         visibility: 'public',
         counts: { likes: 0, bookmarks: 0, comments: 0 },
@@ -238,12 +239,13 @@ describe('posts', () => {
       expect(h.jobs.enqueued.filter((j) => j.name !== 'process-file')).toEqual([{ name: 'rewatermark', data: { postId: res.body.id } }])
     })
 
-    it('r18 create enqueues relocate-variants with the postId', async () => {
+    it('r18 create enqueues only rewatermark (it places variants in the r18 bucket itself)', async () => {
       const u = await createUser(h)
       const fileId = await readyPng(u)
+      h.jobs.clear()
       const res = await create(u, body(fileId, { rating: 'r18' }))
       expect(res.status).toBe(201)
-      expect(h.jobs.enqueued).toContainEqual({ name: 'relocate-variants', data: { postId: res.body.id } })
+      expect(h.jobs.enqueued).toEqual([{ name: 'rewatermark', data: { postId: res.body.id } }])
     })
   })
 
@@ -319,7 +321,7 @@ describe('posts', () => {
       expect(h.jobs.enqueued).toEqual([{ name: 'relocate-variants', data: { postId: id } }])
     })
 
-    it('adding a file to an r18 post enqueues relocate-variants', async () => {
+    it('adding a file to an r18 post enqueues only rewatermark', async () => {
       const u = await createUser(h)
       const a = await readyPng(u)
       const id = await createPost(h, u, { rating: 'r18', files: [{ fileId: a, position: 0, isCover: true }] })
@@ -328,10 +330,16 @@ describe('posts', () => {
       h.jobs.clear()
       const res = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ files: [{ fileId: a, position: 0, isCover: true }, { fileId: b, position: 1, isCover: false }] })
       expect(res.status).toBe(200)
-      expect(h.jobs.enqueued).toEqual([
-        { name: 'relocate-variants', data: { postId: id } },
-        { name: 'rewatermark', data: { postId: id } },
-      ])
+      expect(h.jobs.enqueued).toEqual([{ name: 'rewatermark', data: { postId: id } }])
+    })
+
+    it('PATCH changing rating and credit together enqueues only rewatermark', async () => {
+      const u = await createUser(h)
+      const id = await createPost(h, u)
+      h.jobs.clear()
+      const res = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ rating: 'r18', credit: repost })
+      expect(res.status).toBe(200)
+      expect(h.jobs.enqueued).toEqual([{ name: 'rewatermark', data: { postId: id } }])
     })
 
     it('tag edits move tag counts', async () => {
@@ -512,6 +520,90 @@ describe('posts', () => {
         const res = await h.http().get(url).set(auth(t))
         expect(res.status).toBe(200)
         expect(res.body.url).toMatch(/\/original\.png\?/)
+      }
+    })
+
+    it('repost video and audio originals stay available to anyone who can view the post', async () => {
+      const u = await createUser(h)
+      const other = await createUser(h)
+      const video = await uploadFixture(h, u, 'one-second.mp4')
+      const audio = await uploadFixture(h, u, 'tone.mp3')
+      await processFile(jobDeps(h), { fileId: video })
+      await processFile(jobDeps(h), { fileId: audio })
+      const id = await createPost(h, u, {
+        type: 'video',
+        credit: repost,
+        files: [
+          { fileId: video, position: 0, isCover: true },
+          { fileId: audio, position: 1, isCover: false },
+        ],
+      })
+      for (const fileId of [video, audio]) {
+        expect((await h.http().get(`/api/posts/${id}/files/${fileId}/url`)).status).toBe(200)
+        expect((await h.http().get(`/api/posts/${id}/files/${fileId}/url`).set(auth(other.token))).status).toBe(200)
+      }
+    })
+
+    it('repost zip original is owner/staff only', async () => {
+      const u = await createUser(h)
+      const other = await createUser(h)
+      const png = await readyPng(u)
+      const zip = await uploadFixture(h, u, 'fake.zip')
+      await processFile(jobDeps(h), { fileId: zip })
+      const id = await createPost(h, u, {
+        credit: repost,
+        files: [
+          { fileId: png, position: 0, isCover: true },
+          { fileId: zip, position: 1, isCover: false },
+        ],
+      })
+      expect((await h.http().get(`/api/posts/${id}/files/${zip}/url`).set(auth(other.token))).status).toBe(404)
+      expect((await h.http().get(`/api/posts/${id}/files/${zip}/url`).set(auth(u.token))).status).toBe(200)
+    })
+
+    it('repost media URLs stay null until the files carry the current credit', async () => {
+      const u = await createUser(h)
+      const fileId = await readyPng(u)
+      const res = await create(u, body(fileId, { credit: repost }))
+      expect(res.status).toBe(201)
+      const id = res.body.id as string
+      expect(res.body.media[0]).toMatchObject({ status: 'processing', thumbSmUrl: null, thumbMdUrl: null, previewUrl: null })
+      const card = (await h.http().get(`/api/users/${u.username}/posts`).set(auth(u.token))).body.items[0]
+      expect(card.cover).toMatchObject({ status: 'processing', thumbMdUrl: null })
+
+      await rewatermark(jobDeps(h), { postId: id })
+      const after = await h.http().get(`/api/posts/${id}`)
+      expect(after.body.media[0]).toMatchObject({ status: 'ready', thumbMdUrl: expect.any(String), thumbSmUrl: expect.any(String) })
+
+      // A credit edit hides the media again until its rewatermark has run.
+      await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ credit: { ...repost, artistHandle: 'other' } })
+      expect((await h.http().get(`/api/posts/${id}`)).body.media[0]).toMatchObject({ status: 'processing', thumbMdUrl: null })
+      await rewatermark(jobDeps(h), { postId: id })
+      expect((await h.http().get(`/api/posts/${id}`)).body.media[0].thumbMdUrl).toEqual(expect.any(String))
+    })
+
+    it('own-work media is served right away (no watermark gate)', async () => {
+      const u = await createUser(h)
+      const res = await create(u, body(await readyPng(u)))
+      expect(res.body.media[0]).toMatchObject({ status: 'ready', thumbMdUrl: expect.any(String) })
+    })
+
+    it('permissionNote is shown only to the owner and staff; cards never carry it', async () => {
+      const u = await createUser(h)
+      const other = await createUser(h)
+      const mod = await createUser(h, { role: 'moderator' })
+      const id = await createPost(h, u, { credit: repost })
+      const note = async (t?: string) => {
+        const req = h.http().get(`/api/posts/${id}`)
+        return (await (t ? req.set(auth(t)) : req)).body.credit.permissionNote
+      }
+      expect(await note()).toBe('')
+      expect(await note(other.token)).toBe('')
+      expect(await note(u.token)).toBe('asked on X')
+      expect(await note(mod.token)).toBe('asked on X')
+      for (const t of [u.token, mod.token]) {
+        const cards = await h.http().get(`/api/users/${u.username}/posts`).set(auth(t))
+        expect(cards.body.items[0].credit).toEqual({ ...repost, permissionNote: '' })
       }
     })
 
