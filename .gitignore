@@ -37,3 +37,18 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# AI agent skills & local tooling (không đẩy lên GitHub)
+.claude/skills/
+.claude/commands/
+.claude/agents/
+.claude/plugins/
+.claude/settings.local.json
+.agents/
+.superpowers/
+skills/
