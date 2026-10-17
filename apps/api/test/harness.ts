@@ -1,15 +1,20 @@
 import 'reflect-metadata'
 import type { INestApplication } from '@nestjs/common'
-import { getConnectionToken } from '@nestjs/mongoose'
+import { getConnectionToken, getModelToken } from '@nestjs/mongoose'
 import { Test } from '@nestjs/testing'
+import type { Role, UserStatus } from '@cuka/shared'
+import * as argon2 from 'argon2'
 import type mongoose from 'mongoose'
 import { Client } from 'minio'
 import supertest from 'supertest'
 import { AppModule, configureApp } from '../src/app.module'
+import { TokensService } from '../src/auth/tokens'
 import { CONFIG, type Config, loadConfig } from '../src/config/config'
 import { JOBS, type JobName, type JobsPort } from '../src/jobs/jobs.port'
 import { SettingsService } from '../src/settings/settings.service'
 import { MAIL, type MailMessage, type MailPort } from '../src/mail/mail.port'
+import { USER_MODEL, type User } from '../src/users/user.schema'
+import { TestOnlyModule } from './test-only.module'
 
 const DEFAULT_TEST_URI = 'mongodb://127.0.0.1:27017/CukaDB_test'
 
@@ -31,6 +36,41 @@ export async function postMultipart(url: string, fields: Record<string, string>,
   for (const [k, v] of Object.entries(fields)) form.append(k, v)
   form.append('file', new Blob([new Uint8Array(body)]), 'upload.bin')
   return fetch(url, { method: 'POST', body: form })
+}
+
+export interface CreateUserOptions {
+  role?: Role
+  verified?: boolean
+  status?: UserStatus
+  /** `YYYY-MM-DD` */
+  birthDate?: string
+  showR18?: boolean
+  /** Hashed with argon2 so the user can log in; otherwise a non-verifiable placeholder hash is stored. */
+  password?: string
+}
+
+let userSeq = 0
+
+/** Inserts a user directly (defaults: verified, active, role user) and signs an access token for it. */
+export async function createUser(
+  h: Harness,
+  opts: CreateUserOptions = {},
+): Promise<{ id: string; token: string; email: string; username: string }> {
+  const n = ++userSeq
+  const email = `u${n}@example.com`
+  const username = `u_${n}`
+  const users = h.app.get<mongoose.Model<User>>(getModelToken(USER_MODEL))
+  const user = await users.create({
+    email,
+    passwordHash: opts.password ? await argon2.hash(opts.password, { type: argon2.argon2id }) : 'placeholder',
+    role: opts.role ?? 'user',
+    status: opts.status ?? 'active',
+    emailVerifiedAt: (opts.verified ?? true) ? new Date() : null,
+    birthDate: opts.birthDate ? new Date(opts.birthDate) : null,
+    showR18: opts.showR18 ?? false,
+    profile: { username, displayName: `User ${n}` },
+  })
+  return { id: user._id.toString(), token: h.app.get(TokensService).signAccess(user), email, username }
 }
 
 async function resetBuckets(config: Config): Promise<void> {
@@ -84,7 +124,7 @@ export async function createTestHarness(): Promise<Harness> {
     },
   }
 
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule, TestOnlyModule] })
     .overrideProvider(CONFIG)
     .useValue(config)
     .overrideProvider(MAIL)

@@ -15,6 +15,7 @@ import { hashToken, randomToken, TokensService } from './tokens'
 
 const HOUR = 3600_000
 const VERIFY_TTL_MS = 24 * HOUR
+const RESET_TTL_MS = HOUR
 export const REFRESH_TTL_MS = 30 * 24 * HOUR
 
 export type RegisterInput = z.infer<typeof registerSchema>
@@ -108,6 +109,54 @@ export class AuthService {
     if (raw) await this.tokens.deleteOne({ tokenHash: hashToken(raw), type: 'refresh' })
   }
 
+  async verifyEmail(raw: string): Promise<void> {
+    const token = await this.claim(raw, 'verify_email')
+    await this.users.updateOne({ _id: token.userId, emailVerifiedAt: null }, { $set: { emailVerifiedAt: new Date() } })
+  }
+
+  /** Sends a fresh verification link unless the user is already verified. */
+  async resendVerification(userId: string): Promise<void> {
+    const user = await this.users.findById(userId)
+    if (user && user.emailVerifiedAt == null) await this.sendVerification(user)
+  }
+
+  /** Sends a reset link when the email belongs to a user; silent otherwise. */
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.users.findOne({ email: email.trim().toLowerCase() })
+    if (!user) return
+    const raw = await this.issueToken(user._id, 'reset_password', RESET_TTL_MS)
+    const link = `${this.config.appUrl}/reset-password?token=${raw}`
+    await this.mail.send({
+      to: user.email,
+      subject: 'Đặt lại mật khẩu CukaBasement / Reset your CukaBasement password',
+      text: `Mở liên kết sau để đặt lại mật khẩu (hết hạn sau 1 giờ):\nOpen this link to reset your password (expires in 1 hour):\n\n${link}\n`,
+    })
+  }
+
+  /** Sets a new password and signs the user out everywhere. */
+  async resetPassword(raw: string, password: string): Promise<void> {
+    const token = await this.claim(raw, 'reset_password')
+    await this.users.updateOne({ _id: token.userId }, { $set: { passwordHash: await hashPassword(password) } })
+    await this.tokens.deleteMany({ userId: token.userId, type: 'refresh' })
+  }
+
+  /** Marks a single-use token as used atomically; unknown, used or expired → 400 TOKEN_INVALID. */
+  private async claim(raw: string, type: 'verify_email' | 'reset_password'): Promise<AuthToken> {
+    const now = new Date()
+    const token = await this.tokens.findOneAndUpdate(
+      { tokenHash: hashToken(raw), type, usedAt: null, expiresAt: { $gt: now } },
+      { $set: { usedAt: now } },
+    )
+    if (!token) throw new AppError('TOKEN_INVALID', 400, 'Invalid or expired token')
+    return token
+  }
+
+  private async issueToken(userId: Types.ObjectId, type: 'verify_email' | 'reset_password', ttlMs: number) {
+    const raw = randomToken()
+    await this.tokens.create({ userId, type, tokenHash: hashToken(raw), expiresAt: new Date(Date.now() + ttlMs) })
+    return raw
+  }
+
   private async issueRefresh(userId: Types.ObjectId, familyId: string): Promise<string> {
     const raw = randomToken()
     await this.tokens.create({
@@ -121,13 +170,7 @@ export class AuthService {
   }
 
   private async sendVerification(user: User): Promise<void> {
-    const raw = randomToken()
-    await this.tokens.create({
-      userId: user._id,
-      type: 'verify_email',
-      tokenHash: hashToken(raw),
-      expiresAt: new Date(Date.now() + VERIFY_TTL_MS),
-    })
+    const raw = await this.issueToken(user._id, 'verify_email', VERIFY_TTL_MS)
     const link = `${this.config.appUrl}/verify-email?token=${raw}`
     await this.mail.send({
       to: user.email,

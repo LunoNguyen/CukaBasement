@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { APP_GUARD } from '@nestjs/core'
 import { JwtModule } from '@nestjs/jwt'
 import { MongooseModule } from '@nestjs/mongoose'
 import { CONFIG, type Config } from '../config/config'
@@ -6,6 +7,7 @@ import { USER_MODEL, UserSchema } from '../users/user.schema'
 import { UsersService } from '../users/users.service'
 import { AUTH_TOKEN_MODEL, AuthTokenSchema } from './auth-token.schema'
 import { AuthController } from './auth.controller'
+import { AuthGuard } from './auth.guard'
 import { AuthService } from './auth.service'
 import { TokensService } from './tokens'
 
@@ -24,7 +26,7 @@ import { TokensService } from './tokens'
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, UsersService, TokensService],
+  providers: [AuthService, UsersService, TokensService, { provide: APP_GUARD, useClass: AuthGuard }],
   exports: [AuthService, UsersService, TokensService, MongooseModule],
 })
 export class AuthModule {}

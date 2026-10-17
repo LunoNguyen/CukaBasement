@@ -1,11 +1,13 @@
 import { Body, Controller, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler'
-import { loginSchema, registerSchema } from '@cuka/shared'
+import { emailOnlySchema, loginSchema, registerSchema, resetPasswordSchema, tokenSchema } from '@cuka/shared'
 import type { CookieOptions, Request, Response } from 'express'
 import type { z } from 'zod'
 import { ZodPipe } from '../common/zod.pipe'
 import { CONFIG, type Config } from '../config/config'
+import { Auth, CurrentViewer } from './decorators'
 import { AuthService, REFRESH_TTL_MS, type RegisterInput, type Session } from './auth.service'
+import type { Viewer } from './viewer'
 
 export const REFRESH_COOKIE = 'cuka_rt'
 
@@ -61,6 +63,35 @@ export class AuthController {
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
     await this.auth.logout(refreshCookieOf(req))
     res.clearCookie(REFRESH_COOKIE, this.cookieOptions())
+  }
+
+  @Post('verify-email')
+  @HttpCode(204)
+  async verifyEmail(@Body(new ZodPipe(tokenSchema)) body: z.infer<typeof tokenSchema>): Promise<void> {
+    await this.auth.verifyEmail(body.token)
+  }
+
+  @Post('resend-verification')
+  @HttpCode(204)
+  @Auth()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 3600_000 } })
+  async resendVerification(@CurrentViewer() viewer: Viewer): Promise<void> {
+    await this.auth.resendVerification(viewer.id)
+  }
+
+  @Post('forgot-password')
+  @HttpCode(204)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 3600_000 } })
+  async forgotPassword(@Body(new ZodPipe(emailOnlySchema)) body: z.infer<typeof emailOnlySchema>): Promise<void> {
+    await this.auth.forgotPassword(body.email)
+  }
+
+  @Post('reset-password')
+  @HttpCode(204)
+  async resetPassword(@Body(new ZodPipe(resetPasswordSchema)) body: z.infer<typeof resetPasswordSchema>): Promise<void> {
+    await this.auth.resetPassword(body.token, body.password)
   }
 }
 
