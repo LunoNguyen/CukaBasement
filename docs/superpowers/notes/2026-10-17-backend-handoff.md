@@ -1,0 +1,110 @@
+# Backend handoff notes (2026-10-17)
+
+Decisions made during backend execution, plus known minor issues deferred for later. Input for the frontend plan.
+
+## Rulings
+- Ruling R1: T7 does not validate avatarFileId/bannerFileId; T8 adds the assertUsableFiles (image, owned, processing|ready) check to PATCH /me together with its test — T7 has no files model yet — cost if wrong: one unvalidated field between T7 and T8 commits.
+- Ruling R2: T9 defines a minimal lookup `findRatingForFile(conn, fileId)` that queries the `posts` collection by name via conn.collection('posts') (no Post model needed); T10 may keep it — cost if wrong: small refactor in T10.
+- Ruling R3: setup/create-admin scripts live at apps/api/src/scripts/{setup,create-admin}.ts (not apps/api/scripts/) so nest build emits dist/scripts/*.js — plan path was inconsistent with build — cost if wrong: file move.
+- Ruling R4: accept og/{*path} (Nest 12 path syntax), vitest.config.mts, tsconfig.build.json deviations — equivalent behavior — cost if wrong: config rename.
+- Ruling R5: GlobalErrorFilter maps non-AppError HttpException <500 to its own status (400/413/422→VALIDATION_FAILED, 401→UNAUTHENTICATED, 403→FORBIDDEN, 404→NOT_FOUND, 429→RATE_LIMITED), logs only 5xx — plan's "everything else → 500" would turn bad client JSON into server errors, contrary to spec's error envelope intent — cost if wrong: small filter change.
+- Ruling R6: setup.ts boots a Nest application context (CONFIG=cfg) and runs ensureIndexes on the Nest connection, so later forFeature models are covered; test of a real unique index deferred to Task 5 (add to its dispatch) — plan's "syncIndexes on registered models" was unreachable from a bare connection — cost if wrong: setup boots full app context (slower).
+- Ruling R7: signAccess/verifyAccess live on injectable TokensService (needs secret) instead of free functions — Task 6 guard/createUser use app.get(TokensService) — cost if wrong: none functional.
+- Ruling R8: files.variants is an array of {name, bucket, objectKey, width, height} (spec §3.1); T8 must make publicAvatarUrl use only that shape (drop map tolerance) and add the avatar URL test — cost if wrong: none.
+- Ruling R9: uploads presign to staging key upload.<ext>; complete copies to server-owned original.<ext> then validates the copy — closes re-POST TOCTOU the plan's design left open — cost if wrong: one extra copy per upload.
+- Ruling R10: presign policy content-length max = declared size; complete rejects stat.size > declared — plan said maxFileBytes, which made the daily quota bypassable — cost if wrong: clients must declare exact size (they do).
+- Ruling R11: worker imports compiled api dist via .swcrc alias (types from src); prebuild/predev build api first; Agenda v6 uses @agendajs/mongo-backend — plan's alias-to-source unworkable with swc — cost if wrong: worker dev doesn't hot-reload on api changes.
+- Ruling R12: accept unique index posts.files.fileId (a file belongs to one post; protects R18 bucket logic), relocate on file-set change, CANNOT_MODERATE_PEER on delete per spec §5.2 — cost if wrong: files from soft-deleted posts can't be reused.
+- Ruling R13: moderators cannot approve/hide their own posts (assertCanModerate has no self-exemption) — conflict of interest; spec §5.2 wording "khác" ambiguous — cost if wrong: moderator posts need another staff to approve.
+- Ruling R14: LAST_ADMIN counts role admin AND status active (implementer refinement of my 'regardless of status' instruction) — safer; cost if wrong: none.
+- Ruling R15: cleanup treats 'failed' files like ready/processing (reference-checked) — plan's {uploading, failed} unconditional delete could destroy files attached to live posts after processing failures — cost if wrong: unreferenced failed files kept until no longer referenced.
+- Ruling R16: #ameoDuCa tag on a non-r18 post → 400 VALIDATION_FAILED (details explain) on create/update rather than silently forcing r18 — spec §9 "phải gắn r18" — cost if wrong: users must re-submit with r18.
+- Ruling R17: staff full-R18 exemption applies only to /mod endpoints and only if staff isAdult; elsewhere staff follow canSeeR18 (age + showR18) — spec §5.3 — cost if wrong: staff must enable showR18 to browse r18 outside /mod.
+- Ruling R18: add GET /api/mod/comments?status=hidden and POST /api/mod/comments/:id/restore (logged 'restore') — spec §6 /mod hidden-comments tab needs it — cost if wrong: two small extra endpoints.
+
+## Frontend must handle
+- Serialize refresh-token calls (two concurrent refreshes with the same cookie = reuse → all sessions revoked).
+- Bookmarks list may return empty items with non-null nextCursor — keep paging until nextCursor is null.
+- For posts hidden by reports use moderation 'resolve keep' (restore leaves report counts ≥ threshold).
+- Presign returns maxBytes = declared size; upload must send exactly that file.
+- Notifications for deleted posts have post: null.
+- i18n labels for MOD_ACTIONS incl. delete_comment.
+- Posts tagged #ameoDuCa must be rated r18 (API returns 400 otherwise).
+
+## Deferred minor issues
+- Task 1: minor (deferred): README keeps upstream English Vue template sections
+- Task 2: minor (deferred): normalizeTag strips '#' before trim ('  #foo' → '#foo')
+- Task 2: minor (deferred): shared tsconfig type-check excludes test/
+- Task 2: minor (deferred): search tag max tagMax+1 arbitrary; q max 100 implementer choice
+- Task 2: minor (deferred): createUploadSchema.size unbounded; files schema no uniqueness/single-cover (API layer must enforce — T8/T10)
+- Task 2: minor (deferred): birthDate future check uses UTC date
+- Task 2: minor (deferred): regression test uses toEqual not toStrictEqual
+- Task 3: minor (deferred): createTestHarness leaks app/connection if init/reset throws
+- Task 3: minor (deferred): lastLinkFor regex includes trailing punctuation — mail templates must end URL with whitespace
+- Task 3: minor (deferred): filter branches (Zod/11000/Throttler/500-masking), toObjectId, ZodPipe lack tests
+- Task 3: minor (deferred): loadConfig accepts JWT secret 'change-me' in production
+- Task 3: minor (deferred): root engines ^22.18.0 looser than @nestjs/cli ^22.22.3
+- Task 3: minor (deferred): Throttler match by constructor.name — switch to instanceof in Task 5
+- Task 4: minor (deferred): setup test policy assertions weak (title vs JSON check; rejects.toThrow any error)
+- Task 4: minor (deferred): isNotFound treats NoSuchBucket as missing — misconfig fails silently
+- Task 4: minor (deferred): content-disposition filename* encoding misses ' ( ) * and no ASCII fallback
+- Task 4: minor (deferred): signer drops path prefix of MINIO_PUBLIC_URL while publicUrl keeps it
+- Task 4: minor (deferred): createAppContext uses module-global config override (concurrent calls would race) — ConfigModule.forRoot would be cleaner
+- Task 5: minor (deferred): dummy argon2 hash computed lazily (first call slow; cached rejection → 500s) — use onModuleInit
+- Task 5: minor (deferred): no trust proxy set — throttling keys by proxy IP behind reverse proxy
+- Task 5: minor (deferred): mail failure after user insert leaves account (resend-verification in T6 mitigates)
+- Task 5: minor (deferred): refresh expiry slides forever, no absolute family lifetime
+- Task 5: minor (deferred): concurrent refresh with same token = reuse → revoke all; SPA must serialize refresh (frontend plan)
+- Task 5: minor (deferred): JWT_REFRESH_SECRET dead config
+- Task 6: minor (deferred): no tests for token-type confusion (code safe via type filter)
+- Task 6: minor (deferred): other unused reset tokens stay valid after a reset (delete type reset_password on reset)
+- Task 6: minor (deferred): access JWTs valid ≤15 min after reset (passwordChangedAt check cheap)
+- Task 6: minor (deferred): forgot-password returns 500 if SMTP throws for known email
+- Task 6: minor (deferred): resend-verification throttled per IP not per user
+- Task 6: minor (deferred): tiny login-vs-reset race window
+- Task 7: minor (deferred → carried into T8 dispatch): publicAvatarUrl non-null path untested; variants shape guessed (array or map)
+- Task 7: minor (deferred): changePassword deletes used rotated tokens too (replay then 401 instead of family revoke)
+- Task 7: minor (deferred): create-admin raw E11000 on taken username; promoted banned users keep status
+- Task 7: minor (deferred): REFRESH_COOKIE imported controller→controller; move to constants
+- Task 7: minor (deferred): no RED evidence captured (process)
+- Task 8: minor (deferred): object Content-Type metadata stays declared mime (DB has detected)
+- Task 8: minor (deferred): updateProfile file! non-null assumption; import order in users.module
+- Task 8: minor (deferred): orphan staging object after post-complete re-POST (Task 18 cleanup should remove upload.* keys)
+- Task 8: minor (deferred): wav/ogg/opus alias normalization untested
+- Task 8: minor (deferred): copy catch maps transient storage errors to 400 UPLOAD_NOT_FOUND; testHooks public mutable field on service
+- Task 9: minor (deferred): worker fail handler (retry <3 then failed) has no automated test
+- Task 9: minor (deferred): worker dev doesn't reload on api source changes — document
+- Task 9: minor (deferred): brief public exposure window if rating flips to r18 mid-processing (ms, before post-check move)
+- Task 10: minor (deferred): no e2e for r18 cover in user posts list / hidden/removed/deleted on that endpoint
+- Task 10: minor (deferred): PATCH read-then-write race with concurrent moderator reject
+- Task 10: minor (deferred): public-bucket thumbs reachable by constructed URL until relocate runs after all→r18 / r18 create
+- Task 10: minor (deferred): dead validating mapping in file-urls.ts:146
+- Task 11: minor (deferred → carry to T12): following loads all follow rows unbounded; project followeeId
+- Task 11: minor (deferred): no tests for equal-createdAt pagination, search hiding r18/pending, regex metachars in suggest; suggest q not zod-validated
+- Task 12: minor (deferred): stale count in loser response of concurrent pair
+- Task 12: minor (deferred): banned followers still counted in followerCount while hidden from list
+- Task 12: minor (deferred): notification dedupe upsert without unique index (concurrent duplicates possible)
+- Task 12: minor (deferred): redundant $setOnInsert fields; following pagination / anon followers tests missing
+- Task 12: minor (deferred): DELETE like/bookmark on non-viewable post discloses existence + count (low)
+- Task 12: minor (deferred): bookmarks list can return empty items with nextCursor — frontend must keep paging
+- Task 13: minor (deferred): no test for hidden reply masking / equal-createdAt tiebreak; stray assertion in pagination test
+- Task 13: minor (deferred): authorsOf duplicated from PostsService — extract shared helper
+- Task 13: minor (deferred): replies of deleted parent still counted in counts.comments (reconcile should count only visible-tree? — T18 counts non-deleted comments)
+- Task 14: minor (deferred): reply-notification recipients still see title of later-hidden posts
+- Task 14: minor (deferred): post_rejected reason lost once author soft-deletes the post; avatar-present path untested
+- Task 15: minor (deferred): side-effect failure after report insert → 500 then 409 on retry; missing auto_hide log/notification never backfilled
+- Task 15: minor (deferred): staff can report hidden/removed posts (queue noise) — T16 aware
+- Task 15: minor (deferred): CreateReportInput hand-written; 24-hex regex duplicated (use common/ids)
+- Task 16: minor (deferred → final fix wave MUST fix): POST /mod/posts/:id/hide with no body → 400 (Express 5 undefined body); same pattern check all optional-body endpoints
+- Task 16: minor (deferred): resolve dismisses reports filed after queue view; count drift fixed by reconcile
+- Task 16: minor (deferred): restore of hidden_by_reports keeps counts ≥ threshold → next report re-hides (documented, untested)
+- Task 16: minor (deferred): approve of removed post notifies author; resolve keep on removed post logs 'restore'; reject-on-rejected can't update reason
+- Task 17: minor (deferred): updateSettings no revert if log fails (change without audit entry)
+- Task 17: minor (deferred): shared adminSettingsSchema lacks upper bounds for maxFilesPerPost/thresholds/quota
+- Task 17: minor (deferred): undo / recount-revert paths untested
+- Task 17: minor (deferred): rollback paths untested; undo throw masks original error
+- Task 18: minor (deferred): recurring job failCount may accumulate across runs → retries stop after 3 lifetime failures (comment)
+- Task 18: minor (deferred): no index on profile.avatarFileId/bannerFileId; tiny reference-check/delete race (no transactions)
+- Task 18: minor (deferred): referenced files >48h with leftover staging keep it forever
+- Task 19: minor (deferred): OG exposes r18/pending titles+descriptions to anonymous crawlers (image withheld) — consider masking r18 text
+- Task 19: minor (deferred): description slice splits surrogate pairs; no Cache-Control
