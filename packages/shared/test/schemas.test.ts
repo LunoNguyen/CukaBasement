@@ -39,6 +39,7 @@ describe('schemas', () => {
   it('updatePost is partial but aiDeclaration literal true', () => {
     expect(updatePostSchema.safeParse({ title: 'x' }).success).toBe(true)
     expect(updatePostSchema.safeParse({ aiDeclaration: false }).success).toBe(false)
+    expect(updatePostSchema.parse({ title: 'x' })).toEqual({ title: 'x' })
   })
   it('validates register', () => {
     expect(registerSchema.safeParse(validReg).success).toBe(true)
