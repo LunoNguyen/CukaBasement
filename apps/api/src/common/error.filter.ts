@@ -50,6 +50,11 @@ export class GlobalErrorFilter implements ExceptionFilter {
       const status = e.getStatus()
       return [status, envelope(codeForStatus(status), e.message)]
     }
+    // Errors from Express middleware such as body-parser (413 entity too large) carry their own 4xx status.
+    const clientStatus = clientErrorStatus(e)
+    if (clientStatus !== null) {
+      return [clientStatus, envelope(codeForStatus(clientStatus), e instanceof Error ? e.message : 'Bad request')]
+    }
     this.logger.error(e instanceof Error ? (e.stack ?? e.message) : String(e))
     const message = this.config.nodeEnv === 'production' || !(e instanceof Error) ? 'Internal server error' : e.message
     return [500, envelope('INTERNAL', message)]
@@ -73,6 +78,13 @@ function codeForStatus(status: number): ErrorCode {
     default:
       return 'VALIDATION_FAILED' // 400, 413, 422 and any other 4xx
   }
+}
+
+function clientErrorStatus(e: unknown): number | null {
+  if (typeof e !== 'object' || e === null) return null
+  const { status, statusCode } = e as { status?: unknown; statusCode?: unknown }
+  const s = typeof status === 'number' ? status : statusCode
+  return typeof s === 'number' && Number.isInteger(s) && s >= 400 && s < 500 ? s : null
 }
 
 function isDuplicateKey(e: unknown): boolean {

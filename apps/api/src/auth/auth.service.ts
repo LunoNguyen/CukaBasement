@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import type { z } from 'zod'
 import type { registerSchema } from '@cuka/shared'
@@ -38,6 +38,8 @@ function duplicateKeys(e: unknown): string[] | null {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger('AuthService')
+
   /** Verified against when the email is unknown, so both login failures cost one argon2 verify. */
   private dummyHash?: Promise<string>
 
@@ -120,24 +122,31 @@ export class AuthService {
     if (user && user.emailVerifiedAt == null) await this.sendVerification(user)
   }
 
-  /** Sends a reset link when the email belongs to a user; silent otherwise. */
+  /**
+   * Sends a reset link when the email belongs to a user; silent otherwise. A failed send is logged, not thrown,
+   * so the response never reveals whether the email exists (spec §5.1).
+   */
   async forgotPassword(email: string): Promise<void> {
     const user = await this.users.findOne({ email: email.trim().toLowerCase() })
     if (!user) return
     const raw = await this.issueToken(user._id, 'reset_password', RESET_TTL_MS)
     const link = `${this.config.appUrl}/reset-password?token=${raw}`
-    await this.mail.send({
-      to: user.email,
-      subject: 'Đặt lại mật khẩu CukaBasement / Reset your CukaBasement password',
-      text: `Mở liên kết sau để đặt lại mật khẩu (hết hạn sau 1 giờ):\nOpen this link to reset your password (expires in 1 hour):\n\n${link}\n`,
-    })
+    try {
+      await this.mail.send({
+        to: user.email,
+        subject: 'Đặt lại mật khẩu CukaBasement / Reset your CukaBasement password',
+        text: `Mở liên kết sau để đặt lại mật khẩu (hết hạn sau 1 giờ):\nOpen this link to reset your password (expires in 1 hour):\n\n${link}\n`,
+      })
+    } catch (err) {
+      this.logger.error(`Could not send the password reset mail for user ${user._id.toString()}: ${(err as Error).message}`)
+    }
   }
 
-  /** Sets a new password and signs the user out everywhere. */
+  /** Sets a new password, signs the user out everywhere and kills every other reset link. */
   async resetPassword(raw: string, password: string): Promise<void> {
     const token = await this.claim(raw, 'reset_password')
     await this.users.updateOne({ _id: token.userId }, { $set: { passwordHash: await hashPassword(password) } })
-    await this.tokens.deleteMany({ userId: token.userId, type: 'refresh' })
+    await this.tokens.deleteMany({ userId: token.userId, type: { $in: ['refresh', 'reset_password'] } })
   }
 
   /** Marks a single-use token as used atomically; unknown, used or expired → 400 TOKEN_INVALID. */

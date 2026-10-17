@@ -1,4 +1,6 @@
+import { Types } from 'mongoose'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { CONFIG, type Config } from '../src/config/config'
 import { createTestHarness, createUser, type Harness } from './harness'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
@@ -90,5 +92,34 @@ describe('me and user endpoints', () => {
 
   it('/me requires authentication', async () => {
     expect((await h.http().get('/api/me')).status).toBe(401)
+  })
+
+  it('avatarUrl is the public thumb_md URL only when that variant is in the public bucket; otherwise null', async () => {
+    const config = h.app.get<Config>(CONFIG)
+    const u = await createUser(h)
+    const seedAvatar = async (bucket: string) => {
+      const _id = new Types.ObjectId()
+      await h.db.collection('files').insertOne({
+        _id,
+        ownerId: new Types.ObjectId(u.id),
+        bucket: config.minio.bucketOriginals,
+        objectKey: `${u.id}/${_id}/original.png`,
+        originalName: 'a.png',
+        mimeType: 'image/png',
+        sizeBytes: 1,
+        kind: 'image',
+        status: 'ready',
+        variants: [{ name: 'thumb_md', bucket, objectKey: `${u.id}/${_id}/thumb_md.webp`, width: 1, height: 1 }],
+        createdAt: new Date(),
+      })
+      await h.db.collection('users').updateOne({ _id: new Types.ObjectId(u.id) }, { $set: { 'profile.avatarFileId': _id } })
+      return _id.toString()
+    }
+    const avatarUrl = async () => (await h.http().get(`/api/users/${u.username}`)).body.avatarUrl
+
+    const pub = await seedAvatar(config.minio.bucketPublic)
+    expect(await avatarUrl()).toEqual(expect.stringContaining(`${pub}/thumb_md.webp`))
+    await seedAvatar(config.minio.bucketOriginals)
+    expect(await avatarUrl()).toBeNull()
   })
 })

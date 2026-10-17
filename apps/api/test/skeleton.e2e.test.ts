@@ -24,6 +24,13 @@ describe('skeleton', () => {
     expect(r.body).toEqual({ error: { code: 'VALIDATION_FAILED', message: expect.any(String) } })
   })
 
+  it('JSON body over the size limit → 413 VALIDATION_FAILED envelope, not 500', async () => {
+    const big = JSON.stringify({ email: 'a@example.com', password: 'x'.repeat(200_000) })
+    const r = await h.http().post('/api/auth/login').set('Content-Type', 'application/json').send(big)
+    expect(r.status).toBe(413)
+    expect(r.body).toEqual({ error: { code: 'VALIDATION_FAILED', message: expect.any(String) } })
+  })
+
   it('harness refuses non-test db', async () => {
     const prev = process.env.MONGODB_URI_TEST
     try {

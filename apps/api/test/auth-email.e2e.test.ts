@@ -1,5 +1,7 @@
 import type { Response } from 'supertest'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { Logger } from '@nestjs/common'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MAIL, type MailPort } from '../src/mail/mail.port'
 import { createTestHarness, createUser, type Harness, testConfig } from './harness'
 
 const PASSWORD = 'correct horse battery'
@@ -114,5 +116,36 @@ describe('auth email flows', () => {
       .collection('authTokens')
       .updateOne({ type: 'verify_email' }, { $set: { expiresAt: new Date(Date.now() - 1000) } })
     expect((await verify(token).expect(400)).body.error.code).toBe('TOKEN_INVALID')
+  })
+
+  it('forgot-password for a known email still 204 when sending the mail fails; the error is logged', async () => {
+    await register().expect(201)
+    const mail = h.app.get<MailPort>(MAIL)
+    const send = vi.spyOn(mail, 'send').mockRejectedValueOnce(new Error('smtp down'))
+    const logged = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined)
+    try {
+      const res = await forgot(EMAIL)
+      expect(res.status).toBe(204)
+      expect(res.body).toEqual({})
+      expect(send).toHaveBeenCalledTimes(1)
+      expect(logged).toHaveBeenCalledWith(expect.stringContaining('smtp down'))
+    } finally {
+      send.mockRestore()
+      logged.mockRestore()
+    }
+  })
+
+  it('reset-password invalidates every other outstanding reset link of the user', async () => {
+    await register().expect(201)
+    await forgot(EMAIL).expect(204)
+    const first = tokenOf(h.mail.lastLinkFor(EMAIL))
+    await forgot(EMAIL).expect(204)
+    const second = tokenOf(h.mail.lastLinkFor(EMAIL))
+    expect(second).not.toBe(first)
+    await reset(second).expect(204)
+    const stale = await reset(first, 'yet another passphrase')
+    expect(stale.status).toBe(400)
+    expect(stale.body.error.code).toBe('TOKEN_INVALID')
+    await login(NEW_PASSWORD).expect(200)
   })
 })

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import type { Locale, Role, updateProfileSchema, updateSettingsSchema, UserStatus } from '@cuka/shared'
 import * as argon2 from 'argon2'
@@ -8,6 +8,7 @@ import { AUTH_TOKEN_MODEL, type AuthToken } from '../auth/auth-token.schema'
 import { hashToken } from '../auth/tokens'
 import { isAdult, type Viewer } from '../auth/viewer'
 import { AppError } from '../common/app-error'
+import { CONFIG, type Config } from '../config/config'
 import { FOLLOW_MODEL, type Follow } from '../interactions/interaction.schemas'
 import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
@@ -66,6 +67,7 @@ export class UsersService {
     @InjectModel(FOLLOW_MODEL) private readonly follows: Model<Follow>,
     private readonly uploads: UploadsService,
     private readonly storage: StorageService,
+    @Inject(CONFIG) private readonly config: Config,
   ) {}
 
   private async getUser(id: string): Promise<User> {
@@ -162,13 +164,16 @@ export class UsersService {
     )
   }
 
-  /** Public URL of the file's `thumb_md` variant; null when the file or variant does not exist. */
+  /**
+   * Public URL of the file's `thumb_md` variant; null when the file or variant does not exist, or the variant is
+   * not in the public bucket (e.g. a file of an r18 post), where a public URL would not resolve.
+   */
   async publicAvatarUrl(fileId: string): Promise<string | null> {
     const oid = objectId(fileId)
     if (!oid) return null
     const file = await this.files.findById(oid).lean()
-    const key = file?.variants.find((v) => v.name === 'thumb_md')?.objectKey
-    return key ? this.storage.publicUrl(key) : null
+    const variant = file?.variants.find((v) => v.name === 'thumb_md')
+    return variant && variant.bucket === this.config.minio.bucketPublic ? this.storage.publicUrl(variant.objectKey) : null
   }
 
   toMe(user: User): MeDto {
