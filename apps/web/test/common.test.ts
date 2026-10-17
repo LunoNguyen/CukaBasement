@@ -68,6 +68,17 @@ describe('Modal', () => {
     expect(ev.defaultPrevented).toBe(true)
     expect(document.activeElement).toBe(focusables[0])
   })
+
+  it('Shift+Tab from the dialog element itself goes to the last focusable', async () => {
+    await openIt()
+    const dlg = document.querySelector('[role="dialog"]') as HTMLElement
+    const focusables = dlg.querySelectorAll<HTMLElement>('button, input')
+    dlg.focus()
+    const ev = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })
+    document.dispatchEvent(ev)
+    expect(ev.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(focusables[focusables.length - 1])
+  })
 })
 
 describe('a11y bits', () => {

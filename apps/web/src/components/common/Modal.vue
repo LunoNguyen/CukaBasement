@@ -26,10 +26,11 @@ function onKeydown(e: KeyboardEvent) {
   const first = items[0]!
   const last = items[items.length - 1]!
   const active = document.activeElement
-  if (e.shiftKey && (active === first || !dialog.value.contains(active))) {
+  const outside = !dialog.value.contains(active) || active === dialog.value
+  if (e.shiftKey && (active === first || outside)) {
     e.preventDefault()
     last.focus()
-  } else if (!e.shiftKey && (active === last || !dialog.value.contains(active))) {
+  } else if (!e.shiftKey && (active === last || outside)) {
     e.preventDefault()
     first.focus()
   }
