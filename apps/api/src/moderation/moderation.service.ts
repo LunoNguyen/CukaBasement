@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, type OnModuleInit } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { REPORT_REASONS, type ReportReason, type ReviewStatus, type Role, type Visibility } from '@cuka/shared'
 import { type Model, type QueryFilter, Types } from 'mongoose'
@@ -7,6 +7,7 @@ import { AppError } from '../common/app-error'
 import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
 import { COMMENT_MODEL, type Comment, type CommentStatus } from '../comments/comment.schema'
 import { NotificationsService } from '../notifications/notifications.service'
+import { PostEvents } from '../posts/post-events'
 import { POST_MODEL, type Post } from '../posts/post.schema'
 import { type AuthorDto, type CursorQuery, type PostCardDto, PostsService } from '../posts/posts.service'
 import { REPORT_MODEL, type Report } from '../reports/report.schema'
@@ -14,6 +15,7 @@ import { ReportsService } from '../reports/reports.service'
 import { USER_MODEL, type User } from '../users/user.schema'
 import { UsersService } from '../users/users.service'
 import { ModerationLogService } from './moderation-log.service'
+import { assertCanModerate } from './peer-rule'
 
 export type QueueQuery = CursorQuery & { status: 'pending' | 'rejected' }
 
@@ -41,13 +43,6 @@ export interface HiddenCommentDto {
   createdAt: string
 }
 
-/** Spec §5.2: a moderator may not act on content or accounts of another moderator or an admin; admins may. */
-export function assertCanModerate(actor: Viewer, targetUserRole: Role): void {
-  if (actor.role !== 'admin' && targetUserRole !== 'user') {
-    throw new AppError('CANNOT_MODERATE_PEER', 403, 'Moderators cannot act on staff content')
-  }
-}
-
 function oid(id: string): Types.ObjectId | null {
   return /^[0-9a-fA-F]{24}$/.test(id) ? new Types.ObjectId(id) : null
 }
@@ -62,7 +57,7 @@ const LATEST_REPORTS = 5
 const NO_TIMESTAMPS = { returnDocument: 'after', timestamps: false } as const
 
 @Injectable()
-export class ModerationService {
+export class ModerationService implements OnModuleInit {
   constructor(
     @InjectModel(POST_MODEL) private readonly posts: Model<Post>,
     @InjectModel(USER_MODEL) private readonly users: Model<User>,
@@ -73,16 +68,25 @@ export class ModerationService {
     private readonly modLog: ModerationLogService,
     private readonly notifications: NotificationsService,
     private readonly usersService: UsersService,
+    private readonly postEvents: PostEvents,
   ) {}
 
-  /** FIFO over (createdAt asc, _id asc). Staff viewers get full media, r18 included. */
+  onModuleInit(): void {
+    // DELETE /api/posts/:id by staff (not the author) is a removal: log it and tell the author.
+    this.postEvents.onStaffRemoved(async ({ actorId, postId, authorId }) => {
+      await this.modLog.log(actorId, 'remove', 'post', postId)
+      await this.notifications.notify({ userId: authorId, type: 'post_hidden', postId })
+    })
+  }
+
+  /** FIFO over (createdAt asc, _id asc). Adult staff get full media, r18 included. */
   async queue(actor: Viewer, q: QueueQuery): Promise<{ items: PostCardDto[]; nextCursor: string | null }> {
     const cursor = decodeCursor(q.cursor)
     const filter: QueryFilter<Post> = { 'review.status': q.status, deletedAt: null }
     if (cursor) filter.$or = [{ createdAt: { $gt: cursor.createdAt } }, { createdAt: cursor.createdAt, _id: { $gt: cursor.id } }]
     const docs = await this.posts.find(filter).sort({ createdAt: 1, _id: 1 }).limit(q.limit + 1).lean()
     const page = pageOf(docs, q.limit)
-    return { items: await this.postsService.toCards(page.items, actor), nextCursor: page.nextCursor }
+    return { items: await this.postsService.toCards(page.items, actor, 'mod'), nextCursor: page.nextCursor }
   }
 
   approve(actor: Viewer, id: string): Promise<ModPostResult> {
@@ -144,7 +148,7 @@ export class ModerationService {
     ])
 
     const posts = await this.posts.find({ _id: { $in: rows.map((r) => r._id) } }).lean()
-    const cards = new Map((await this.postsService.toCards(posts, actor)).map((c) => [c.id, c]))
+    const cards = new Map((await this.postsService.toCards(posts, actor, 'mod')).map((c) => [c.id, c]))
     const reporterIds = [...new Set(rows.flatMap((r) => r.latest.map((l) => l.reporterId.toString())))].map((s) => new Types.ObjectId(s))
     const reporters = await this.users.find({ _id: { $in: reporterIds } }, { profile: 1 }).lean()
     const usernames = new Map(reporters.map((u) => [u._id.toString(), u.profile.username]))

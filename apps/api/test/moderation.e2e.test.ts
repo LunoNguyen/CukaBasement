@@ -87,14 +87,28 @@ describe('moderation', () => {
     expect(rej.body.items.map((x: { id: string }) => x.id)).toEqual([rejected])
   })
 
-  it('queue shows r18 covers with full (non-blurred) URLs to staff', async () => {
-    const mod = await createUser(h, { role: 'moderator' })
+  it('queue shows r18 covers with full (non-blurred) URLs to adult staff, even with showR18 off', async () => {
+    const mod = await createUser(h, { role: 'moderator', birthDate: '1990-01-01', showR18: false })
     const author = await createUser(h, { birthDate: '1990-01-01', showR18: true })
     const postId = await createPost(h, author, { rating: 'r18' })
     const res = await h.http().get('/api/mod/queue').set(auth(mod.token))
     const card = res.body.items.find((x: { id: string }) => x.id === postId)
     expect(card.cover.blurred).toBe(false)
     expect(card.cover.thumbMdUrl).toMatch(/\/thumb_md\.webp\?.*X-Amz-Signature=/)
+  })
+
+  it('underage staff get blurred r18 covers in /mod queue and reports', async () => {
+    const mod = await createUser(h, { role: 'moderator', birthDate: '2015-01-01', showR18: true })
+    const author = await createUser(h)
+    const postId = await createPost(h, author, { rating: 'r18' })
+    const q = await h.http().get('/api/mod/queue').set(auth(mod.token))
+    expect(q.body.items.find((x: { id: string }) => x.id === postId).cover).toMatchObject({ blurred: true, previewUrl: null })
+    await reportN(postId, ['spam'])
+    const r = await h.http().get('/api/mod/reports').set(auth(mod.token))
+    expect(r.body.items[0].post.cover).toMatchObject({ blurred: true })
+    const adult = await createUser(h, { role: 'admin', birthDate: '1990-01-01' })
+    const ra = await h.http().get('/api/mod/reports').set(auth(adult.token))
+    expect(ra.body.items[0].post.cover).toMatchObject({ blurred: false, thumbMdUrl: expect.stringMatching(/thumb_md\.webp\?/) })
   })
 
   it('approve moves post into home feed and notifies author', async () => {

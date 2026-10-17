@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import type { createPostSchema, cursorQuerySchema, PostType, Rating, ReviewStatus, updatePostSchema, Visibility } from '@cuka/shared'
+import { type createPostSchema, type cursorQuerySchema, type PostType, R18_REQUIRED_TAGS, type Rating, type ReviewStatus, type updatePostSchema, type Visibility } from '@cuka/shared'
 import { type Model, Types } from 'mongoose'
 import type { z } from 'zod'
 import type { Viewer } from '../auth/viewer'
@@ -16,7 +16,9 @@ import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 import { UploadsService } from '../uploads/uploads.service'
 import { USER_MODEL, type User } from '../users/user.schema'
 import { UsersService } from '../users/users.service'
-import { buildMedia, canSeeFullMedia, type MediaDeps, type PostMediaDto } from './file-urls'
+import { assertCanModerate } from '../moderation/peer-rule'
+import { buildMedia, canSeeFullMedia, type MediaContext, type MediaDeps, type PostMediaDto } from './file-urls'
+import { PostEvents } from './post-events'
 import { POST_MODEL, type Post, type PostFile } from './post.schema'
 import { canViewPost, isStaff, visiblePostsFilter } from './visibility'
 
@@ -82,6 +84,13 @@ function fileTaken(): AppError {
   return new AppError('FILE_NOT_READY', 400, 'File is already attached to a post')
 }
 
+/** Spec §9 / ruling R16: tags in R18_REQUIRED_TAGS (normalized) need an r18 rating. */
+function assertTagRating(tags: string[], rating: Rating): void {
+  if (rating !== 'r18' && tags.some((t) => R18_REQUIRED_TAGS.includes(t))) {
+    throw new AppError('VALIDATION_FAILED', 400, 'Posts with this tag must be rated r18', { field: 'rating', reason: 'R18_TAG_REQUIRES_R18' })
+  }
+}
+
 function sameFileSet(a: PostFile[], b: PostFile[]): boolean {
   const ids = (fs: PostFile[]) => [...new Set(fs.map((f) => f.fileId.toString()))].sort().join(',')
   return ids(a) === ids(b)
@@ -104,6 +113,7 @@ export class PostsService {
     private readonly tags: TagsService,
     private readonly settings: SettingsService,
     private readonly storage: StorageService,
+    private readonly events: PostEvents,
   ) {}
 
   private get mediaDeps(): MediaDeps {
@@ -111,6 +121,8 @@ export class PostsService {
   }
 
   async create(viewer: Viewer, input: CreatePostInput): Promise<PostDto> {
+    const tags = normalizeTags(input.tags).map((t) => t.tag)
+    assertTagRating(tags, input.rating)
     const files = await this.checkFiles(viewer.id, input.files)
     let post: Post
     try {
@@ -125,7 +137,7 @@ export class PostsService {
         aiDeclaration: true,
         sourceCredit: input.sourceCredit,
         files,
-        tags: normalizeTags(input.tags).map((t) => t.tag),
+        tags,
       })
       post = doc.toObject()
     } catch (err) {
@@ -158,6 +170,7 @@ export class PostsService {
       if (input[key] !== undefined) $set[key] = input[key]
     }
     const tags = input.tags !== undefined ? normalizeTags(input.tags) : null
+    assertTagRating(tags ? tags.map((t) => t.tag) : post.tags, input.rating ?? post.rating)
     if (tags) $set.tags = tags.map((t) => t.tag)
     let filesChanged = false
     if (input.files !== undefined) {
@@ -201,15 +214,16 @@ export class PostsService {
     const isOwner = post.authorId.toString() === viewer.id
     if (!isOwner) {
       if (!isStaff(viewer)) throw new AppError('FORBIDDEN', 403, 'Only the author or staff can delete this post')
-      if (viewer.role === 'moderator') {
-        const author = await this.users.findById(post.authorId, { role: 1 }).lean()
-        if (author && author.role !== 'user') throw new AppError('CANNOT_MODERATE_PEER', 403, 'Moderators cannot act on staff posts')
-      }
+      // A missing author counts as a plain user.
+      const author = await this.users.findById(post.authorId, { role: 1 }).lean()
+      assertCanModerate(viewer, author?.role ?? 'user')
     }
     const res = await this.posts.updateOne({ _id: post._id, deletedAt: null }, { $set: { deletedAt: new Date() } })
     if (res.modifiedCount === 0) throw notFound()
     await this.users.updateOne({ _id: post.authorId }, { $inc: { 'stats.postCount': -1 } })
     await this.tags.applyDelta([], post.tags)
+    // Staff deletes are moderation: the moderation module logs them and notifies the author.
+    if (!isOwner) await this.events.staffRemoved({ actorId: viewer.id, postId: id, authorId: post.authorId.toString() })
   }
 
   /** Presigned download of a post file's original; r18 originals only for eligible viewers. */
@@ -235,14 +249,15 @@ export class PostsService {
     return { items: await this.toCards(page.items, viewer), nextCursor: page.nextCursor }
   }
 
-  async toCards(posts: Post[], viewer: Viewer | null): Promise<PostCardDto[]> {
+  /** `context: 'mod'` only from /mod endpoints (staff full-r18 rule, see canSeeFullMedia). */
+  async toCards(posts: Post[], viewer: Viewer | null, context: MediaContext = 'default'): Promise<PostCardDto[]> {
     const authors = await this.authorsOf(posts.map((p) => p.authorId))
     const covers = posts.map((p) => p.files.find((f) => f.isCover) ?? p.files[0])
     const files = await this.files.find({ _id: { $in: covers.filter((c) => c).map((c) => c!.fileId) } }).lean()
     return Promise.all(
       posts.map(async (p, i) => {
         const cover = covers[i]
-        const media = cover ? await buildMedia({ rating: p.rating, files: [cover] }, files, viewer, this.mediaDeps) : []
+        const media = cover ? await buildMedia({ rating: p.rating, files: [cover] }, files, viewer, this.mediaDeps, context) : []
         return {
           id: p._id.toString(),
           type: p.type,

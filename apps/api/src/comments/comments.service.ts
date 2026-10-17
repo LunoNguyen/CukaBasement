@@ -6,6 +6,8 @@ import type { z } from 'zod'
 import type { Viewer } from '../auth/viewer'
 import { AppError } from '../common/app-error'
 import { type Cursor, decodeCursor, pageOf } from '../common/cursor'
+import { ModerationLogService } from '../moderation/moderation-log.service'
+import { assertCanModerate } from '../moderation/peer-rule'
 import { NotificationsService } from '../notifications/notifications.service'
 import { POST_MODEL, type Post } from '../posts/post.schema'
 import type { AuthorDto, CursorQuery } from '../posts/posts.service'
@@ -44,6 +46,7 @@ export class CommentsService {
     @InjectModel(USER_MODEL) private readonly users: Model<User>,
     private readonly notifications: NotificationsService,
     private readonly usersService: UsersService,
+    private readonly modLog: ModerationLogService,
   ) {}
 
   async list(viewer: Viewer | null, postId: string, q: CursorQuery): Promise<{ items: CommentDto[]; nextCursor: string | null }> {
@@ -104,11 +107,18 @@ export class CommentsService {
   async remove(viewer: Viewer, id: string): Promise<void> {
     const comment = isObjectId(id) ? await this.comments.findOne({ _id: id, deletedAt: null }).lean() : null
     if (!comment) throw commentNotFound()
-    if (comment.authorId.toString() !== viewer.id && !isStaff(viewer)) throw new AppError('FORBIDDEN', 403, 'Only the author or staff can delete this comment')
+    const isAuthor = comment.authorId.toString() === viewer.id
+    if (!isAuthor) {
+      if (!isStaff(viewer)) throw new AppError('FORBIDDEN', 403, 'Only the author or staff can delete this comment')
+      // A missing author counts as a plain user.
+      const author = await this.users.findById(comment.authorId, { role: 1 }).lean()
+      assertCanModerate(viewer, author?.role ?? 'user')
+    }
     // deletedAt: null in the filter makes a repeated or racing delete count once.
     const res = await this.comments.updateOne({ _id: comment._id, deletedAt: null }, { $set: { deletedAt: new Date() } })
     if (res.modifiedCount !== 1) throw commentNotFound()
     await this.posts.updateOne({ _id: comment.postId, 'counts.comments': { $gt: 0 } }, { $inc: { 'counts.comments': -1 } }, { timestamps: false })
+    if (!isAuthor) await this.modLog.log(viewer.id, 'delete_comment', 'comment', id)
   }
 
   private toDto(c: Comment, viewer: Viewer | null, authors: Map<string, AuthorDto>): CommentDto {

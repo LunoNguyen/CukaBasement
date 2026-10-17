@@ -25,9 +25,15 @@ export interface MediaDeps {
   publicBucket: string
 }
 
-/** Staff moderate r18 posts, so they get full media like an eligible adult. */
-export function canSeeFullMedia(viewer: Viewer | null): boolean {
-  return canSeeR18(viewer) || isStaff(viewer)
+/** Where media is shown: `mod` is the /mod endpoints, `default` everything else. */
+export type MediaContext = 'default' | 'mod'
+
+/**
+ * Spec §5.3 / ruling R17: full r18 media needs `canSeeR18` (adult + showR18). On /mod endpoints adult staff
+ * also get it, whatever their showR18, because they moderate r18 posts; underage staff never do.
+ */
+export function canSeeFullMedia(viewer: Viewer | null, context: MediaContext = 'default'): boolean {
+  return canSeeR18(viewer) || (context === 'mod' && isStaff(viewer) && !!viewer?.isAdult)
 }
 
 /**
@@ -41,9 +47,10 @@ export async function buildMedia(
   files: FileDoc[],
   viewer: Viewer | null,
   { storage, publicBucket }: MediaDeps,
+  context: MediaContext = 'default',
 ): Promise<PostMediaDto[]> {
   const byId = new Map(files.map((f) => [f._id.toString(), f]))
-  const blurred = post.rating === 'r18' && !canSeeFullMedia(viewer)
+  const blurred = post.rating === 'r18' && !canSeeFullMedia(viewer, context)
   const out: PostMediaDto[] = []
   for (const pf of [...post.files].sort((a, b) => a.position - b.position)) {
     const file = byId.get(pf.fileId.toString())

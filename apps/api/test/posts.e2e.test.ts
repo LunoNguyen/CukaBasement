@@ -186,6 +186,17 @@ describe('posts', () => {
       expect(await h.db.collection('tags').find().toArray()).toEqual([{ _id: 'ducaart', display: 'DuCaArt', postCount: 1 }])
     })
 
+    it('#ameoDuCa requires r18: rated all → 400 R18_TAG_REQUIRES_R18; rated r18 → 201', async () => {
+      const u = await createUser(h)
+      const bad = await create(u, body(await readyPng(u), { tags: ['#ameoDuCa'] }))
+      expect(bad.status).toBe(400)
+      expect(bad.body.error).toMatchObject({ code: 'VALIDATION_FAILED', details: { field: 'rating', reason: 'R18_TAG_REQUIRES_R18' } })
+      expect(await posts().countDocuments()).toBe(0)
+      const ok = await create(u, body(await readyPng(u), { tags: ['#ameoDuCa'], rating: 'r18' }))
+      expect(ok.status).toBe(201)
+      expect(ok.body.tags).toEqual(['ameoduca'])
+    })
+
     it('r18 create enqueues relocate-variants with the postId', async () => {
       const u = await createUser(h)
       const fileId = await readyPng(u)
@@ -273,6 +284,24 @@ describe('posts', () => {
       ])
     })
 
+    it('#ameoDuCa requires r18 on update: adding the tag to an all post, or r18 → all while tagged → 400', async () => {
+      const u = await createUser(h)
+      const patch = (id: string, b: object) => h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send(b)
+      const allPost = await createPost(h, u)
+      const addTag = await patch(allPost, { tags: ['AmeoDuCa'] })
+      expect(addTag.status).toBe(400)
+      expect(addTag.body.error).toMatchObject({ code: 'VALIDATION_FAILED', details: { field: 'rating', reason: 'R18_TAG_REQUIRES_R18' } })
+      expect((await loadPost(allPost))!.tags).toEqual([])
+      expect((await patch(allPost, { tags: ['AmeoDuCa'], rating: 'r18' })).status).toBe(200)
+
+      const r18Post = await createPost(h, u, { rating: 'r18', tags: ['ameoduca'] })
+      const toAll = await patch(r18Post, { rating: 'all' })
+      expect(toAll.status).toBe(400)
+      expect(toAll.body.error.details).toEqual({ field: 'rating', reason: 'R18_TAG_REQUIRES_R18' })
+      expect((await loadPost(r18Post))!.rating).toBe('r18')
+      expect((await patch(r18Post, { rating: 'all', tags: ['other'] })).status).toBe(200)
+    })
+
     it('PATCH by non-owner → 403 FORBIDDEN', async () => {
       const u = await createUser(h)
       const other = await createUser(h)
@@ -308,12 +337,17 @@ describe('posts', () => {
       expect(ok.status).toBe(200)
     })
 
-    it('moderator sees full r18 media', async () => {
+    it('outside /mod staff follow the r18 rules: moderator with showR18 off gets blurred media and no file url', async () => {
       const u = await createUser(h)
-      const mod = await createUser(h, { role: 'moderator' })
+      const mod = await createUser(h, { role: 'moderator', birthDate: yearsAgo(30), showR18: false })
       const id = await createPost(h, u, { rating: 'r18' })
       const res = await h.http().get(`/api/posts/${id}`).set(auth(mod.token))
-      expect(res.body.media[0]).toMatchObject({ blurred: false, thumbMdUrl: expect.stringMatching(/thumb_md\.webp\?/) })
+      expect(res.body.media[0]).toMatchObject({ blurred: true, previewUrl: null, thumbMdUrl: expect.stringMatching(/\/blurred\.webp\?/) })
+      const fileId = res.body.media[0].fileId
+      expect((await h.http().get(`/api/posts/${id}/files/${fileId}/url`).set(auth(mod.token))).status).toBe(404)
+      const eligible = await createUser(h, { role: 'moderator', birthDate: yearsAgo(30), showR18: true })
+      const full = await h.http().get(`/api/posts/${id}`).set(auth(eligible.token))
+      expect(full.body.media[0]).toMatchObject({ blurred: false, thumbMdUrl: expect.stringMatching(/thumb_md\.webp\?/) })
     })
 
     it('file url endpoint for r18 post by ineligible viewer → 404 POST_NOT_FOUND', async () => {
@@ -373,6 +407,22 @@ describe('posts', () => {
       expect(res.status).toBe(403)
       expect(res.body.error.code).toBe('CANNOT_MODERATE_PEER')
       expect((await h.http().delete(`/api/posts/${id}`).set(auth(otherAdmin.token))).status).toBe(204)
+    })
+
+    it('staff delete logs remove and notifies the author post_hidden; owner delete does neither', async () => {
+      const u = await createUser(h)
+      const mod = await createUser(h, { role: 'moderator' })
+      const id = await createPost(h, u)
+      expect((await h.http().delete(`/api/posts/${id}`).set(auth(mod.token))).status).toBe(204)
+      const logs = await h.db.collection('moderationLogs').find({}).toArray()
+      expect(logs.map((l) => [l.action, l.targetType, l.targetId, l.actorId.toString()])).toEqual([['remove', 'post', id, mod.id]])
+      const notes = await h.db.collection('notifications').find({ userId: new Types.ObjectId(u.id) }).toArray()
+      expect(notes.map((n) => [n.type, n.postId.toString()])).toEqual([['post_hidden', id]])
+
+      const own = await createPost(h, u)
+      expect((await h.http().delete(`/api/posts/${own}`).set(auth(u.token))).status).toBe(204)
+      expect(await h.db.collection('moderationLogs').countDocuments()).toBe(1)
+      expect(await h.db.collection('notifications').countDocuments()).toBe(1)
     })
 
     it('owner can delete their own post', async () => {

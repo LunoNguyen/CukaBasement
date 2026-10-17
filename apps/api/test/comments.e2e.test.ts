@@ -181,6 +181,38 @@ describe('comments', () => {
     })
   })
 
+  describe('staff delete', () => {
+    it("moderator deleting a moderator's or admin's comment → 403 CANNOT_MODERATE_PEER; admin may", async () => {
+      const author = await createUser(h)
+      const mod = await createUser(h, { role: 'moderator' })
+      const otherMod = await createUser(h, { role: 'moderator' })
+      const admin = await createUser(h, { role: 'admin' })
+      const postId = await createPost(h, author)
+      for (const staff of [otherMod, admin]) {
+        const c = await add(postId, staff.token, { body: 'staff' })
+        const res = await h.http().delete(`/api/comments/${c.body.id}`).set(auth(mod.token))
+        expect(res.status).toBe(403)
+        expect(res.body.error.code).toBe('CANNOT_MODERATE_PEER')
+      }
+      expect(await commentCount(postId)).toBe(2)
+      const modComment = await add(postId, otherMod.token, { body: 'x' })
+      expect((await h.http().delete(`/api/comments/${modComment.body.id}`).set(auth(admin.token))).status).toBe(204)
+    })
+
+    it('staff delete logs delete_comment; author deleting own comment logs nothing', async () => {
+      const author = await createUser(h)
+      const fan = await createUser(h)
+      const mod = await createUser(h, { role: 'moderator' })
+      const postId = await createPost(h, author)
+      const c = await add(postId, fan.token, { body: 'spam' })
+      expect((await h.http().delete(`/api/comments/${c.body.id}`).set(auth(mod.token))).status).toBe(204)
+      const own = await add(postId, fan.token, { body: 'mine' })
+      expect((await h.http().delete(`/api/comments/${own.body.id}`).set(auth(fan.token))).status).toBe(204)
+      const logs = await h.db.collection('moderationLogs').find({}).toArray()
+      expect(logs.map((l) => [l.action, l.targetType, l.targetId, l.actorId.toString()])).toEqual([['delete_comment', 'comment', c.body.id, mod.id]])
+    })
+  })
+
   it('unverified user comment → 403 EMAIL_NOT_VERIFIED', async () => {
     const author = await createUser(h)
     const fan = await createUser(h, { verified: false })

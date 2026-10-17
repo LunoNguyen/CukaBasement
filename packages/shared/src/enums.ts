@@ -53,6 +53,7 @@ export const MOD_ACTIONS = [
   'unban',
   'change_role',
   'hide_comment',
+  'delete_comment',
   'update_setting',
   'auto_hide',
 ] as const
