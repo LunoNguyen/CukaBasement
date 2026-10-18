@@ -120,6 +120,24 @@ describe('ImageCropper', () => {
     expect(c.destroy).toHaveBeenCalled()
   })
 
+  it('an image the browser cannot decode shows an error instead of a cropper; confirm emits nothing', async () => {
+    setActivePinia(createPinia())
+    const file = new File([new Uint8Array(4)], 'broken.png', { type: 'image/png' })
+    const w = mount(ImageCropper, { props: { open: true, file, shape: 'avatar' }, global: { plugins: [i18n] }, attachTo: document.body })
+    wrapper = w
+    await flushPromises()
+    q('[data-test="cropper-image"]')!.dispatchEvent(new Event('error'))
+    await flushPromises()
+    expect(q('[data-test="cropper-unreadable"]')!.textContent).toContain('Không mở được ảnh này')
+    expect(q('[data-test="cropper-unreadable"]')!.getAttribute('role')).toBe('alert')
+    expect(FakeCropper.instances).toHaveLength(0)
+    await click('cropper-confirm')
+    expect(w.emitted('confirm')).toBeUndefined()
+    setLocale('en')
+    await flushPromises()
+    expect(q('[data-test="cropper-unreadable"]')!.textContent).toContain('could not be opened')
+  })
+
   it('English copy', async () => {
     setLocale('en')
     await open('banner')

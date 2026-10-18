@@ -28,6 +28,8 @@ const image = ref<HTMLImageElement | null>(null)
 const src = ref<string | null>(null)
 const exporting = ref(false)
 const failed = ref(false)
+/** The browser could not decode the picked file. */
+const unreadable = ref(false)
 let cropper: Cropper | null = null
 
 function destroy() {
@@ -44,6 +46,7 @@ watch(
   ([isOpen, file]) => {
     destroy()
     failed.value = false
+    unreadable.value = false
     setSource(isOpen ? file : null)
   },
   { immediate: true },
@@ -54,6 +57,7 @@ onBeforeUnmount(() => {
 })
 
 function onImageLoad() {
+  unreadable.value = false
   destroy()
   if (!image.value) return
   cropper = new Cropper(image.value, {
@@ -64,6 +68,11 @@ function onImageLoad() {
     background: false,
     responsive: true,
   })
+}
+
+function onImageError() {
+  destroy()
+  unreadable.value = true
 }
 
 const zoom = (step: number) => cropper?.zoom(step)
@@ -152,7 +161,7 @@ const control = 'rounded border border-[var(--c-border)] px-2 py-1 text-sm hover
         :class="{ 'crop-round': shape === 'avatar' }"
         @keydown="onStageKey"
       >
-        <img v-if="src" ref="image" :src="src" alt="" data-test="cropper-image" class="block max-w-full" @load="onImageLoad" />
+        <img v-if="src" ref="image" :src="src" alt="" data-test="cropper-image" class="block max-w-full" @load="onImageLoad" @error="onImageError" />
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" data-test="cropper-zoom-in" :class="control" :aria-label="t('cropper.zoomIn')" :title="t('cropper.zoomIn')" @click="zoom(ZOOM_STEP)">
@@ -171,7 +180,8 @@ const control = 'rounded border border-[var(--c-border)] px-2 py-1 text-sm hover
           {{ t('cropper.reset') }}
         </button>
       </div>
-      <p v-if="failed" role="alert" class="text-sm text-red-600">{{ t('cropper.failed') }}</p>
+      <p v-if="unreadable" role="alert" data-test="cropper-unreadable" class="text-sm text-red-600">{{ t('cropper.unreadable') }}</p>
+      <p v-else-if="failed" role="alert" class="text-sm text-red-600">{{ t('cropper.failed') }}</p>
       <div class="flex justify-end gap-2">
         <Btn variant="ghost" data-test="cropper-cancel" @click="cancel">{{ t('cropper.cancel') }}</Btn>
         <Btn data-test="cropper-confirm" :loading="exporting" @click="confirm">{{ t('cropper.confirm') }}</Btn>

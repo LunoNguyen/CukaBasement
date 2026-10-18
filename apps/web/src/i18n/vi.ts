@@ -251,6 +251,7 @@ export default {
     confirm: 'Dùng ảnh này',
     cancel: 'Hủy',
     failed: 'Không cắt được ảnh này',
+    unreadable: 'Không mở được ảnh này. Vui lòng chọn tệp khác',
   },
   user: { follow: 'Theo dõi', following: 'Đang theo dõi', followers: '{n} người theo dõi' },
   comments: {

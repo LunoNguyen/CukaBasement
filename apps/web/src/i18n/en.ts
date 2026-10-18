@@ -215,6 +215,7 @@ const en: typeof vi = {
     confirm: 'Use this image',
     cancel: 'Cancel',
     failed: 'Could not crop this image',
+    unreadable: 'This image could not be opened. Please choose another file',
   },
   user: { follow: 'Follow', following: 'Following', followers: '{n} followers' },
   comments: {
