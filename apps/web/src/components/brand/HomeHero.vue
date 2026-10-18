@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import BasementArt from './BasementArt.vue'
-import Tagline from './Tagline.vue'
 
 const { t } = useI18n()
 </script>
 
-<!-- Logged-out welcome on the home page: the tagline (board 04) next to the basement art (board 08). -->
+<!-- Logged-out welcome on the home page, next to the basement art (board 08). -->
 <template>
   <section data-test="home-hero" class="grid overflow-hidden rounded-2xl bg-[var(--c-cellar)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
     <div class="order-2 flex flex-col gap-5 p-6 sm:p-8 md:order-1 md:py-10">
       <p class="font-mono text-xs tracking-[0.08em] text-[var(--c-cellar-muted)] uppercase">{{ t('common.siteName') }}</p>
-      <Tagline tag="h1" />
+      <h1 class="font-display text-4xl leading-[1.05] font-semibold tracking-[-0.025em] text-[var(--c-cellar-text)] sm:text-5xl">{{ t('brand.heroTitle') }}</h1>
       <p class="max-w-md text-sm leading-relaxed text-[var(--c-cellar-text)]/85">{{ t('brand.heroBody') }}</p>
       <div class="flex flex-wrap gap-3">
         <RouterLink to="/register" data-test="hero-register" class="inline-flex min-h-11 items-center rounded-full bg-[#fbf7f4] px-5 text-sm font-semibold text-[#5b3a29] hover:bg-white">{{

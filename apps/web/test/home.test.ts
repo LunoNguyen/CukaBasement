@@ -49,14 +49,13 @@ describe('Home', () => {
     expect(fake.callsTo('GET /api/feed/following')).toHaveLength(0)
   })
 
-  it('logged out: a hero with the tagline and sign-up; logged in: no hero. The footer carries the tagline on every page', async () => {
+  it('logged out: a hero with the site intro and sign-up; logged in: no hero. The footer is on every page', async () => {
     fake = installFakeFetch({ 'GET /api/tags/featured': { status: 200, body: [] }, 'GET /api/feed/home': ok([]) })
     let { w } = await mountAt('/')
     const hero = w.get('[data-test="home-hero"]')
-    expect(hero.get('h1').text()).toBe('Vẽ thật.Ghi công thật.')
-    expect(hero.text()).toContain('Real art. Real credit.')
+    expect(hero.get('h1').text()).toBe('Nơi chia sẻ fanart Hibiki Du Ca')
     expect(hero.get('[data-test="hero-register"]').attributes('href')).toBe('/register')
-    expect(w.get('[data-test="footer"]').text()).toContain('Ghi công thật.')
+    expect(w.get('[data-test="footer"]').text()).toContain('Nơi chia sẻ fanart Hibiki Du Ca')
     expect(w.get('[data-test="empty-art"]').attributes('aria-hidden')).toBe('true')
     w.unmount()
     ;({ w } = await mountAt('/', true))

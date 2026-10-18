@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import BrandMark from '@/components/brand/BrandMark.vue'
 import BasementArt from '@/components/brand/BasementArt.vue'
-import Tagline from '@/components/brand/Tagline.vue'
 
 defineProps<{ title: string }>()
 </script>
 
-<!-- Form on the left; from md up, the basement art and the tagline (board 04 + 08) beside it. -->
+<!-- Form on the left; from md up, the basement art (board 08) beside it. -->
 <template>
   <div class="mx-auto mt-4 grid w-full max-w-sm overflow-hidden rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] shadow-[0_12px_40px_rgb(23_17_14/0.08)] sm:mt-8 md:max-w-3xl md:grid-cols-2">
     <section class="p-6 sm:p-8">
@@ -16,9 +15,6 @@ defineProps<{ title: string }>()
     </section>
     <div data-test="auth-art" class="relative hidden min-h-96 bg-[var(--c-cellar)] md:block">
       <BasementArt class="absolute inset-0 h-full w-full" />
-      <div class="absolute inset-x-0 top-0 bg-gradient-to-b from-[#17110e] via-[#17110e]/80 to-transparent p-8 pb-16">
-        <Tagline size="sm" />
-      </div>
     </div>
   </div>
 </template>
