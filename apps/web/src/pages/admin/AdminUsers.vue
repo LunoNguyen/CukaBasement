@@ -107,10 +107,10 @@ async function confirm() {
           <p class="text-xs text-[var(--c-muted)]">{{ t(`admin.roles.${u.role}`) }} · {{ t(`admin.statuses.${u.status}`) }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <select data-test="role-select" :value="u.role" :disabled="isSelf(u)" :aria-label="t('admin.users.role')" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-1.5 disabled:opacity-60" @change="ask(u, 'role', $event)">
+          <select data-test="role-select" :value="u.role" :disabled="isSelf(u)" :aria-label="t('admin.users.roleOf', { name: '@' + u.username })" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-1.5 disabled:opacity-60" @change="ask(u, 'role', $event)">
             <option v-for="r in ROLES" :key="r" :value="r">{{ t(`admin.roles.${r}`) }}</option>
           </select>
-          <select data-test="status-select" :value="u.status" :disabled="isSelf(u)" :aria-label="t('admin.users.status')" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-1.5 disabled:opacity-60" @change="ask(u, 'status', $event)">
+          <select data-test="status-select" :value="u.status" :disabled="isSelf(u)" :aria-label="t('admin.users.statusOf', { name: '@' + u.username })" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-1.5 disabled:opacity-60" @change="ask(u, 'status', $event)">
             <option v-for="s in USER_STATUSES" :key="s" :value="s">{{ t(`admin.statuses.${s}`) }}</option>
           </select>
         </div>

@@ -24,6 +24,7 @@ const en: typeof vi = {
     },
     users: {
       search: 'Search by email or username', allRoles: 'All roles', allStatuses: 'All statuses',
+      roleOf: 'Role of {name}', statusOf: 'Status of {name}',
       email: 'Email', username: 'Username', role: 'Role', status: 'Status', verified: 'Verified', created: 'Created',
       empty: 'No users found', statusTitle: 'Change status', statusConfirm: 'Change the status of {name} to "{status}"?',
       roleTitle: 'Change role', roleConfirm: 'Change the role of {name} to "{role}"?', note: 'Note (optional)', confirm: 'Confirm',

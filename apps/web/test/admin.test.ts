@@ -212,6 +212,47 @@ describe('Admin pages', () => {
     expect(fake!.callsTo('GET /api/admin/logs').at(-1)!.query.get('action')).toBe('ban')
   })
 
+  it('settings accepts fractional GB/MB exactly, form has no blocking constraints', async () => {
+    const { w } = await mountAt('/admin?tab=settings', {
+      'GET /api/admin/settings': ok(settings),
+      'PATCH /api/admin/settings': (req) => ok({ ...settings, ...(req.body as object) }),
+    })
+    expect(w.find('form').attributes('novalidate')).toBeDefined()
+    expect(w.find('[data-test="set-dailyUploadQuotaBytes"]').attributes('min')).toBeUndefined()
+    await setVal(w.find('[data-test="set-dailyUploadQuotaBytes"]').element, '0.5')
+    w.find('form').element.dispatchEvent(new Event('submit', { cancelable: true }))
+    await flushPromises()
+    expect(fake!.callsTo('PATCH /api/admin/settings')[0]!.body).toEqual({ dailyUploadQuotaBytes: 536870912 })
+    await setVal(w.find('[data-test="set-dailyUploadQuotaBytes"]').element, '3')
+    await setVal(w.find('[data-test="set-dailyUploadQuotaBytes"]').element, '2')
+    w.find('form').element.dispatchEvent(new Event('submit', { cancelable: true }))
+    await flushPromises()
+    expect(fake!.callsTo('PATCH /api/admin/settings')[1]!.body).toEqual({ dailyUploadQuotaBytes: 2147483648 })
+  })
+
+  it('settings rejects values that are not safe integers in bytes', async () => {
+    const { w } = await mountAt('/admin?tab=settings', { 'GET /api/admin/settings': ok(settings), 'PATCH /api/admin/settings': ok(settings) })
+    await setVal(w.find('[data-test="set-dailyUploadQuotaBytes"]').element, '99999999999')
+    w.find('form').element.dispatchEvent(new Event('submit', { cancelable: true }))
+    await flushPromises()
+    expect(fake!.callsTo('PATCH /api/admin/settings')).toHaveLength(0)
+    expect(w.text()).toContain(vi.admin.settings.invalid)
+  })
+
+  it('row selects are labelled with the username', async () => {
+    const { w } = await mountAt('/admin', { 'GET /api/admin/users': users(user({ username: 'alice' })) })
+    expect(w.find('[data-test="role-select"]').attributes('aria-label')).toBe('Vai trò của @alice')
+    expect(w.find('[data-test="status-select"]').attributes('aria-label')).toBe('Trạng thái của @alice')
+  })
+
+  it('CANNOT_CHANGE_OWN_ROLE shows vi message', async () => {
+    const { w } = await mountAt('/admin', { 'GET /api/admin/users': users(user()), 'POST /api/admin/users/u2/role': err(403, 'CANNOT_CHANGE_OWN_ROLE') })
+    await setVal(w.find('[data-test="role-select"]').element, 'moderator', 'change')
+    modal().querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+    await flushPromises()
+    expect(document.body.textContent).toContain('Bạn không thể tự đổi vai trò của mình')
+  })
+
   it('tab lives in the query string', async () => {
     const { w, router } = await mountAt('/admin', { 'GET /api/admin/users': users(), 'GET /api/admin/logs': ok({ items: [], nextCursor: null }) })
     await w.findAll('[role="tab"]')[2]!.trigger('click')

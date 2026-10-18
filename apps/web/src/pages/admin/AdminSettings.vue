@@ -47,7 +47,7 @@ async function save() {
   for (const k of KEYS) {
     const n = Number(form[k])
     const bytes = Math.round(n * UNIT[k])
-    if (String(form[k]).trim() === '' || !Number.isFinite(n) || bytes < 1 || (UNIT[k] === 1 && !Number.isInteger(n))) errors[k] = t('admin.settings.invalid')
+    if (String(form[k]).trim() === '' || !Number.isFinite(n) || !Number.isSafeInteger(bytes) || bytes < 1 || (UNIT[k] === 1 && !Number.isInteger(n))) errors[k] = t('admin.settings.invalid')
     else if (k === 'maxFileBytes' && bytes > DEFAULT_SETTINGS.maxFileBytes) errors[k] = t('admin.settings.maxFileTooBig', { max: MAX_FILE_MB })
     else if (bytes !== loaded.value[k]) patch[k] = bytes
   }
@@ -67,15 +67,13 @@ async function save() {
 <template>
   <p v-if="loadError" class="py-6 text-center text-[var(--c-muted)]">{{ errorText(loadError) }}</p>
   <div v-else-if="!loaded" class="flex justify-center py-6"><Spinner /></div>
-  <form v-else class="flex max-w-md flex-col gap-3" @submit.prevent="save">
+  <form v-else novalidate class="flex max-w-md flex-col gap-3" @submit.prevent="save">
     <label v-for="k in KEYS" :key="k" class="flex flex-col gap-1 text-sm">
       {{ t(`admin.settings.${k}`) }}
       <input
         v-model="form[k]"
         :data-test="`set-${k}`"
         type="number"
-        min="1"
-        :max="k === 'maxFileBytes' ? MAX_FILE_MB : undefined"
         step="any"
         class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2"
       />

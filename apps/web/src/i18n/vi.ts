@@ -60,6 +60,7 @@ export default {
     },
     users: {
       search: 'Tìm theo email hoặc tên người dùng', allRoles: 'Mọi vai trò', allStatuses: 'Mọi trạng thái',
+      roleOf: 'Vai trò của {name}', statusOf: 'Trạng thái của {name}',
       email: 'Email', username: 'Tên người dùng', role: 'Vai trò', status: 'Trạng thái', verified: 'Đã xác thực', created: 'Ngày tạo',
       empty: 'Không có tài khoản nào', statusTitle: 'Đổi trạng thái', statusConfirm: 'Đổi trạng thái của {name} thành «{status}»?',
       roleTitle: 'Đổi vai trò', roleConfirm: 'Đổi vai trò của {name} thành «{role}»?', note: 'Ghi chú (không bắt buộc)', confirm: 'Xác nhận',
