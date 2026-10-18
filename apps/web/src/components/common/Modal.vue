@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-defineProps<{ title?: string }>()
+defineProps<{ title?: string; wide?: boolean }>()
 const open = defineModel<boolean>('open', { default: false })
 const { t } = useI18n()
 const titleId = useId()
@@ -76,7 +76,8 @@ onBeforeUnmount(() => {
         aria-modal="true"
         tabindex="-1"
         :aria-labelledby="titleId"
-        class="w-full max-w-md rounded bg-[var(--c-surface)] p-4 text-[var(--c-text)] shadow-lg"
+        class="w-full rounded bg-[var(--c-surface)] p-4 text-[var(--c-text)] shadow-lg"
+        :class="wide ? 'max-w-2xl' : 'max-w-md'"
       >
         <div class="mb-3 flex items-center justify-between">
           <h2 :id="titleId" class="text-lg font-semibold">{{ title }}</h2>

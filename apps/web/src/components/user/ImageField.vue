@@ -5,11 +5,13 @@ import { ALLOWED_FILE_TYPES } from '@cuka/shared'
 import { useUploader, validateFile } from '@/composables/useUploader'
 import { useToast } from '@/stores/toast'
 import Spinner from '@/components/common/Spinner.vue'
+import ImageCropper from '@/components/upload/ImageCropper.vue'
 
 /**
- * One profile image (avatar or banner): uploads a single image and, once the file is accepted by the
- * server (processing/ready), hands its id to `save`. The public URL only exists after the worker has
- * published it, so the picked file is previewed locally.
+ * One profile image (avatar or banner): a still image is cropped first (ImageCropper: 1:1 avatar, 4:1 banner);
+ * a GIF or animated WebP is uploaded as-is (the worker center-crops it, keeping the animation). Once the file is
+ * accepted by the server (processing/ready) its id goes to `save`. The public URL only exists after the worker has
+ * published it, so the uploaded file is previewed locally.
  */
 const props = defineProps<{
   label: string
@@ -37,7 +39,31 @@ function setPreview(file: File | null) {
 }
 onBeforeUnmount(() => setPreview(null))
 
-function onChange(e: Event) {
+/** GIF, or WebP whose VP8X header has the animation flag: canvas cropping would drop the animation. */
+async function isAnimated(file: File): Promise<boolean> {
+  if (file.type === 'image/gif') return true
+  if (file.type !== 'image/webp') return false
+  try {
+    const b = new Uint8Array(await file.slice(0, 21).arrayBuffer())
+    const tag = (from: number, to: number) => String.fromCharCode(...b.slice(from, to))
+    return b.length >= 21 && tag(0, 4) === 'RIFF' && tag(8, 16) === 'WEBPVP8X' && (b[20]! & 0x02) !== 0
+  } catch {
+    return false
+  }
+}
+
+/** Shown after an animated pick: it is uploaded uncropped and the worker crops it around the centre. */
+const animatedNote = ref(false)
+const cropping = ref<File | null>(null)
+const cropperOpen = ref(false)
+
+function upload(file: File) {
+  for (const q of [...up.queue.value]) up.remove(q.id)
+  setPreview(file)
+  up.add([file])
+}
+
+async function onChange(e: Event) {
   const el = e.target as HTMLInputElement
   const file = el.files?.[0]
   el.value = ''
@@ -47,9 +73,19 @@ function onChange(e: Event) {
     toast.push({ kind: 'error', text: t(v.ok || v.reason === 'type' ? 'settings.imageOnly' : 'errors.FILE_TOO_LARGE') })
     return
   }
-  for (const q of [...up.queue.value]) up.remove(q.id)
-  setPreview(file)
-  up.add([file])
+  if (await isAnimated(file)) {
+    animatedNote.value = true
+    upload(file)
+    return
+  }
+  animatedNote.value = false
+  cropping.value = file
+  cropperOpen.value = true
+}
+
+function onCropped(file: File) {
+  cropping.value = null
+  upload(file)
 }
 
 async function persist(fileId: string) {
@@ -100,5 +136,7 @@ const busy = () => saving.value || up.queue.value.some((q) => q.status === 'queu
       </button>
       <input ref="input" :data-test="testId + '-input'" type="file" class="sr-only" tabindex="-1" aria-hidden="true" :accept="accept" @change="onChange" />
     </div>
+    <p v-if="animatedNote" :data-test="testId + '-animated-note'" class="text-xs text-[var(--c-muted)]">{{ t('settings.animatedNote') }}</p>
+    <ImageCropper v-model:open="cropperOpen" :file="cropping" :shape="shape" @confirm="onCropped" @cancel="cropping = null" />
   </div>
 </template>
