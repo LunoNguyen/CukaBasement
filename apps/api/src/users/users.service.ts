@@ -15,7 +15,7 @@ import { JOBS, type JobsPort } from '../jobs/jobs.port'
 import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 import { UploadsService } from '../uploads/uploads.service'
-import { effectiveLinks, toStoredLinks } from './social-links'
+import { effectiveLinks, MIGRATED_LEGACY, toStoredLinks } from './social-links'
 import { USER_MODEL, type User } from './user.schema'
 
 export interface MeDto {
@@ -113,13 +113,9 @@ export class UsersService {
       }
       $set[`profile.${key}`] = oid
     }
-    // The list is replaced whole; dropping the legacy fields marks the profile migrated (see effectiveLinks).
-    const $unset: Record<string, ''> = {}
-    if (input.links !== undefined) {
-      $set['profile.links'] = toStoredLinks(input.links)
-      $unset['profile.socialLinks'] = ''
-    }
-    if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) })
+    // The list is replaced whole; moving the legacy fields aside marks the profile migrated (see effectiveLinks).
+    if (input.links !== undefined) $set['profile.links'] = toStoredLinks(input.links)
+    if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set, ...(input.links !== undefined ? { $rename: MIGRATED_LEGACY } : {}) })
     // Post cards show the author's name and avatar (a new avatar appears once relocate-file publishes it, which bumps again).
     if (input.displayName !== undefined || input.avatarFileId !== undefined) await this.feedCache.bump()
     // Variants of a file in no post stay private; a new profile image must be published to the public bucket.

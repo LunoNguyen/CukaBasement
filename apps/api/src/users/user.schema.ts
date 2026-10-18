@@ -26,10 +26,12 @@ export interface User {
     bannerFileId: Types.ObjectId | null
     links: StoredSocialLink[]
     /**
-     * Legacy fixed links (before the list). Read only while `links` is empty and unset on the first save of `links`
-     * or by the setup migration (see effectiveLinks).
+     * Legacy fixed links (before the list). Read only while `links` is empty; the first save of `links` or the setup
+     * migration renames them to `legacySocialLinks` (see effectiveLinks).
      */
     socialLinks?: LegacySocialLinks
+    /** The legacy fields as they were when migrated, kept untouched (never read). */
+    legacySocialLinks?: LegacySocialLinks
   }
   stats: { followerCount: number; followingCount: number; postCount: number }
   createdAt: Date
@@ -39,6 +41,8 @@ export interface User {
 export type UserDocument = HydratedDocument<User>
 
 export const USER_MODEL = 'User'
+
+const LEGACY_LINKS = { x: String, facebook: String, youtube: String, pixiv: String }
 
 const SocialLinkSchema = new Schema<StoredSocialLink>(
   {
@@ -67,7 +71,8 @@ export const UserSchema = new Schema<User>(
       bannerFileId: { type: Schema.Types.ObjectId, default: null },
       links: { type: [SocialLinkSchema], default: [] },
       // No defaults: new users get no legacy fields, so nothing is ever migrated for them.
-      socialLinks: { x: String, facebook: String, youtube: String, pixiv: String },
+      socialLinks: LEGACY_LINKS,
+      legacySocialLinks: LEGACY_LINKS,
     },
     stats: {
       followerCount: { type: Number, default: 0 },

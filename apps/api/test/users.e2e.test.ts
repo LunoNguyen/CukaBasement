@@ -91,6 +91,8 @@ describe('me and user endpoints', () => {
       expect((await h.http().get('/api/me').set(auth(u.token))).body.profile.links).toEqual([])
       const doc = await users().findOne({ _id: new Types.ObjectId(u.id) })
       expect(doc!.profile.socialLinks).toBeUndefined()
+      // Kept aside, never read.
+      expect(doc!.profile.legacySocialLinks).toEqual({ x: 'https://x.com/old', facebook: '', youtube: 'https://youtube.com/@old', pixiv: '' })
     })
 
     it('the setup migration converts legacy links once, keeps existing lists and is idempotent', async () => {
@@ -106,6 +108,7 @@ describe('me and user endpoints', () => {
         { platform: 'pixiv', label: '', url: 'https://pixiv.net/u/a' },
       ])
       expect((await profile(a.id)).socialLinks).toBeUndefined()
+      expect((await profile(a.id)).legacySocialLinks).toEqual({ x: '', facebook: 'https://facebook.com/a', youtube: '', pixiv: 'https://pixiv.net/u/a' })
       expect((await profile(b.id)).links).toEqual([])
       expect((await profile(c.id)).links).toEqual([{ platform: 'kofi', label: '', url: 'https://ko-fi.com/c' }])
       expect((await h.http().get(`/api/users/${a.username}`)).body.links).toEqual([
