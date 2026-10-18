@@ -26,7 +26,8 @@ export function newRow(): LinkRow {
 
 /** A row the user added but left empty: not an error, dropped on save. */
 export function isBlank(row: LinkRow): boolean {
-  return !row.url.trim() && !row.label.trim()
+  // The label is only shown (and kept) for `other`; a stale one left from switching platforms does not count.
+  return !row.url.trim() && (row.platform !== 'other' || !row.label.trim())
 }
 
 function isHttpUrl(v: string): boolean {
