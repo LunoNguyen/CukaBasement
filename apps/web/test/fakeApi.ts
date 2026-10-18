@@ -99,6 +99,8 @@ export function makeMe(overrides: Partial<MeDto> = {}): MeDto {
     locale: 'vi',
     showR18: false,
     birthDate: null,
+    avatarUrl: null,
+    bannerUrl: null,
     profile: {
       username: 'cuka',
       displayName: 'Cuka',

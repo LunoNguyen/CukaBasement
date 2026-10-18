@@ -8,7 +8,6 @@ import { useAuth } from '@/stores/auth'
 import App from '@/App.vue'
 import { installFakeFetch, makeMe, type FakeFetch, type FakeRequest, type FakeRoute } from './fakeApi'
 import { installFakeXhr } from './fakeXhr'
-import { publicUser } from './fixtures'
 
 let fake: FakeFetch | undefined
 let wrapper: VueWrapper | undefined
@@ -29,12 +28,12 @@ afterEach(() => {
 const ok = (body: unknown) => ({ status: 200, body })
 const err = (status: number, code: string) => ({ status, body: { error: { code, message: 'raw server text' } } })
 
-async function mountSettings() {
+async function mountSettings(user = makeMe()) {
   const pinia = createPinia()
   setActivePinia(pinia)
   auth = useAuth()
   auth.ready = true
-  auth.setSession({ accessToken: 't', user: makeMe() })
+  auth.setSession({ accessToken: 't', user })
   const router = createAppRouter(createMemoryHistory())
   await router.push('/settings')
   wrapper = mount(App, { global: { plugins: [pinia, router, i18n] }, attachTo: document.body })
@@ -203,22 +202,78 @@ describe('Settings page', () => {
       expect((w.get('[data-test="locale-vi"]').element as HTMLInputElement).checked).toBe(true)
     })
 
-    it('shows the current avatar from the public profile; local preview wins; failed save clears it', async () => {
+    it('shows the current avatar from the session (no extra profile request); local preview wins; failed save clears it', async () => {
       installFakeXhr()
       fake = installFakeFetch({
-        'GET /api/users/cuka': ok(publicUser({ avatarUrl: 'http://cdn/a.webp', bannerUrl: null })),
         'POST /api/uploads': ok({ fileId: 'F1', url: 'http://minio.local/o', fields: { key: 'k' }, maxBytes: 8 }),
-        'POST /api/uploads/F1/complete': ok({ id: 'F1', kind: 'image', mimeType: 'image/png', sizeBytes: 8, status: 'processing', originalName: 'a.png' }),
+        'POST /api/uploads/F1/complete': ok({ id: 'F1', kind: 'image', mimeType: 'image/gif', sizeBytes: 8, status: 'processing', originalName: 'a.gif' }),
         'PATCH /api/me': err(400, 'FILE_NOT_READY'),
       })
-      const w = await mountSettings()
+      const w = await mountSettings(makeMe({ avatarUrl: 'http://cdn/a.webp', bannerUrl: null }))
+      expect(fake.callsTo('GET /api/users/cuka')).toHaveLength(0)
       expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/a.webp')
       expect(w.find('[data-test="banner-preview"]').exists()).toBe(false)
       const input = w.get('[data-test="avatar-input"]')
-      Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], 'a.png', { type: 'image/png' })], configurable: true })
+      Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], 'a.gif', { type: 'image/gif' })], configurable: true })
       await input.trigger('change')
       await flushPromises()
       expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/a.webp')
+    })
+
+    it('after an avatar save the header updates from the response and /me is polled every 3 s (≤10 times) until the URL appears', async () => {
+      vi.useFakeTimers()
+      try {
+        installFakeXhr()
+        const withAvatar = makeMe({ avatarUrl: 'http://cdn/F1/thumb_md.webp', profile: { ...makeMe().profile, avatarFileId: 'F1' } })
+        const pending = makeMe({ profile: { ...makeMe().profile, displayName: 'Saved', avatarFileId: 'F1' } })
+        fake = installFakeFetch({
+          'POST /api/uploads': ok({ fileId: 'F1', url: 'http://minio.local/o', fields: { key: 'k' }, maxBytes: 8 }),
+          'POST /api/uploads/F1/complete': ok({ id: 'F1', kind: 'image', mimeType: 'image/gif', sizeBytes: 8, status: 'processing', originalName: 'a.gif' }),
+          'PATCH /api/me': ok(pending),
+          'GET /api/me': [ok(pending), ok(withAvatar)],
+        })
+        const w = await mountSettings()
+        const input = w.get('[data-test="avatar-input"]')
+        Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], 'a.gif', { type: 'image/gif' })], configurable: true })
+        await input.trigger('change')
+        await flushPromises()
+        expect(auth.user!.profile.displayName).toBe('Saved')
+        expect(w.find('[data-test="account-avatar"]').exists()).toBe(false)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(0)
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(1)
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(2)
+        expect(auth.user!.avatarUrl).toBe('http://cdn/F1/thumb_md.webp')
+        expect(w.get('[data-test="account-avatar"]').attributes('src')).toBe('http://cdn/F1/thumb_md.webp')
+        await vi.advanceTimersByTimeAsync(30_000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('polling /me gives up after 10 tries', async () => {
+      vi.useFakeTimers()
+      try {
+        installFakeXhr()
+        const pending = makeMe({ profile: { ...makeMe().profile, bannerFileId: 'F1' } })
+        fake = installFakeFetch({
+          'POST /api/uploads': ok({ fileId: 'F1', url: 'http://minio.local/o', fields: { key: 'k' }, maxBytes: 8 }),
+          'POST /api/uploads/F1/complete': ok({ id: 'F1', kind: 'image', mimeType: 'image/gif', sizeBytes: 8, status: 'processing', originalName: 'b.gif' }),
+          'PATCH /api/me': ok(pending),
+          'GET /api/me': ok(pending),
+        })
+        const w = await mountSettings()
+        const input = w.get('[data-test="banner-input"]')
+        Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], 'b.gif', { type: 'image/gif' })], configurable: true })
+        await input.trigger('change')
+        await flushPromises()
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(10)
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('R18 form re-syncs from the returned user', async () => {
