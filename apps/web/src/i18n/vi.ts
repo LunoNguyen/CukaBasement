@@ -90,6 +90,7 @@ export default {
     checkEmailTitle: 'Kiểm tra email để xác thực',
     checkEmailBody: 'Chúng tôi đã gửi liên kết xác thực đến email của bạn.',
     devNote: 'Môi trường phát triển: liên kết được in trong terminal của API.',
+    verifyTitle: 'Xác thực email',
     verifying: 'Đang xác thực email...',
     verifySuccess: 'Email đã được xác thực. Cảm ơn bạn!',
     forgotTitle: 'Quên mật khẩu',

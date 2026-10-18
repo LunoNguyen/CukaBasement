@@ -16,6 +16,7 @@ const form = reactive({ password: '', confirm: '' })
 const errors = reactive({ password: '', confirm: '', server: '' })
 const busy = ref(false)
 const done = ref(false)
+const token = typeof route.query.token === 'string' ? route.query.token : ''
 
 async function submit() {
   if (busy.value) return
@@ -25,7 +26,6 @@ async function submit() {
   if (errors.password || errors.confirm) return
   busy.value = true
   try {
-    const token = typeof route.query.token === 'string' ? route.query.token : ''
     await authApi.resetPassword(token, form.password)
     done.value = true
   } catch (e) {
@@ -40,7 +40,8 @@ const input = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-
 
 <template>
   <AuthCard :title="t('auth.resetTitle')">
-    <div v-if="done" data-test="reset-success" class="text-sm">
+    <p v-if="!token" role="alert" class="text-sm text-red-600">{{ t('errors.TOKEN_INVALID') }}</p>
+    <div v-else-if="done" data-test="reset-success" class="text-sm">
       <p>{{ t('auth.resetSuccess') }}</p>
       <RouterLink to="/login" class="mt-3 inline-block text-[var(--c-accent)]">{{ t('auth.login') }}</RouterLink>
     </div>

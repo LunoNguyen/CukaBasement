@@ -25,6 +25,8 @@ onMounted(async () => {
   }
   try {
     await authApi.verifyEmail(token)
+    // On a cold start the session may still be loading; mark it verified once it is.
+    await auth.whenReady()
     if (auth.user) auth.setUser({ ...auth.user, emailVerified: true })
     state.value = 'ok'
   } catch (e) {
@@ -35,7 +37,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AuthCard :title="t('auth.checkEmailTitle')">
+  <AuthCard :title="t('auth.verifyTitle')">
     <p v-if="state === 'loading'" class="flex items-center gap-2 text-sm"><Spinner /> {{ t('auth.verifying') }}</p>
     <p v-else-if="state === 'ok'" data-test="verify-success" class="text-sm">{{ t('auth.verifySuccess') }}</p>
     <p v-else role="alert" class="text-sm text-red-600">{{ error }}</p>

@@ -153,6 +153,30 @@ describe('verify-email', () => {
   })
 })
 
+describe('verify-email edge cases', () => {
+  it('uses its own title, not the check-email title', async () => {
+    fake = installFakeFetch({ 'POST /api/auth/verify-email': { status: 204 } })
+    const { w } = await mountAt('/verify-email?token=abc123')
+    expect(w.get('h1').text()).not.toBe('Kiểm tra email để xác thực')
+  })
+
+  it('on a cold start the session that arrives later is marked verified', async () => {
+    fake = installFakeFetch({ 'POST /api/auth/verify-email': { status: 204 } })
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const auth = useAuth() // not ready: the start-up refresh is still in flight
+    const router = createAppRouter(createMemoryHistory())
+    await router.push('/verify-email?token=abc123')
+    const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
+    await flushPromises()
+    auth.setSession({ accessToken: 't', user: makeMe({ emailVerified: false }) })
+    auth.ready = true
+    await flushPromises()
+    expect(auth.user!.emailVerified).toBe(true)
+    expect(w.find('[data-test="resend-verification"]').exists()).toBe(false)
+  })
+})
+
 describe('forgot / reset password', () => {
   it('forgot shows the same success text whether or not the email exists', async () => {
     const texts: string[] = []
@@ -167,6 +191,14 @@ describe('forgot / reset password', () => {
     }
     expect(texts[0]).toBe(texts[1])
     expect(texts[0]).not.toBe('')
+  })
+
+  it('reset without a token shows TOKEN_INVALID and does not call the API', async () => {
+    fake = installFakeFetch({ 'POST /api/auth/reset-password': { status: 204 } })
+    const { w } = await mountAt('/reset-password')
+    expect(w.get('[role="alert"]').text()).toBe('Liên kết không hợp lệ hoặc đã hết hạn')
+    expect(w.find('form').exists()).toBe(false)
+    expect(fake.calls).toHaveLength(0)
   })
 
   it('reset posts token + new password and links to login', async () => {

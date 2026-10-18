@@ -54,6 +54,7 @@ const en: typeof vi = {
     checkEmailTitle: 'Check your email to verify',
     checkEmailBody: 'We sent a verification link to your email.',
     devNote: 'Dev environment: the link is printed in the API terminal.',
+    verifyTitle: 'Verify email',
     verifying: 'Verifying your email...',
     verifySuccess: 'Your email is verified. Thank you!',
     forgotTitle: 'Forgot password',
