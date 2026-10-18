@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common'
-import type { VariantName } from '@cuka/shared'
+import { type CropRect, cropRectSchema, type VariantName } from '@cuka/shared'
 import type mongoose from 'mongoose'
 import type { Types } from 'mongoose'
 import sharp, { type Sharp } from 'sharp'
@@ -11,8 +11,14 @@ export { SHARP_INPUT } from './media'
 
 export type Rating = 'all' | 'r18'
 
-/** A post-less profile image is center-cropped for its role: avatar 1:1, banner 4:1. */
+/** A post-less profile image is cropped for its role: avatar 1:1, banner 4:1 (the user's rectangle, else centred). */
 export type ProfileCrop = 'avatar' | 'banner'
+
+/** How a profile image is cropped: its role, and the user's rectangle within the original (null: centred). */
+export interface ProfileCropSpec {
+  role: ProfileCrop
+  rect: CropRect | null
+}
 
 /** Frames beyond this make an animation fall back to its first frame. */
 export const MAX_ANIMATED_PAGES = 300
@@ -69,8 +75,8 @@ export interface VariantContext {
   rating: Rating
   watermark: WatermarkText | null
   published: boolean
-  /** Set only for a post-less profile image: its clean renders are center-cropped for the role. */
-  crop: ProfileCrop | null
+  /** Set only for a post-less profile image: its clean renders are cropped for the role (see ProfileCropSpec). */
+  crop: ProfileCropSpec | null
 }
 
 interface PostForContext {
@@ -93,8 +99,8 @@ export async function contextOfPost(conn: mongoose.Connection, doc: Record<strin
 
 /**
  * Same lookup as findRatingForFile: a live post wins, else a soft-deleted one. No post: a user's avatar or banner is
- * published (`all`, no watermark) and cropped for its role (avatar wins when a file is both); anything else stays
- * unpublished (private, no watermark).
+ * published (`all`, no watermark) and cropped for its role with the user's rectangle (avatar wins when a file is
+ * both); anything else stays unpublished (private, no watermark).
  */
 export async function findContextForFile(conn: mongoose.Connection, fileId: Types.ObjectId): Promise<VariantContext> {
   const post = await conn
@@ -102,12 +108,29 @@ export async function findContextForFile(conn: mongoose.Connection, fileId: Type
     .findOne({ 'files.fileId': fileId }, { projection: { rating: 1, credit: 1, authorId: 1 }, sort: { deletedAt: 1 } })
   if (post) return contextOfPost(conn, post)
   const users = conn.collection('users')
-  const crop: ProfileCrop | null = (await users.findOne({ 'profile.avatarFileId': fileId }, { projection: { _id: 1 } }))
-    ? 'avatar'
-    : (await users.findOne({ 'profile.bannerFileId': fileId }, { projection: { _id: 1 } }))
-      ? 'banner'
+  const projection = { 'profile.avatarCrop': 1, 'profile.bannerCrop': 1 }
+  const avatarOf = await users.findOne({ 'profile.avatarFileId': fileId }, { projection })
+  const bannerOf = avatarOf ? null : await users.findOne({ 'profile.bannerFileId': fileId }, { projection })
+  const crop: ProfileCropSpec | null = avatarOf
+    ? { role: 'avatar', rect: storedRect((avatarOf.profile as { avatarCrop?: unknown } | undefined)?.avatarCrop) }
+    : bannerOf
+      ? { role: 'banner', rect: storedRect((bannerOf.profile as { bannerCrop?: unknown } | undefined)?.bannerCrop) }
       : null
   return { rating: 'all', watermark: null, published: !!crop, crop }
+}
+
+/** A stored crop rectangle, or null when absent or not a valid one (then the image is centre-cropped). */
+function storedRect(v: unknown): CropRect | null {
+  if (v == null) return null
+  const r = cropRectSchema.safeParse(v)
+  return r.success ? r.data : null
+}
+
+export function sameCrop(a: ProfileCropSpec | null, b: ProfileCropSpec | null): boolean {
+  if (!a || !b) return a === b
+  const ra = a.rect
+  const rb = b.rect
+  return a.role === b.role && (ra === rb || (!!ra && !!rb && ra.x === rb.x && ra.y === rb.y && ra.w === rb.w && ra.h === rb.h))
 }
 
 /** Bucket for the variants of a file in context `ctx`: unpublished files stay in the private originals bucket. */
@@ -116,7 +139,7 @@ export function contextBucket(deps: JobDeps, ctx: VariantContext): string {
 }
 
 export function sameContext(a: VariantContext, b: VariantContext): boolean {
-  return a.rating === b.rating && a.published === b.published && a.crop === b.crop && a.watermark?.full === b.watermark?.full && a.watermark?.short === b.watermark?.short
+  return a.rating === b.rating && a.published === b.published && sameCrop(a.crop, b.crop) && a.watermark?.full === b.watermark?.full && a.watermark?.short === b.watermark?.short
 }
 
 /** `all` variants are served publicly; `r18` ones stay private in the originals bucket. */
