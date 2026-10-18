@@ -7,6 +7,7 @@ import { createAppContext } from '../app.module'
 import { type Config, loadConfig } from '../config/config'
 import { loadEnvFile } from '../config/env-file'
 import { ensureIndexes } from '../database/indexes'
+import { migrateLegacyLinks } from '../users/social-links'
 
 async function ensureBucket(client: Client, bucket: string): Promise<boolean> {
   if (await client.bucketExists(bucket)) return false
@@ -24,6 +25,7 @@ export async function runSetup(cfg: Config, log: (line: string) => void = () => 
       .collection<any>('settings')
       .updateOne({ _id: 'global' }, { $setOnInsert: { ...DEFAULT_SETTINGS } }, { upsert: true })
     log(`settings: ${res.upsertedCount ? 'created with defaults' : 'kept existing'}`)
+    log(`profile links: migrated ${await migrateLegacyLinks(conn)} legacy profiles`)
   } finally {
     await app.close()
   }

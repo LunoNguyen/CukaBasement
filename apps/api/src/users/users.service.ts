@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import type { Locale, Role, updateProfileSchema, updateSettingsSchema, UserStatus } from '@cuka/shared'
+import type { Locale, Role, SocialLink, updateProfileSchema, updateSettingsSchema, UserStatus } from '@cuka/shared'
 import * as argon2 from 'argon2'
 import { type Model, Types } from 'mongoose'
 import type { z } from 'zod'
@@ -14,7 +14,8 @@ import { JOBS, type JobsPort } from '../jobs/jobs.port'
 import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 import { UploadsService } from '../uploads/uploads.service'
-import { USER_MODEL, type SocialLinks, type User } from './user.schema'
+import { effectiveLinks, toStoredLinks } from './social-links'
+import { USER_MODEL, type User } from './user.schema'
 
 export interface MeDto {
   id: string
@@ -35,7 +36,8 @@ export interface MeDto {
     bio: string
     avatarFileId: string | null
     bannerFileId: string | null
-    socialLinks: SocialLinks
+    /** In display order (legacy fixed links converted, see effectiveLinks). */
+    links: SocialLink[]
   }
 }
 
@@ -46,7 +48,7 @@ export interface PublicUserDto {
   bio: string
   avatarUrl: string | null
   bannerUrl: string | null
-  socialLinks: SocialLinks
+  links: SocialLink[]
   stats: User['stats']
   createdAt: string
   isFollowing: boolean
@@ -109,10 +111,13 @@ export class UsersService {
       }
       $set[`profile.${key}`] = oid
     }
-    for (const [k, v] of Object.entries(input.socialLinks ?? {})) {
-      if (v !== undefined) $set[`profile.socialLinks.${k}`] = v
+    // The list is replaced whole; dropping the legacy fields marks the profile migrated (see effectiveLinks).
+    const $unset: Record<string, ''> = {}
+    if (input.links !== undefined) {
+      $set['profile.links'] = toStoredLinks(input.links)
+      $unset['profile.socialLinks'] = ''
     }
-    if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set })
+    if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) })
     // Variants of a file in no post stay private; a new profile image must be published to the public bucket.
     const profileFiles = new Set([input.avatarFileId, input.bannerFileId].filter((f): f is string => !!f))
     for (const fileId of profileFiles) await this.jobs.enqueue('relocate-file', { fileId })
@@ -167,7 +172,6 @@ export class UsersService {
     return Promise.all(
       users.map(async (user) => {
         const p = user.profile
-        const s = p.socialLinks
         return {
           id: user._id.toString(),
           username: p.username,
@@ -175,7 +179,7 @@ export class UsersService {
           bio: p.bio,
           avatarUrl: p.avatarFileId ? await this.publicAvatarUrl(p.avatarFileId.toString()) : null,
           bannerUrl: p.bannerFileId ? await this.publicAvatarUrl(p.bannerFileId.toString()) : null,
-          socialLinks: { x: s.x, facebook: s.facebook, youtube: s.youtube, pixiv: s.pixiv },
+          links: effectiveLinks(p),
           createdAt: user.createdAt.toISOString(),
           isFollowing: following.has(user._id.toString()),
         }
@@ -204,7 +208,6 @@ export class UsersService {
       p.avatarFileId ? this.publicAvatarUrl(p.avatarFileId.toString()) : null,
       p.bannerFileId ? this.publicAvatarUrl(p.bannerFileId.toString()) : null,
     ])
-    const s = p.socialLinks
     return {
       id: user._id.toString(),
       email: user.email,
@@ -222,7 +225,7 @@ export class UsersService {
         bio: p.bio,
         avatarFileId: p.avatarFileId?.toString() ?? null,
         bannerFileId: p.bannerFileId?.toString() ?? null,
-        socialLinks: { x: s.x, facebook: s.facebook, youtube: s.youtube, pixiv: s.pixiv },
+        links: effectiveLinks(p),
       },
     }
   }

@@ -4,6 +4,7 @@ import { CONFIG, type Config } from '../src/config/config'
 import { processFile } from '../src/jobs/handlers/process-file'
 import { relocateFile } from '../src/jobs/handlers/relocate-variants'
 import { StorageService } from '../src/storage/storage.service'
+import { migrateLegacyLinks } from '../src/users/social-links'
 import { createTestHarness, createUser, type Harness, jobDeps, uploadFixture } from './harness'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
@@ -25,12 +26,93 @@ describe('me and user endpoints', () => {
 
   it('PATCH /me updates displayName and bio; bio of 501 chars → 400 VALIDATION_FAILED', async () => {
     const u = await createUser(h)
-    const ok = await h.http().patch('/api/me').set(auth(u.token)).send({ displayName: 'New Name', bio: 'hello', socialLinks: { x: 'https://x.com/a' } })
+    const ok = await h.http().patch('/api/me').set(auth(u.token)).send({ displayName: 'New Name', bio: 'hello', links: [{ platform: 'x', url: 'https://x.com/a' }] })
     expect(ok.status).toBe(200)
-    expect(ok.body.profile).toMatchObject({ displayName: 'New Name', bio: 'hello', socialLinks: { x: 'https://x.com/a', pixiv: '' } })
+    expect(ok.body.profile).toMatchObject({ displayName: 'New Name', bio: 'hello', links: [{ platform: 'x', url: 'https://x.com/a' }] })
     const bad = await h.http().patch('/api/me').set(auth(u.token)).send({ bio: 'a'.repeat(501) })
     expect(bad.status).toBe(400)
     expect(bad.body.error.code).toBe('VALIDATION_FAILED')
+  })
+
+  describe('profile links', () => {
+    const users = () => h.db.collection('users')
+    /** A profile as stored before the link list: fixed fields, no `links`. */
+    async function legacyUser(socialLinks: Record<string, string>) {
+      const u = await createUser(h)
+      await users().updateOne({ _id: new Types.ObjectId(u.id) }, { $set: { 'profile.socialLinks': socialLinks }, $unset: { 'profile.links': '' } })
+      return u
+    }
+
+    it('PATCH /me replaces the ordered list; /me and the public profile serve it in order', async () => {
+      const u = await createUser(h)
+      const links = [
+        { platform: 'pixiv', url: 'https://pixiv.net/u/1' },
+        { platform: 'other', label: 'Shop', url: 'https://shop.example/a' },
+        { platform: 'x', url: 'https://x.com/a' },
+      ]
+      const res = await h.http().patch('/api/me').set(auth(u.token)).send({ links })
+      expect(res.status).toBe(200)
+      expect(res.body.profile.links).toEqual(links)
+      expect((await h.http().get(`/api/users/${u.username}`)).body.links).toEqual(links)
+      const swapped = await h.http().patch('/api/me').set(auth(u.token)).send({ links: [links[2], links[0]] })
+      expect(swapped.body.profile.links).toEqual([links[2], links[0]])
+      // Another profile field leaves the list alone.
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ bio: 'x' })).body.profile.links).toEqual([links[2], links[0]])
+    })
+
+    it('rejects bad links: non-http(s), other without a label, more than 10', async () => {
+      const u = await createUser(h)
+      const send = (links: unknown) => h.http().patch('/api/me').set(auth(u.token)).send({ links })
+      for (const links of [
+        [{ platform: 'x', url: 'javascript:alert(1)' }],
+        [{ platform: 'other', url: 'https://a.example' }],
+        [{ platform: 'myspace', url: 'https://a.example' }],
+        Array.from({ length: 11 }, () => ({ platform: 'x', url: 'https://x.com/a' })),
+      ]) {
+        const res = await send(links)
+        expect(res.status).toBe(400)
+        expect(res.body.error.code).toBe('VALIDATION_FAILED')
+      }
+      expect((await h.http().get('/api/me').set(auth(u.token))).body.profile.links).toEqual([])
+    })
+
+    it('legacy fixed links are served as a list until the first links save, which drops them', async () => {
+      const u = await legacyUser({ x: 'https://x.com/old', facebook: '', youtube: 'https://youtube.com/@old', pixiv: '' })
+      const legacy = [
+        { platform: 'x', url: 'https://x.com/old' },
+        { platform: 'youtube', url: 'https://youtube.com/@old' },
+      ]
+      expect((await h.http().get('/api/me').set(auth(u.token))).body.profile.links).toEqual(legacy)
+      expect((await h.http().get(`/api/users/${u.username}`)).body.links).toEqual(legacy)
+      // A save of other fields keeps them.
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ bio: 'b' })).body.profile.links).toEqual(legacy)
+      // Emptying the list sticks: the legacy fields are gone.
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ links: [] })).body.profile.links).toEqual([])
+      expect((await h.http().get('/api/me').set(auth(u.token))).body.profile.links).toEqual([])
+      const doc = await users().findOne({ _id: new Types.ObjectId(u.id) })
+      expect(doc!.profile.socialLinks).toBeUndefined()
+    })
+
+    it('the setup migration converts legacy links once, keeps existing lists and is idempotent', async () => {
+      const a = await legacyUser({ x: '', facebook: 'https://facebook.com/a', youtube: '', pixiv: 'https://pixiv.net/u/a' })
+      const b = await legacyUser({ x: '', facebook: '', youtube: '', pixiv: '' })
+      const c = await createUser(h)
+      await h.http().patch('/api/me').set(auth(c.token)).send({ links: [{ platform: 'kofi', url: 'https://ko-fi.com/c' }] })
+      expect(await migrateLegacyLinks(h.db)).toBe(2)
+      expect(await migrateLegacyLinks(h.db)).toBe(0)
+      const profile = async (id: string) => (await users().findOne({ _id: new Types.ObjectId(id) }))!.profile
+      expect((await profile(a.id)).links).toEqual([
+        { platform: 'facebook', label: '', url: 'https://facebook.com/a' },
+        { platform: 'pixiv', label: '', url: 'https://pixiv.net/u/a' },
+      ])
+      expect((await profile(a.id)).socialLinks).toBeUndefined()
+      expect((await profile(b.id)).links).toEqual([])
+      expect((await profile(c.id)).links).toEqual([{ platform: 'kofi', label: '', url: 'https://ko-fi.com/c' }])
+      expect((await h.http().get(`/api/users/${a.username}`)).body.links).toEqual([
+        { platform: 'facebook', url: 'https://facebook.com/a' },
+        { platform: 'pixiv', url: 'https://pixiv.net/u/a' },
+      ])
+    })
   })
 
   it('showR18 without birthDate → 400 AGE_REQUIRED', async () => {

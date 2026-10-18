@@ -65,7 +65,7 @@ describe('auth', () => {
           bio: '',
           avatarFileId: null,
           bannerFileId: null,
-          socialLinks: { x: '', facebook: '', youtube: '', pixiv: '' },
+          links: [],
         },
       },
     })

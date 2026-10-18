@@ -1,11 +1,11 @@
-import { LOCALES, type Locale, ROLES, type Role, USER_STATUSES, type UserStatus } from '@cuka/shared'
+import { type LegacySocialLinks, LOCALES, type Locale, ROLES, type Role, SOCIAL_PLATFORMS, type SocialPlatform, USER_STATUSES, type UserStatus } from '@cuka/shared'
 import { type HydratedDocument, Schema, Types } from 'mongoose'
 
-export interface SocialLinks {
-  x: string
-  facebook: string
-  youtube: string
-  pixiv: string
+/** A stored profile link; `label` is '' except for platform `other`. */
+export interface StoredSocialLink {
+  platform: SocialPlatform
+  label: string
+  url: string
 }
 
 export interface User {
@@ -24,7 +24,12 @@ export interface User {
     bio: string
     avatarFileId: Types.ObjectId | null
     bannerFileId: Types.ObjectId | null
-    socialLinks: SocialLinks
+    links: StoredSocialLink[]
+    /**
+     * Legacy fixed links (before the list). Read only while `links` is empty and unset on the first save of `links`
+     * or by the setup migration (see effectiveLinks).
+     */
+    socialLinks?: LegacySocialLinks
   }
   stats: { followerCount: number; followingCount: number; postCount: number }
   createdAt: Date
@@ -35,7 +40,14 @@ export type UserDocument = HydratedDocument<User>
 
 export const USER_MODEL = 'User'
 
-const link = { type: String, default: '' }
+const SocialLinkSchema = new Schema<StoredSocialLink>(
+  {
+    platform: { type: String, enum: SOCIAL_PLATFORMS, required: true },
+    label: { type: String, default: '' },
+    url: { type: String, required: true },
+  },
+  { _id: false },
+)
 
 export const UserSchema = new Schema<User>(
   {
@@ -53,7 +65,9 @@ export const UserSchema = new Schema<User>(
       bio: { type: String, default: '' },
       avatarFileId: { type: Schema.Types.ObjectId, default: null },
       bannerFileId: { type: Schema.Types.ObjectId, default: null },
-      socialLinks: { x: link, facebook: link, youtube: link, pixiv: link },
+      links: { type: [SocialLinkSchema], default: [] },
+      // No defaults: new users get no legacy fields, so nothing is ever migrated for them.
+      socialLinks: { x: String, facebook: String, youtube: String, pixiv: String },
     },
     stats: {
       followerCount: { type: Number, default: 0 },
