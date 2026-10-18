@@ -1,4 +1,4 @@
-import type { Locale, SocialLink } from '@cuka/shared'
+import type { CropRect, Locale, SocialLink } from '@cuka/shared'
 import { request } from '../client'
 import type { MeDto } from '../types'
 
@@ -8,6 +8,9 @@ export interface UpdateProfileInput {
   bio?: string
   avatarFileId?: string
   bannerFileId?: string
+  /** The box (fractions of the original) the worker crops the avatar / banner to; null or absent with a new file: centred. */
+  avatarCrop?: CropRect | null
+  bannerCrop?: CropRect | null
   /** The whole ordered list; replaces the stored one. */
   links?: SocialLink[]
 }

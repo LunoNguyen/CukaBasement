@@ -38,9 +38,9 @@ async function isPostlessProfileImage(deps: JobDeps, fileId: Types.ObjectId): Pr
 }
 
 /**
- * Publishes the variants of a file that just became a profile image (avatar or banner): re-renders them from the
- * original, center-cropped for the role (avatar 1:1 ≤512px, banner 4:1 ≤1600px, animation kept), into the public
- * bucket. Acts only on a ready file that is in no post and is a profile image; a file in any post belongs to the post
+ * Publishes the variants of a file that just became a profile image (avatar or banner), or whose crop changed:
+ * re-renders them from the original, cropped for the role (the user's rectangle, else centred; avatar 1:1 ≤512px,
+ * banner 4:1 ≤1600px, animation kept), into the public bucket; the new variantsAt changes the image's `?v=` URL. Acts only on a ready file that is in no post and is a profile image; a file in any post belongs to the post
  * jobs (rewatermark/relocate), which must not be pre-empted with clean renders. publishVariants re-checks the context
  * after storing, so a file that joined a post meanwhile is redrawn for that post (watermarked, uncropped), and the
  * post's own rewatermark job (enqueued by the post create) redraws it again.

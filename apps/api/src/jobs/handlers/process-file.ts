@@ -15,9 +15,11 @@ import {
   findContextForFile,
   MAX_ANIMATED_PAGES,
   type ProfileCrop,
+  type ProfileCropSpec,
   type Rendered,
   render,
   sameContext,
+  sameCrop,
   storeFinalVariants,
   type VariantContext,
 } from './variants'
@@ -43,11 +45,30 @@ const MAX_REDRAWS = 3
 /** Test seam: runs after the post context is read and before variants are stored. */
 export const processFileHooks: { beforeStore?: () => Promise<void> } = {}
 
+type Box = { left: number; top: number; width: number; height: number }
+
 /** The centred box of aspect `ratio` (width / height) inside a `width` × `height` frame. */
-function centerBox(width: number, height: number, ratio: number): { left: number; top: number; width: number; height: number } {
+function centerBox(width: number, height: number, ratio: number): Box {
   const w = width / height > ratio ? Math.max(1, Math.round(height * ratio)) : width
   const h = width / height > ratio ? height : Math.max(1, Math.round(width / ratio))
   return { left: Math.floor((width - w) / 2), top: Math.floor((height - h) / 2), width: w, height: h }
+}
+
+/**
+ * The box a profile image is cut to inside a `width` × `height` frame: the user's rectangle (fractions of the frame,
+ * snapped to whole pixels inside it) trimmed around its centre to the role's exact ratio; no rectangle: the centred
+ * box. Every frame of an animation is cut to the same box.
+ */
+export function profileBox(width: number, height: number, crop: ProfileCropSpec): Box {
+  const ratio = PROFILE[crop.role].ratio
+  const r = crop.rect
+  if (!r) return centerBox(width, height, ratio)
+  const left = Math.min(width - 1, Math.max(0, Math.round(r.x * width)))
+  const top = Math.min(height - 1, Math.max(0, Math.round(r.y * height)))
+  const right = Math.min(width, Math.max(left + 1, Math.round((r.x + r.w) * width)))
+  const bottom = Math.min(height, Math.max(top + 1, Math.round((r.y + r.h) * height)))
+  const inner = centerBox(right - left, bottom - top, ratio)
+  return { ...inner, left: left + inner.left, top: top + inner.top }
 }
 
 interface ImageInput {
@@ -70,14 +91,14 @@ async function inspectImage(input: Buffer, fileId: string): Promise<ImageInput> 
   return { width: dims.width ?? 0, height: dims.height ?? 0, animated }
 }
 
-async function thumbsFrom(input: Buffer, crop: ProfileCrop | null = null, fileId = ''): Promise<Rendered[]> {
+async function thumbsFrom(input: Buffer, crop: ProfileCropSpec | null = null, fileId = ''): Promise<Rendered[]> {
   const img = await inspectImage(input, fileId)
-  const widths = THUMBS.map(([name, width]): [VariantName, number] => [name, crop ? PROFILE[crop].widths[name as 'thumb_sm' | 'thumb_md'] : width])
+  const widths = THUMBS.map(([name, width]): [VariantName, number] => [name, crop ? PROFILE[crop.role].widths[name as 'thumb_sm' | 'thumb_md'] : width])
   // sharp strips EXIF (incl. GPS) unless withMetadata/withExif is called; never call them here.
   // An animated input is a "toilet roll" of frames; resize/extract apply per frame and webp output keeps the animation.
   const pipeline = (animated: boolean): Sharp => {
     const base = sharp(input, { ...SHARP_INPUT, animated }).rotate()
-    return crop ? base.extract(centerBox(img.width, img.height, PROFILE[crop].ratio)) : base
+    return crop ? base.extract(profileBox(img.width, img.height, crop)) : base
   }
   const animated = pipeline(img.animated)
   const rendered = await Promise.all(widths.map(([name, width]) => render(name, animated.clone(), width)))
@@ -94,14 +115,14 @@ async function thumbsFrom(input: Buffer, crop: ProfileCrop | null = null, fileId
 
 /**
  * Reads the original (never modified) and renders the clean display variants: image thumbs (animated for an animated
- * gif/webp; center-cropped for `crop`), or the video poster's preview and thumbs (the video itself is not
+ * gif/webp; cropped for `crop`, see profileBox), or the video poster's preview and thumbs (the video itself is not
  * re-encoded). Also returns the file's probed metadata (width/height: one frame).
  */
 export async function renderCleanVariants(
   deps: JobDeps,
   file: FileDoc,
   tmp: string,
-  crop: ProfileCrop | null = null,
+  crop: ProfileCropSpec | null = null,
 ): Promise<{ set: Partial<FileDoc>; rendered: Rendered[] }> {
   const set: Partial<FileDoc> = {}
   let rendered: Rendered[] = []
@@ -134,7 +155,7 @@ export async function renderCleanVariants(
 
 /**
  * Stores the variants of `clean` for `ctx` and persists them with `set`. Then, while the file's post context has
- * changed meanwhile (post created, credit or rating edited), redraws from the same clean renders, so the last writer
+ * changed meanwhile (post created, credit or rating edited, profile crop changed), redraws from the same clean renders, so the last writer
  * always stores the current credit in the current bucket. A context whose profile crop differs needs other clean
  * renders: `rerender` draws them from the original. processFile, rewatermark and relocateFile all end here; with the
  * same context they write identical objects, so either finishing last is fine.
@@ -145,7 +166,7 @@ export async function publishVariants(
   clean: Rendered[],
   ctx: VariantContext,
   set: Partial<FileDoc>,
-  rerender?: (crop: ProfileCrop | null) => Promise<Rendered[]>,
+  rerender?: (crop: ProfileCropSpec | null) => Promise<Rendered[]>,
 ): Promise<void> {
   const files = deps.conn.collection<FileDoc>('files')
   let variants: FileVariant[] = await storeFinalVariants(deps, file, clean, ctx)
@@ -154,7 +175,7 @@ export async function publishVariants(
   for (let i = 0; i < MAX_REDRAWS; i++) {
     const now = await findContextForFile(deps.conn, file._id)
     if (sameContext(now, ctx)) return
-    if (now.crop !== ctx.crop && rerender) clean = await rerender(now.crop)
+    if (!sameCrop(now.crop, ctx.crop) && rerender) clean = await rerender(now.crop)
     ctx = now
     variants = await storeFinalVariants(deps, file, clean, ctx)
     await files.updateOne({ _id: file._id }, { $set: { variants, watermarkedFor: watermarkHash(ctx.watermark), variantsAt: new Date() } })
@@ -173,7 +194,7 @@ export async function processFile(deps: JobDeps, data: { fileId: string }): Prom
     const { set, rendered } = await renderCleanVariants(deps, file, tmp, ctx.crop)
     await processFileHooks.beforeStore?.()
     // `ready` is written before the re-check, so a post created after it sees a ready file in its rewatermark job.
-    const rerender = async (crop: ProfileCrop | null) => (await renderCleanVariants(deps, file, tmp, crop)).rendered
+    const rerender = async (crop: ProfileCropSpec | null) => (await renderCleanVariants(deps, file, tmp, crop)).rendered
     await publishVariants(deps, file, rendered, ctx, { ...set, status: 'ready' }, rerender)
   } finally {
     await rm(tmp, { recursive: true, force: true })

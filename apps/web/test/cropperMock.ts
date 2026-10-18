@@ -25,8 +25,16 @@ export class FakeCropper {
     FakeCropper.instances.push(this)
   }
 
+  /** The crop box in natural-image pixels (see getImageData). */
+  data = { x: 0, y: 0, width: 10, height: 10 }
+  natural = { naturalWidth: 10, naturalHeight: 10 }
+
   getData() {
-    return { x: 0, y: 0, width: 10, height: 10, rotate: 0, scaleX: this.scaleXValue, scaleY: 1 }
+    return { ...this.data, rotate: 0, scaleX: this.scaleXValue, scaleY: 1 }
+  }
+
+  getImageData() {
+    return { ...this.natural }
   }
 
   getCroppedCanvas(options: unknown) {

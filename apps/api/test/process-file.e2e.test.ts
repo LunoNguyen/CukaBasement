@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { CONFIG, type Config } from '../src/config/config'
 import { AgendaJobs } from '../src/jobs/agenda-jobs'
 import { type JobDeps, run } from '../src/jobs/handlers/media'
-import { processFile, processFileHooks } from '../src/jobs/handlers/process-file'
+import { processFile, processFileHooks, profileBox } from '../src/jobs/handlers/process-file'
 import { relocateFile, relocateVariants } from '../src/jobs/handlers/relocate-variants'
 import { rewatermark } from '../src/jobs/handlers/rewatermark'
 import { ANIMATED_SMALL_BYTES, animatedTooLarge, animationPlan, MAX_ANIMATED_BYTES, renderBlurred } from '../src/jobs/handlers/variants'
@@ -656,7 +656,7 @@ describe('process-file / relocate-variants', () => {
       expect(animatedTooLarge('thumb_md', ANIMATED_SMALL_BYTES, 1000)).toBe(false)
     })
 
-    describe('profile images are center-cropped', () => {
+    describe('profile images are cropped (user rectangle, else centred)', () => {
       it('animated avatar set after processing: relocate-file renders a 1:1 512px animated thumb_md in the public bucket', async () => {
         const fileId = await seedFile('image', 'image/gif', 'gif', await animated(1000, 700, 3))
         await processFile(deps, { fileId })
@@ -696,6 +696,86 @@ describe('process-file / relocate-variants', () => {
         await h.db.collection('users').insertOne({ email: 'sb@example.com', profile: { username: 'sb', bannerFileId: new Types.ObjectId(fileId) } })
         await processFile(deps, { fileId })
         expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 400, height: 100 })
+      })
+
+      /**
+       * `pages` frames of a frame colour with a light block at (400..800, 0..100) of an 800×400 frame; the block's
+       * grey differs per frame too, so cropping to it still leaves distinct frames (the encoder merges equal ones).
+       */
+      const BLOCKS = ['#ffffff', '#e8e8e8', '#d0d0d0']
+      async function animatedWithBlock(pages: number): Promise<Buffer> {
+        const frames = await Promise.all(
+          Array.from({ length: pages }, async (_, i) =>
+            sharp({ create: { width: 800, height: 400, channels: 4, background: COLORS[i % COLORS.length]! } })
+              .composite([{ input: await sharp({ create: { width: 400, height: 100, channels: 4, background: BLOCKS[i % BLOCKS.length]! } }).png().toBuffer(), left: 400, top: 0 }])
+              .raw()
+              .toBuffer(),
+          ),
+        )
+        return sharp(Buffer.concat(frames), { raw: { width: 800, height: 400 * pages, channels: 4, pageHeight: 400 } })
+          .gif({ delay: Array(pages).fill(100), loop: 0 })
+          .toBuffer()
+      }
+      const inBlock = async (png: Buffer) => (await sharp(png).stats()).channels.slice(0, 3).every((c) => c.min > 180)
+      const setCrop = (fileId: string, field: 'avatarCrop' | 'bannerCrop', rect: unknown) =>
+        h.db.collection('users').updateOne({ [`profile.${field === 'avatarCrop' ? 'avatarFileId' : 'bannerFileId'}`]: new Types.ObjectId(fileId) }, { $set: { [`profile.${field}`]: rect } })
+
+      it("banner with the user's rectangle: every frame is cut to that region, animation kept", async () => {
+        const fileId = await seedFile('image', 'image/gif', 'gif', await animatedWithBlock(3))
+        await h.db.collection('users').insertOne({ email: 'cr@example.com', profile: { username: 'cr', bannerFileId: new Types.ObjectId(fileId), bannerCrop: null } })
+        await processFile(deps, { fileId })
+        // Centred 4:1 crop (800×200 at y 100) misses the block.
+        expect(await inBlock(await frameOf(fileId, 'thumb_md', 0))).toBe(false)
+        const before = (await load(fileId)).variantsAt!
+
+        await setCrop(fileId, 'bannerCrop', { x: 0.5, y: 0, w: 0.5, h: 0.25 })
+        await new Promise((r) => setTimeout(r, 5))
+        await relocateFile(deps, { fileId })
+        const f = await load(fileId)
+        expect(variant(f, 'thumb_md')).toMatchObject({ width: 400, height: 100, bucket: bucketPublic })
+        expect(f.variantsAt!.getTime()).toBeGreaterThan(before.getTime())
+        expect(await metaOf(fileId, 'thumb_md')).toMatchObject({ format: 'webp', pages: 3, width: 400, pageHeight: 100 })
+        for (const page of [0, 1, 2]) {
+          expect(await inBlock(await frameOf(fileId, 'thumb_md', page)), `thumb_md frame ${page}`).toBe(true)
+          expect(await inBlock(await frameOf(fileId, 'thumb_sm', page)), `thumb_sm frame ${page}`).toBe(true)
+        }
+        expect(await metaOf(fileId, 'thumb_sm')).toMatchObject({ pages: 3, width: 360, pageHeight: 90 })
+      })
+
+      it('avatar rectangle off its ratio is trimmed around its centre to 1:1; an invalid stored rect falls back to the centre', async () => {
+        const fileId = await seedFile('image', 'image/gif', 'gif', await animated(1000, 700, 3))
+        await h.db.collection('users').insertOne({
+          email: 'ca@example.com',
+          profile: { username: 'ca', avatarFileId: new Types.ObjectId(fileId), avatarCrop: { x: 0.1, y: 0.1, w: 0.5, h: 0.5 } },
+        })
+        await processFile(deps, { fileId })
+        // 500×350 at (100, 70) → 350×350.
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 350, height: 350 })
+        expect((await metaOf(fileId, 'thumb_md')).pages).toBe(3)
+        await setCrop(fileId, 'avatarCrop', { x: 0.9, y: 0, w: 0.5, h: 0.5 })
+        await relocateFile(deps, { fileId })
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 512, height: 512 })
+      })
+
+      it('a crop changed while variants are stored is redrawn with the new rectangle', async () => {
+        const fileId = await seedFile('image', 'image/gif', 'gif', await animatedWithBlock(2))
+        await h.db.collection('users').insertOne({ email: 'cc@example.com', profile: { username: 'cc', bannerFileId: new Types.ObjectId(fileId), bannerCrop: null } })
+        processFileHooks.beforeStore = () => setCrop(fileId, 'bannerCrop', { x: 0.5, y: 0, w: 0.5, h: 0.25 }).then(() => undefined)
+        try {
+          await processFile(deps, { fileId })
+        } finally {
+          processFileHooks.beforeStore = undefined
+        }
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 400, height: 100 })
+        expect(await inBlock(await frameOf(fileId, 'thumb_md', 1))).toBe(true)
+      })
+
+      it('profileBox: snaps the rect to pixels inside the frame and trims it to the ratio', () => {
+        expect(profileBox(800, 400, { role: 'banner', rect: null })).toEqual({ left: 0, top: 100, width: 800, height: 200 })
+        expect(profileBox(800, 400, { role: 'banner', rect: { x: 0.5, y: 0, w: 0.5, h: 0.25 } })).toEqual({ left: 400, top: 0, width: 400, height: 100 })
+        expect(profileBox(1000, 700, { role: 'avatar', rect: { x: 0.1, y: 0.1, w: 0.5, h: 0.5 } })).toEqual({ left: 175, top: 70, width: 350, height: 350 })
+        // A sliver still yields at least one pixel inside the frame.
+        expect(profileBox(10, 10, { role: 'avatar', rect: { x: 1, y: 1, w: 0.0001, h: 0.0001 } })).toEqual({ left: 9, top: 9, width: 1, height: 1 })
       })
 
       it('a profile file that is attached to a post is rendered uncropped by rewatermark', async () => {

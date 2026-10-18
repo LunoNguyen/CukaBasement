@@ -93,16 +93,29 @@ export class UsersService {
     const $set: Record<string, unknown> = {}
     if (input.displayName !== undefined) $set['profile.displayName'] = input.displayName
     if (input.bio !== undefined) $set['profile.bio'] = input.bio
-    if (input.avatarFileId !== undefined || input.bannerFileId !== undefined) {
+    const crops = { avatarFileId: 'avatarCrop', bannerFileId: 'bannerCrop' } as const
+    const touchesImages = (['avatarFileId', 'bannerFileId'] as const).some((k) => input[k] !== undefined || input[crops[k]] !== undefined)
+    const current = touchesImages ? (await this.getUser(id)).profile : null
+    if (current && (input.avatarFileId !== undefined || input.bannerFileId !== undefined)) {
       // One file cannot be both: each role has its own crop (avatar 1:1, banner 4:1) under the same variant keys.
-      const p = (await this.getUser(id)).profile
-      const avatar = input.avatarFileId ?? p.avatarFileId?.toString()
-      const banner = input.bannerFileId ?? p.bannerFileId?.toString()
+      const avatar = input.avatarFileId ?? current.avatarFileId?.toString()
+      const banner = input.bannerFileId ?? current.bannerFileId?.toString()
       if (avatar && avatar === banner) throw new AppError('VALIDATION_FAILED', 400, 'avatarFileId and bannerFileId must be different files')
     }
+    /** Profile files whose render changes (new file or new crop): relocate-file re-renders them. */
+    const rerender = new Set<string>()
     for (const key of ['avatarFileId', 'bannerFileId'] as const) {
       const v = input[key]
-      if (v === undefined) continue
+      const crop = input[crops[key]]
+      if (v === undefined) {
+        if (crop === undefined) continue
+        // A crop alone applies to the current image.
+        const fileId = current?.[key]
+        if (!fileId) throw new AppError('VALIDATION_FAILED', 400, `${crops[key]} needs a ${key}`)
+        $set[`profile.${crops[key]}`] = crop
+        rerender.add(fileId.toString())
+        continue
+      }
       const oid = objectId(v)
       if (!oid) throw new AppError('VALIDATION_FAILED', 400, `Invalid ${key}`)
       const [file] = await this.uploads.assertUsableFiles(id, [v])
@@ -112,15 +125,18 @@ export class UsersService {
         throw new AppError('FILE_NOT_READY', 400, `${key} is attached to a post`)
       }
       $set[`profile.${key}`] = oid
+      // A file without a crop is centre-cropped, also when it replaces one that had a crop.
+      $set[`profile.${crops[key]}`] = crop ?? null
+      rerender.add(v)
     }
     // The list is replaced whole; moving the legacy fields aside marks the profile migrated (see effectiveLinks).
     if (input.links !== undefined) $set['profile.links'] = toStoredLinks(input.links)
     if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set, ...(input.links !== undefined ? { $rename: MIGRATED_LEGACY } : {}) })
     // Post cards show the author's name and avatar (a new avatar appears once relocate-file publishes it, which bumps again).
     if (input.displayName !== undefined || input.avatarFileId !== undefined) await this.feedCache.bump()
-    // Variants of a file in no post stay private; a new profile image must be published to the public bucket.
-    const profileFiles = new Set([input.avatarFileId, input.bannerFileId].filter((f): f is string => !!f))
-    for (const fileId of profileFiles) await this.jobs.enqueue('relocate-file', { fileId })
+    // Variants of a file in no post stay private; a new profile image must be published to the public bucket, and a
+    // new crop re-rendered. Either way the render time (variantsAt, the URL's `?v=`) changes once it is done.
+    for (const fileId of rerender) await this.jobs.enqueue('relocate-file', { fileId })
     return this.me(id)
   }
 

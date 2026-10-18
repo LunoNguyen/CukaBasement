@@ -12,6 +12,14 @@ import { FakeXhr, installFakeXhr } from './fakeXhr'
 
 vi.mock('cropperjs', async () => ({ default: (await import('./cropperMock')).FakeCropper }))
 
+/** Lets the (mocked) cropper start on the picked image and presses "Dùng ảnh này". */
+async function confirmCropper() {
+  document.body.querySelector<HTMLImageElement>('[data-test="cropper-image"]')!.dispatchEvent(new Event('load'))
+  await flushPromises()
+  document.body.querySelector<HTMLButtonElement>('[data-test="cropper-confirm"]')!.click()
+  await flushPromises()
+}
+
 let fake: FakeFetch | undefined
 let wrapper: VueWrapper | undefined
 let auth: ReturnType<typeof useAuth>
@@ -326,18 +334,30 @@ describe('Settings page', () => {
       expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/old.webp')
     })
 
-    it('a GIF skips the cropper, shows the auto-crop note and uploads as-is', async () => {
+    it('a GIF opens the cropper in animated mode (no rotate/flip); the original goes up with the chosen box', async () => {
       installFakeXhr()
       fake = installFakeFetch(routes(ok(makeMe())))
       const w = await mountSettings()
       await pick(w, 'a.gif', 'image/gif')
-      expect(cropperImage()).toBeNull()
-      expect(w.get('[data-test="avatar-animated-note"]').text()).toBe('Ảnh động sẽ được tự cắt giữa khung')
+      expect(cropperImage()).not.toBeNull()
+      cropperImage()!.dispatchEvent(new Event('load'))
+      await flushPromises()
+      expect(FakeCropper.last.options).toMatchObject({ aspectRatio: 1, rotatable: false, scalable: false })
+      expect(document.body.querySelector('[data-test="cropper-rotate"]')).toBeNull()
+      expect(document.body.querySelector('[data-test="cropper-flip"]')).toBeNull()
+      expect(document.body.querySelector('[data-test="cropper-animated-note"]')!.textContent).toContain('giữ nguyên chuyển động')
+      FakeCropper.last.natural = { naturalWidth: 400, naturalHeight: 200 }
+      FakeCropper.last.data = { x: 100, y: 20, width: 150, height: 150 }
+      document.body.querySelector<HTMLButtonElement>('[data-test="cropper-confirm"]')!.click()
+      await flushPromises()
+      expect(FakeCropper.last.canvasOptions).toHaveLength(0)
       expect(fake.callsTo('POST /api/uploads')[0]!.body).toEqual({ name: 'a.gif', size: 8, mime: 'image/gif' })
-      expect(fake.callsTo('PATCH /api/me')[0]!.body).toEqual({ avatarFileId: 'F1' })
+      expect((FakeXhr.instances[0]!.body!.get('file') as File).size).toBe(8)
+      expect(fake.callsTo('PATCH /api/me')[0]!.body).toEqual({ avatarFileId: 'F1', avatarCrop: { x: 0.25, y: 0.1, w: 0.375, h: 0.75 } })
+      expect(w.find('[data-test="avatar-animated-note"]').exists()).toBe(false)
     })
 
-    it('an animated WebP skips the cropper too; a still WebP is cropped', async () => {
+    it('an animated WebP is cropped in animated mode too; a still WebP is exported as before', async () => {
       installFakeXhr()
       fake = installFakeFetch(routes(ok(makeMe())))
       const w = await mountSettings()
@@ -349,13 +369,18 @@ describe('Settings page', () => {
         b[20] = flags
         return b
       }
-      await pick(w, 'anim.webp', 'image/webp', 'avatar', webp(0x02))
-      expect(cropperImage()).toBeNull()
-      expect(w.find('[data-test="avatar-animated-note"]').exists()).toBe(true)
-      expect(fake.callsTo('POST /api/uploads')).toHaveLength(1)
+      await pick(w, 'anim.webp', 'image/webp', 'banner', webp(0x02))
+      FakeCropper.resetAll()
+      await confirmCropper()
+      expect(FakeCropper.last.options).toMatchObject({ aspectRatio: 4, rotatable: false })
+      expect(FakeCropper.last.canvasOptions).toHaveLength(0)
+      expect(fake.callsTo('PATCH /api/me')[0]!.body).toEqual({ bannerFileId: 'F1', bannerCrop: { x: 0, y: 0, w: 1, h: 1 } })
       await pick(w, 'still.webp', 'image/webp', 'banner', webp(0x10))
-      expect(cropperImage()).not.toBeNull()
-      expect(w.find('[data-test="banner-animated-note"]').exists()).toBe(false)
+      await confirmCropper()
+      expect(FakeCropper.last.options).toMatchObject({ rotatable: true })
+      expect(document.body.querySelector('[data-test="cropper-animated-note"]')).toBeNull()
+      expect(FakeCropper.last.canvasOptions[0]).toMatchObject({ width: 1600, height: 400 })
+      expect(fake.callsTo('PATCH /api/me')[1]!.body).toEqual({ bannerFileId: 'F1' })
     })
 
     it('rejects non-image files without uploading', async () => {
@@ -409,6 +434,8 @@ describe('Settings page', () => {
       Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], 'a.gif', { type: 'image/gif' })], configurable: true })
       await input.trigger('change')
       await flushPromises()
+      await confirmCropper()
+      expect(fake.callsTo('PATCH /api/me')).toHaveLength(1)
       expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/a.webp')
     })
 
@@ -438,6 +465,7 @@ describe('Settings page', () => {
         Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], 'a.gif', { type: 'image/gif' })], configurable: true })
         await input.trigger('change')
         await flushPromises()
+        await confirmCropper()
         expect(auth.user!.profile.displayName).toBe('Saved')
         expect(w.find('[data-test="account-avatar"]').exists()).toBe(false)
         expect(fake.callsTo('GET /api/me')).toHaveLength(0)
@@ -460,6 +488,7 @@ describe('Settings page', () => {
       Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], name, { type: 'image/gif' })], configurable: true })
       await input.trigger('change')
       await flushPromises()
+      await confirmCropper()
     }
     const uploadRoutes = (fileId: string): Record<string, FakeResponse> => ({
       'POST /api/uploads': ok({ fileId, url: 'http://minio.local/o', fields: { key: 'k' }, maxBytes: 8 }),

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CREDIT_PLATFORMS,
   creditSchema,
+  cropRectSchema,
   LIMITS,
   legacySocialLinks,
   SOCIAL_PLATFORM_LABELS,
@@ -152,6 +153,27 @@ describe('schemas', () => {
     expect(ok([{ platform: 'x', url: 'https://x.com/' + 'a'.repeat(LIMITS.socialLinkUrlMax - 13) }])).toBe(false)
     expect(ok(Array.from({ length: LIMITS.socialLinksMax }, () => ({ platform: 'x', url: 'https://x.com/a' })))).toBe(true)
     expect(ok(Array.from({ length: LIMITS.socialLinksMax + 1 }, () => ({ platform: 'x', url: 'https://x.com/a' })))).toBe(false)
+  })
+  it('crop rects: fractions 0..1, positive size, inside the image; nullable in the profile body', () => {
+    const ok = (r: unknown) => cropRectSchema.safeParse(r).success
+    expect(ok({ x: 0, y: 0, w: 1, h: 1 })).toBe(true)
+    expect(ok({ x: 0.25, y: 0.1, w: 0.75, h: 0.2 })).toBe(true)
+    // float rounding slack
+    expect(ok({ x: 0.1, y: 0.2, w: 0.9000000001, h: 0.8 })).toBe(true)
+    expect(ok({ x: 0.5, y: 0, w: 0.6, h: 1 })).toBe(false)
+    expect(ok({ x: 0, y: 0.5, w: 1, h: 0.51 })).toBe(false)
+    expect(ok({ x: 0, y: 0, w: 0, h: 1 })).toBe(false)
+    expect(ok({ x: 0, y: 0, w: 1, h: -0.1 })).toBe(false)
+    expect(ok({ x: -0.1, y: 0, w: 0.5, h: 0.5 })).toBe(false)
+    expect(ok({ x: 1.1, y: 0, w: 0.5, h: 0.5 })).toBe(false)
+    expect(ok({ x: Number.NaN, y: 0, w: 0.5, h: 0.5 })).toBe(false)
+    expect(ok({ x: Infinity, y: 0, w: 0.5, h: 0.5 })).toBe(false)
+    expect(ok({ x: '0', y: 0, w: 0.5, h: 0.5 })).toBe(false)
+    expect(ok({ x: 0, y: 0, w: 0.5 })).toBe(false)
+    expect(ok({ x: 0, y: 0, w: 0.5, h: 0.5, extra: 1 })).toBe(false)
+    expect(updateProfileSchema.safeParse({ bannerCrop: null }).success).toBe(true)
+    expect(updateProfileSchema.safeParse({ avatarFileId: 'f', avatarCrop: { x: 0, y: 0, w: 0.5, h: 0.5 } }).success).toBe(true)
+    expect(updateProfileSchema.safeParse({ bannerCrop: { x: 0.9, y: 0, w: 0.5, h: 0.5 } }).success).toBe(false)
   })
   it('profile links: other needs a 1..40 char label (LABEL_REQUIRED); other platforms drop theirs', () => {
     const missing = socialLinkSchema.safeParse({ platform: 'other', url: 'https://a.b', label: '   ' })

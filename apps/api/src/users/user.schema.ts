@@ -1,4 +1,4 @@
-import { type LegacySocialLinks, LOCALES, type Locale, ROLES, type Role, SOCIAL_PLATFORMS, type SocialPlatform, USER_STATUSES, type UserStatus } from '@cuka/shared'
+import { type CropRect, type LegacySocialLinks, LOCALES, type Locale, ROLES, type Role, SOCIAL_PLATFORMS, type SocialPlatform, USER_STATUSES, type UserStatus } from '@cuka/shared'
 import { type HydratedDocument, Schema, Types } from 'mongoose'
 
 /** A stored profile link; `label` is '' except for platform `other`. */
@@ -24,6 +24,9 @@ export interface User {
     bio: string
     avatarFileId: Types.ObjectId | null
     bannerFileId: Types.ObjectId | null
+    /** The user's crop of the avatar / banner (fractions of the original); null: centred crop. */
+    avatarCrop: CropRect | null
+    bannerCrop: CropRect | null
     links: StoredSocialLink[]
     /**
      * Legacy fixed links (before the list). Read only while `links` is empty; the first save of `links` or the setup
@@ -43,6 +46,11 @@ export type UserDocument = HydratedDocument<User>
 export const USER_MODEL = 'User'
 
 const LEGACY_LINKS = { x: String, facebook: String, youtube: String, pixiv: String }
+
+const CropRectSchema = new Schema<CropRect>(
+  { x: { type: Number, required: true }, y: { type: Number, required: true }, w: { type: Number, required: true }, h: { type: Number, required: true } },
+  { _id: false },
+)
 
 const SocialLinkSchema = new Schema<StoredSocialLink>(
   {
@@ -69,6 +77,8 @@ export const UserSchema = new Schema<User>(
       bio: { type: String, default: '' },
       avatarFileId: { type: Schema.Types.ObjectId, default: null },
       bannerFileId: { type: Schema.Types.ObjectId, default: null },
+      avatarCrop: { type: CropRectSchema, default: null },
+      bannerCrop: { type: CropRectSchema, default: null },
       links: { type: [SocialLinkSchema], default: [] },
       // No defaults: new users get no legacy fields, so nothing is ever migrated for them.
       socialLinks: LEGACY_LINKS,

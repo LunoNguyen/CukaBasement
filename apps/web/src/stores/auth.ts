@@ -24,9 +24,21 @@ function isAdult(birthDate: string | null, now = new Date()): boolean {
  */
 export const PUBLISH_POLL_DELAYS_MS: readonly number[] = [...Array<number>(10).fill(3000), ...Array<number>(15).fill(10_000)]
 
-/** A profile image is set but its public URL is not there yet (the worker has not published it). */
-function hasUnpublishedImage(u: MeDto | null): boolean {
-  return !!u && ((!!u.profile.avatarFileId && !u.avatarUrl) || (!!u.profile.bannerFileId && !u.bannerUrl))
+/** The image URLs a save replaced; a re-render of the same file keeps the URL apart from its `?v=`. */
+export type StaleImageUrls = Partial<Record<'avatarUrl' | 'bannerUrl', string | null>>
+
+const IMAGES = [
+  ['avatarFileId', 'avatarUrl'],
+  ['bannerFileId', 'bannerUrl'],
+] as const
+
+/**
+ * A profile image is set but not published yet: no public URL, or still the URL it had before the save (`stale`,
+ * a non-null entry), e.g. while a new crop of the same file is re-rendered.
+ */
+function unpublished(u: MeDto | null, stale: StaleImageUrls): Array<'avatarUrl' | 'bannerUrl'> {
+  if (!u) return []
+  return IMAGES.filter(([id, url]) => !!u.profile[id] && (!u[url] || (stale[url] != null && u[url] === stale[url]))).map(([, url]) => url)
 }
 
 /** The session lives in memory only; it is never written to web storage. */
@@ -47,6 +59,7 @@ export const useAuth = defineStore('auth', () => {
 
   function clear() {
     stopPublishPoll()
+    stale = {}
     token.value = null
     user.value = null
   }
@@ -56,6 +69,8 @@ export const useAuth = defineStore('auth', () => {
   let pollTimer: ReturnType<typeof setTimeout> | undefined
   /** Bumped on every (re)start and stop: a reply of an older run is dropped. */
   let pollRun = 0
+  /** URLs still being replaced (see StaleImageUrls); kept across restarts so a second save does not drop the first. */
+  let stale: StaleImageUrls = {}
 
   function stopPublishPoll() {
     clearTimeout(pollTimer)
@@ -63,12 +78,23 @@ export const useAuth = defineStore('auth', () => {
     pollRun++
   }
 
-  /** Re-reads /me (see PUBLISH_POLL_DELAYS_MS) while an avatar or banner is set without its public URL. */
-  function pollUntilPublished() {
+  /**
+   * Re-reads /me (see PUBLISH_POLL_DELAYS_MS) while an avatar or banner is set without its public URL, or still has
+   * the URL in `replaced` (the one shown before the save: a new crop of the same file only changes its `?v=`).
+   */
+  function pollUntilPublished(replaced: StaleImageUrls = {}) {
     stopPublishPoll()
+    stale = { ...stale, ...replaced }
     const run = pollRun
     const step = (i: number) => {
-      if (run !== pollRun || i >= PUBLISH_POLL_DELAYS_MS.length || !hasUnpublishedImage(user.value)) return
+      if (run !== pollRun) return
+      const waiting = unpublished(user.value, stale)
+      // Published images are done: a later save of the other one must not wait for them again.
+      stale = Object.fromEntries(Object.entries(stale).filter(([k]) => waiting.includes(k as 'avatarUrl' | 'bannerUrl')))
+      if (i >= PUBLISH_POLL_DELAYS_MS.length || !waiting.length) {
+        stale = {}
+        return
+      }
       pollTimer = setTimeout(async () => {
         pollTimer = undefined
         const id = user.value?.id

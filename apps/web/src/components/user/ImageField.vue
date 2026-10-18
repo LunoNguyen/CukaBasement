@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ALLOWED_FILE_TYPES } from '@cuka/shared'
+import { ALLOWED_FILE_TYPES, type CropRect } from '@cuka/shared'
 import { useUploader, validateFile } from '@/composables/useUploader'
 import { useToast } from '@/stores/toast'
 import Spinner from '@/components/common/Spinner.vue'
 import ImageCropper from '@/components/upload/ImageCropper.vue'
 
 /**
- * One profile image (avatar or banner): a still image is cropped first (ImageCropper: 1:1 avatar, 4:1 banner);
- * a GIF or animated WebP is uploaded as-is (the worker center-crops it, keeping the animation). Once the file is
- * accepted by the server (processing/ready) its id goes to `save`. The public URL only exists after the worker has
- * published it, so the uploaded file is previewed locally.
+ * One profile image (avatar or banner), cropped first in ImageCropper (1:1 avatar, 4:1 banner): a still image is
+ * uploaded as the cropped export; a GIF or animated WebP is uploaded as-is with the chosen box (`crop`), which the
+ * worker cuts every frame to, keeping the animation. Once the file is accepted by the server (processing/ready) its id
+ * (and the box, null for a still image) goes to `save`. The public URL only exists after the worker has published it,
+ * so the uploaded file is previewed locally.
  */
 const props = defineProps<{
   label: string
@@ -19,7 +20,7 @@ const props = defineProps<{
   shape: 'avatar' | 'banner'
   /** Public URL of the image currently saved on the profile, if any. */
   currentUrl?: string | null
-  save: (fileId: string) => Promise<void>
+  save: (fileId: string, crop: CropRect | null) => Promise<void>
 }>()
 const { t } = useI18n()
 const toast = useToast()
@@ -52,13 +53,15 @@ async function isAnimated(file: File): Promise<boolean> {
   }
 }
 
-/** Shown after an animated pick: it is uploaded uncropped and the worker crops it around the centre. */
-const animatedNote = ref(false)
 const cropping = ref<File | null>(null)
+const croppingAnimated = ref(false)
 const cropperOpen = ref(false)
+/** The box chosen for the animated file being uploaded; null for a still image (already cropped). */
+let uploadCrop: CropRect | null = null
 
-function upload(file: File) {
+function upload(file: File, crop: CropRect | null) {
   for (const q of [...up.queue.value]) up.remove(q.id)
+  uploadCrop = crop
   setPreview(file)
   up.add([file])
 }
@@ -73,25 +76,27 @@ async function onChange(e: Event) {
     toast.push({ kind: 'error', text: t(v.ok || v.reason === 'type' ? 'settings.imageOnly' : 'errors.FILE_TOO_LARGE') })
     return
   }
-  if (await isAnimated(file)) {
-    animatedNote.value = true
-    upload(file)
-    return
-  }
-  animatedNote.value = false
+  croppingAnimated.value = await isAnimated(file)
   cropping.value = file
   cropperOpen.value = true
 }
 
 function onCropped(file: File) {
   cropping.value = null
-  upload(file)
+  upload(file, null)
+}
+
+/** Animated: the original goes up untouched; the local preview shows it uncropped until the worker's render. */
+function onCropRect(rect: CropRect) {
+  const file = cropping.value
+  cropping.value = null
+  if (file) upload(file, rect)
 }
 
 async function persist(fileId: string) {
   saving.value = true
   try {
-    await props.save(fileId)
+    await props.save(fileId, uploadCrop)
   } catch {
     setPreview(null)
   } finally {
@@ -136,7 +141,14 @@ const busy = () => saving.value || up.queue.value.some((q) => q.status === 'queu
       </button>
       <input ref="input" :data-test="testId + '-input'" type="file" class="sr-only" tabindex="-1" aria-hidden="true" :accept="accept" @change="onChange" />
     </div>
-    <p v-if="animatedNote" :data-test="testId + '-animated-note'" class="text-xs text-[var(--c-muted)]">{{ t('settings.animatedNote') }}</p>
-    <ImageCropper v-model:open="cropperOpen" :file="cropping" :shape="shape" @confirm="onCropped" @cancel="cropping = null" />
+    <ImageCropper
+      v-model:open="cropperOpen"
+      :file="cropping"
+      :shape="shape"
+      :animated="croppingAnimated"
+      @confirm="onCropped"
+      @crop="onCropRect"
+      @cancel="cropping = null"
+    />
   </div>
 </template>

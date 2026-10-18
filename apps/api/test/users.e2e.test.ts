@@ -245,4 +245,75 @@ describe('me and user endpoints', () => {
     expect(rf.status).toBe(200)
     expect(rf.body.user).toMatchObject(want)
   })
+
+  describe('profile crop rectangles', () => {
+    const me = (u: { token: string }) => h.http().get('/api/me').set(auth(u.token))
+    const stored = async (id: string) => (await h.db.collection('users').findOne({ _id: new Types.ObjectId(id) }))!.profile as Record<string, unknown>
+    const rect = { x: 0.25, y: 0.1, w: 0.5, h: 0.125 }
+
+    it('a crop with the file is stored; a new file without one resets it; bad rects → 400 VALIDATION_FAILED', async () => {
+      const u = await createUser(h)
+      const a = await uploadFixture(h, u, 'tiny.png')
+      const b = await uploadFixture(h, u, 'tiny.jpg')
+      h.jobs.clear()
+      const ok = await h.http().patch('/api/me').set(auth(u.token)).send({ bannerFileId: a, bannerCrop: rect })
+      expect(ok.status).toBe(200)
+      expect((await stored(u.id)).bannerCrop).toEqual(rect)
+      expect(h.jobs.enqueued).toEqual([{ name: 'relocate-file', data: { fileId: a } }])
+
+      for (const bad of [
+        { x: 0.6, y: 0, w: 0.5, h: 0.1 },
+        { x: 0, y: 0.95, w: 0.5, h: 0.1 },
+        { x: 0, y: 0, w: 0, h: 0.1 },
+        { x: -0.1, y: 0, w: 0.5, h: 0.1 },
+        { x: 0, y: 0, w: 1.5, h: 0.1 },
+        { x: 0, y: 0, w: 0.5 },
+        { x: '0', y: 0, w: 0.5, h: 0.1 },
+        'center',
+      ]) {
+        const r = await h.http().patch('/api/me').set(auth(u.token)).send({ bannerCrop: bad })
+        expect(r.status, JSON.stringify(bad)).toBe(400)
+        expect(r.body.error.code).toBe('VALIDATION_FAILED')
+      }
+      expect((await stored(u.id)).bannerCrop).toEqual(rect)
+
+      await h.http().patch('/api/me').set(auth(u.token)).send({ bannerFileId: b }).expect(200)
+      expect((await stored(u.id)).bannerCrop).toBeNull()
+      await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: a, avatarCrop: { x: 0, y: 0, w: 1, h: 1 } }).expect(200)
+      expect(await stored(u.id)).toMatchObject({ avatarCrop: { x: 0, y: 0, w: 1, h: 1 }, bannerCrop: null })
+    })
+
+    it('a crop without an image to apply to → 400; a crop alone re-renders the current file and changes its ?v= URL', async () => {
+      const u = await createUser(h)
+      const none = await h.http().patch('/api/me').set(auth(u.token)).send({ avatarCrop: rect })
+      expect(none.status).toBe(400)
+      expect(none.body.error.code).toBe('VALIDATION_FAILED')
+
+      const a = await uploadFixture(h, u, 'tiny.png')
+      await processFile(jobDeps(h), { fileId: a })
+      await h.http().patch('/api/me').set(auth(u.token)).send({ bannerFileId: a }).expect(200)
+      await relocateFile(jobDeps(h), { fileId: a })
+      const first = (await me(u)).body.bannerUrl as string
+      expect(first).toMatch(/\?v=\d+$/)
+      const files = h.db.collection('files')
+      expect((await files.findOne({ _id: new Types.ObjectId(a) }))!.variants.find((v: { name: string }) => v.name === 'thumb_md')).toMatchObject({ width: 64, height: 16 })
+
+      h.jobs.clear()
+      // 64×48 · {0, 0.5, 1, 0.5} = the bottom half, 64×24, trimmed to 4:1 around its centre: 64×16.
+      const patched = await h.http().patch('/api/me').set(auth(u.token)).send({ bannerCrop: { x: 0, y: 0.5, w: 1, h: 0.5 } })
+      expect(patched.status).toBe(200)
+      expect(h.jobs.enqueued).toEqual([{ name: 'relocate-file', data: { fileId: a } }])
+      // Not re-rendered yet: same URL (the web keeps polling until it changes).
+      expect(patched.body.bannerUrl).toBe(first)
+      await new Promise((r) => setTimeout(r, 5))
+      await relocateFile(jobDeps(h), { fileId: a })
+      const second = (await me(u)).body.bannerUrl as string
+      expect(second).toMatch(/\?v=\d+$/)
+      expect(second).not.toBe(first)
+      expect(second.split('?')[0]).toBe(first.split('?')[0])
+
+      await h.http().patch('/api/me').set(auth(u.token)).send({ bannerCrop: null }).expect(200)
+      expect((await stored(u.id)).bannerCrop).toBeNull()
+    })
+  })
 })
