@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Cropper from 'cropperjs'
+import type { CropRect } from '@cuka/shared'
 import 'cropperjs/dist/cropper.css'
 import Modal from '@/components/common/Modal.vue'
 import Btn from '@/components/common/Btn.vue'
@@ -9,10 +10,14 @@ import Btn from '@/components/common/Btn.vue'
 /**
  * Crop/edit dialog for a profile image: avatar 1:1 (round preview) exported at 512×512, banner 4:1 exported at
  * 1600×400. PNG, JPEG and WebP keep their type (quality 0.92); anything else is exported as PNG.
+ *
+ * `animated` (GIF / animated WebP): a canvas would keep one frame only, so nothing is exported; `crop` gives the chosen
+ * box as fractions of the original instead, and the worker cuts every frame to it. Rotate and flip cannot be applied
+ * that way, so they are off.
  */
-const props = defineProps<{ file: File | null; shape: 'avatar' | 'banner' }>()
+const props = defineProps<{ file: File | null; shape: 'avatar' | 'banner'; animated?: boolean }>()
 const open = defineModel<boolean>('open', { default: false })
-const emit = defineEmits<{ confirm: [file: File]; cancel: [] }>()
+const emit = defineEmits<{ confirm: [file: File]; crop: [rect: CropRect]; cancel: [] }>()
 const { t } = useI18n()
 
 const SHAPES = {
@@ -67,6 +72,8 @@ function onImageLoad() {
     autoCropArea: 1,
     background: false,
     responsive: true,
+    rotatable: !props.animated,
+    scalable: !props.animated,
   })
 }
 
@@ -105,8 +112,39 @@ function output(file: File): { type: string; name: string } {
   return { type, name: (file.name.replace(/\.[^.]*$/, '') || 'image') + '.png' }
 }
 
+const round6 = (v: number) => Math.round(v * 1e6) / 1e6
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
+
+/** The crop box as fractions of the natural image, kept inside it; null when the box is empty. */
+function cropRect(c: Cropper): CropRect | null {
+  const d = c.getData()
+  const { naturalWidth: nw, naturalHeight: nh } = c.getImageData()
+  if (!nw || !nh) return null
+  const x = round6(clamp01(d.x / nw))
+  const y = round6(clamp01(d.y / nh))
+  const w = Math.min(round6(clamp01(d.width / nw)), round6(1 - x))
+  const h = Math.min(round6(clamp01(d.height / nh)), round6(1 - y))
+  return w > 0 && h > 0 ? { x, y, w, h } : null
+}
+
+function confirmRect(c: Cropper) {
+  const rect = cropRect(c)
+  if (!rect) {
+    failed.value = true
+    return
+  }
+  emit('crop', rect)
+  confirmed = true
+  open.value = false
+}
+
 async function confirm() {
   if (!cropper || !props.file || exporting.value) return
+  if (props.animated) {
+    failed.value = false
+    confirmRect(cropper)
+    return
+  }
   exporting.value = true
   failed.value = false
   try {
@@ -170,16 +208,19 @@ const control = 'inline-flex min-h-9 items-center rounded-full border border-[va
         <button type="button" data-test="cropper-zoom-out" :class="control" :aria-label="t('cropper.zoomOut')" :title="t('cropper.zoomOut')" @click="zoom(-ZOOM_STEP)">
           <span aria-hidden="true">－</span>
         </button>
-        <button type="button" data-test="cropper-rotate" :class="control" :aria-label="t('cropper.rotate')" :title="t('cropper.rotate')" @click="rotate">
-          <span aria-hidden="true">⟳</span>
-        </button>
-        <button type="button" data-test="cropper-flip" :class="control" :aria-label="t('cropper.flip')" :title="t('cropper.flip')" @click="flip">
-          <span aria-hidden="true">⇋</span>
-        </button>
+        <template v-if="!animated">
+          <button type="button" data-test="cropper-rotate" :class="control" :aria-label="t('cropper.rotate')" :title="t('cropper.rotate')" @click="rotate">
+            <span aria-hidden="true">⟳</span>
+          </button>
+          <button type="button" data-test="cropper-flip" :class="control" :aria-label="t('cropper.flip')" :title="t('cropper.flip')" @click="flip">
+            <span aria-hidden="true">⇋</span>
+          </button>
+        </template>
         <button type="button" data-test="cropper-reset" :class="control" :aria-label="t('cropper.reset')" @click="reset">
           {{ t('cropper.reset') }}
         </button>
       </div>
+      <p v-if="animated" data-test="cropper-animated-note" class="text-xs text-[var(--c-muted)]">{{ t('cropper.animatedNote') }}</p>
       <p v-if="unreadable" role="alert" data-test="cropper-unreadable" class="text-sm text-[var(--c-danger)]">{{ t('cropper.unreadable') }}</p>
       <p v-else-if="failed" role="alert" class="text-sm text-[var(--c-danger)]">{{ t('cropper.failed') }}</p>
       <div class="flex justify-end gap-2">

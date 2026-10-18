@@ -188,7 +188,6 @@ const en: typeof vi = {
     chooseImage: 'Choose image',
     imageOnly: 'Only image files are accepted',
     imageInUse: 'This image is used in a post',
-    animatedNote: 'Animated images are cropped around the centre automatically',
     displayName: 'Display name',
     bio: 'Bio',
     linkInvalid: 'The link must start with http:// or https://',
@@ -232,6 +231,7 @@ const en: typeof vi = {
     cancel: 'Cancel',
     failed: 'Could not crop this image',
     unreadable: 'This image could not be opened. Please choose another file',
+    animatedNote: 'Animated image: the crop applies to every frame and the animation is kept. Animated images cannot be rotated or flipped.',
   },
   user: { follow: 'Follow', following: 'Following', followers: '{n} followers' },
   comments: {

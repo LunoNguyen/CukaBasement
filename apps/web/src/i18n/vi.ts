@@ -224,7 +224,6 @@ export default {
     chooseImage: 'Chọn ảnh',
     imageOnly: 'Chỉ nhận tệp ảnh',
     imageInUse: 'Ảnh đang được dùng trong một bài đăng',
-    animatedNote: 'Ảnh động sẽ được tự cắt giữa khung',
     displayName: 'Tên hiển thị',
     bio: 'Giới thiệu',
     linkInvalid: 'Liên kết phải bắt đầu bằng http:// hoặc https://',
@@ -268,6 +267,7 @@ export default {
     cancel: 'Hủy',
     failed: 'Không cắt được ảnh này',
     unreadable: 'Không mở được ảnh này. Vui lòng chọn tệp khác',
+    animatedNote: 'Ảnh động: vùng cắt được áp dụng cho mọi khung hình, giữ nguyên chuyển động. Không xoay hoặc lật được ảnh động.',
   },
   user: { follow: 'Theo dõi', following: 'Đang theo dõi', followers: '{n} người theo dõi' },
   comments: {

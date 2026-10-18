@@ -108,4 +108,27 @@ describe('auth store', () => {
     auth.setUser(makeMe({ showR18: true, birthDate: null }))
     expect(auth.canSeeR18).toBe(false)
   })
+
+  // A re-render of the same file (new crop) keeps the URL apart from its ?v=: non-null is not enough.
+  it('pollUntilPublished waits for a URL other than the replaced one, not just a non-null one', async () => {
+    vi.useFakeTimers()
+    const me = (bannerUrl: string) => makeMe({ bannerUrl, profile: { ...makeMe().profile, bannerFileId: 'F1' } })
+    fake = installFakeFetch({ 'GET /api/me': [{ status: 200, body: me('http://cdn/b.webp?v=1') }, { status: 200, body: me('http://cdn/b.webp?v=2') }] })
+    const auth = useAuth()
+    auth.ready = true
+    auth.setSession({ accessToken: 't', user: me('http://cdn/b.webp?v=1') })
+    auth.pollUntilPublished({ bannerUrl: 'http://cdn/b.webp?v=1' })
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(fake.callsTo('GET /api/me')).toHaveLength(1)
+    expect(auth.user!.bannerUrl).toBe('http://cdn/b.webp?v=1')
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(fake.callsTo('GET /api/me')).toHaveLength(2)
+    expect(auth.user!.bannerUrl).toBe('http://cdn/b.webp?v=2')
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fake.callsTo('GET /api/me')).toHaveLength(2)
+    // Without a replaced URL a published image needs no poll.
+    auth.pollUntilPublished()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fake.callsTo('GET /api/me')).toHaveLength(2)
+  })
 })

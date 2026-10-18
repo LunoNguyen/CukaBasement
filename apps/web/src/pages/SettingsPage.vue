@@ -76,9 +76,15 @@ function saveProfile() {
 
 /** Avatar/banner: failures are toasted here and rethrown so the image field drops its preview. */
 async function saveImage(body: UpdateProfileInput) {
+  // A re-render of the same file only changes the URL's `?v=`: the poll waits for a URL other than this one.
+  const before = auth.user
+  const stale = {
+    ...(body.avatarFileId !== undefined ? { avatarUrl: before?.avatarUrl ?? null } : {}),
+    ...(body.bannerFileId !== undefined ? { bannerUrl: before?.bannerUrl ?? null } : {}),
+  }
   try {
     auth.setUser(await updateProfile(body))
-    auth.pollUntilPublished()
+    auth.pollUntilPublished(stale)
     toast.push({ kind: 'success', text: t('settings.saved') })
   } catch (e) {
     toast.push({ kind: 'error', text: e instanceof ApiError && e.code === 'FILE_NOT_READY' ? t('settings.imageInUse') : errorText(e) })
@@ -157,8 +163,8 @@ const section = 'flex flex-col gap-3 card p-4'
 
     <form :class="section" data-test="profile-form" @submit.prevent="saveProfile">
       <h2 class="font-display text-lg font-semibold">{{ t('settings.profile') }}</h2>
-      <ImageField :label="t('settings.avatar')" test-id="avatar" shape="avatar" :current-url="avatarUrl" :save="(id) => saveImage({ avatarFileId: id })" />
-      <ImageField :label="t('settings.banner')" test-id="banner" shape="banner" :current-url="bannerUrl" :save="(id) => saveImage({ bannerFileId: id })" />
+      <ImageField :label="t('settings.avatar')" test-id="avatar" shape="avatar" :current-url="avatarUrl" :save="(id, crop) => saveImage({ avatarFileId: id, ...(crop ? { avatarCrop: crop } : {}) })" />
+      <ImageField :label="t('settings.banner')" test-id="banner" shape="banner" :current-url="bannerUrl" :save="(id, crop) => saveImage({ bannerFileId: id, ...(crop ? { bannerCrop: crop } : {}) })" />
       <label class="flex flex-col gap-1 text-sm">
         {{ t('settings.displayName') }}
         <input v-model="displayName" data-test="display-name" required :maxlength="LIMITS.displayNameMax" :class="field" />

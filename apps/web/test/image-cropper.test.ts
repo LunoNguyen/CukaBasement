@@ -22,9 +22,9 @@ afterEach(() => {
 
 const q = <T extends Element = HTMLElement>(sel: string) => document.body.querySelector<T>(sel)
 
-async function open(shape: 'avatar' | 'banner', file = new File([new Uint8Array(4)], 'pic.png', { type: 'image/png' })) {
+async function open(shape: 'avatar' | 'banner', file = new File([new Uint8Array(4)], 'pic.png', { type: 'image/png' }), animated = false) {
   setActivePinia(createPinia())
-  wrapper = mount(ImageCropper, { props: { open: true, file, shape }, global: { plugins: [i18n] }, attachTo: document.body })
+  wrapper = mount(ImageCropper, { props: { open: true, file, shape, animated }, global: { plugins: [i18n] }, attachTo: document.body })
   await flushPromises()
   q('[data-test="cropper-image"]')!.dispatchEvent(new Event('load'))
   await flushPromises()
@@ -142,5 +142,45 @@ describe('ImageCropper', () => {
     setLocale('en')
     await open('banner')
     expect(q('[data-test="cropper-confirm"]')!.textContent).toContain('Use this image')
+  })
+
+  describe('animated mode', () => {
+    const gif = () => new File([new Uint8Array(4)], 'anim.gif', { type: 'image/gif' })
+
+    it('emits the box as fractions of the original (no export); rotate/flip are off', async () => {
+      const w = await open('banner', gif(), true)
+      expect(FakeCropper.last.options).toMatchObject({ aspectRatio: 4, rotatable: false, scalable: false })
+      expect(q('[data-test="cropper-rotate"]')).toBeNull()
+      expect(q('[data-test="cropper-flip"]')).toBeNull()
+      expect(q('[data-test="cropper-zoom-in"]')).not.toBeNull()
+      expect(q('[data-test="cropper-animated-note"]')!.textContent).toContain('mọi khung hình')
+      FakeCropper.last.natural = { naturalWidth: 800, naturalHeight: 400 }
+      FakeCropper.last.data = { x: 400, y: 0, width: 400, height: 100 }
+      await click('cropper-confirm')
+      expect(w.emitted('crop')).toEqual([[{ x: 0.5, y: 0, w: 0.5, h: 0.25 }]])
+      expect(w.emitted('confirm')).toBeUndefined()
+      expect(FakeCropper.last.canvasOptions).toHaveLength(0)
+      expect(w.emitted('update:open')!.at(-1)).toEqual([false])
+      expect(w.emitted('cancel')).toBeUndefined()
+    })
+
+    it('keeps the box inside the image (sub-pixel overflow, thirds) and fails on an empty box', async () => {
+      const w = await open('avatar', gif(), true)
+      FakeCropper.last.natural = { naturalWidth: 300, naturalHeight: 300 }
+      FakeCropper.last.data = { x: -0.4, y: 200, width: 100.7, height: 100.5 }
+      await click('cropper-confirm')
+      const [rect] = w.emitted<[{ x: number; y: number; w: number; h: number }]>('crop')![0]!
+      expect(rect.x).toBe(0)
+      expect(rect.y).toBeCloseTo(2 / 3, 6)
+      expect(rect.y + rect.h).toBeLessThanOrEqual(1 + 1e-6)
+      expect(rect.w).toBeCloseTo(100.7 / 300, 6)
+
+      wrapper!.unmount()
+      const w2 = await open('avatar', gif(), true)
+      FakeCropper.last.data = { x: 0, y: 0, width: 0, height: 0 }
+      await click('cropper-confirm')
+      expect(w2.emitted('crop')).toBeUndefined()
+      expect(q('[role="alert"]')!.textContent).toContain('Không cắt được')
+    })
   })
 })
