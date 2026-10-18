@@ -125,6 +125,9 @@ describe('Admin pages', () => {
   })
 
   it('search debounces 300 ms and ignores a stale response', async () => {
+    // A purely manual clock: with `shouldAdvanceTime` real time spent under load would fire the debounce early.
+    vitest.useRealTimers()
+    vitest.useFakeTimers()
     let release!: () => void
     const slow = new Promise<void>((r) => (release = r))
     const { w } = await mountAt('/admin', {

@@ -24,18 +24,34 @@ Các lệnh khác: `npm run build`, `npm test`, `npm run type-check`.
 
 **Chạy web:** `npm run dev` (chạy cả shared, api, worker và web) rồi mở http://localhost:5173. Vite proxy `/api` và `/og` sang api ở cổng 3000 (`API_PORT`). Chỉ chạy riêng web: `npm -w @cuka/web run dev` (api vẫn phải đang chạy).
 
-**Nhắc lại về CORS của MinIO:** trình duyệt upload thẳng lên MinIO bằng POST (presigned), nên MinIO phải cho phép origin `http://localhost:5173` (giá trị `APP_URL`). MinIO mặc định cho phép mọi origin; nếu đã giới hạn mà upload báo lỗi CORS, đặt biến `MINIO_API_CORS_ALLOW_ORIGIN` khi khởi động MinIO (hoặc `mc admin config set <alias> api cors_allow_origin=http://localhost:5173`) rồi khởi động lại MinIO với cùng thư mục dữ liệu, ví dụ:
+**Nhắc lại về CORS của MinIO:** trình duyệt upload thẳng lên MinIO bằng POST (presigned), nên MinIO phải cho phép origin `http://localhost:5173` (giá trị `APP_URL`). MinIO mặc định cho phép mọi origin; nếu đã giới hạn mà upload báo lỗi CORS, đặt biến `MINIO_API_CORS_ALLOW_ORIGIN` khi khởi động MinIO (hoặc `mc admin config set <alias> api cors_allow_origin=http://localhost:5173`) rồi khởi động lại MinIO với cùng thư mục dữ liệu.
+
+Ví dụ trên Linux:
 
 ```sh
 MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin MINIO_API_CORS_ALLOW_ORIGIN=http://localhost:5173 \
   minio server /var/lib/cuka/minio --address 127.0.0.1:9000 --console-address 127.0.0.1:9001
 ```
 
+Trên Windows (PowerShell), đặt biến trước rồi chạy `minio server` với thư mục dữ liệu của bạn:
+
+```powershell
+$env:MINIO_ROOT_USER='minioadmin'; $env:MINIO_ROOT_PASSWORD='minioadmin'
+$env:MINIO_API_CORS_ALLOW_ORIGIN='http://localhost:5173'
+minio server D:\minio-data --console-address :9001
+```
+
 Test của web (`npm -w @cuka/web test`, vitest + jsdom) dùng fetch giả, không cần api.
 
 ### Test end-to-end (Playwright)
 
-Smoke test `apps/web/e2e/smoke.spec.ts` đi hết luồng: đăng ký → xác thực (đánh dấu trực tiếp trong MongoDB vì mail chỉ in ra console của api) → đăng nhập → upload một ảnh đăng lại có credit → moderator duyệt ở `/mod` → bài hiện ở trang chủ khi chưa đăng nhập và ảnh (đã đóng watermark credit bởi worker) tải được. E2E **không** nằm trong `npm test` và không tự khởi động gì — hãy tự chạy stack với một database riêng có tên kết thúc bằng `_test` (helper từ chối mọi tên khác, không bao giờ dùng `CukaDB`) và bucket riêng:
+Smoke test `apps/web/e2e/smoke.spec.ts` đi hết luồng: đăng ký → xác thực (đánh dấu trực tiếp trong MongoDB vì mail chỉ in ra console của api) → đăng nhập → upload một ảnh đăng lại có credit → moderator duyệt ở `/mod` → bài hiện ở trang chủ khi chưa đăng nhập và ảnh (đã đóng watermark credit bởi worker) tải được.
+
+E2E **không** nằm trong `npm test` và không tự khởi động gì. Bạn tự chạy stack với một database riêng có tên kết thúc bằng `_test` (không bao giờ dùng `CukaDB`) và bucket riêng. `MONGODB_URI` là **bắt buộc** khi chạy e2e và phải trùng với database api đang dùng: trước khi ghi gì, test chèn một user thăm dò vào database đó và đăng nhập qua api; nếu api dùng database khác, test dừng ngay với lỗi `API is not using <db>`.
+
+Các biến dưới đây chỉ ghi đè một phần; api và worker vẫn cần phần còn lại của `.env` (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, các biến `MINIO_*`, `APP_URL`, `MINIO_PUBLIC_URL`...), hoặc bạn đặt chúng cùng cách.
+
+Linux/macOS (bash):
 
 ```sh
 export MONGODB_URI=mongodb://127.0.0.1:27017/CukaE2E_test
@@ -46,4 +62,15 @@ npm run dev                     # để chạy ở một terminal khác (cùng c
 npm -w @cuka/web run e2e        # cùng MONGODB_URI với api
 ```
 
-Playwright dùng Chromium ở `/opt/pw-browsers/chromium` nếu có (container dev), nếu không thì dùng bản cài bởi `npx playwright install chromium`. Xong việc có thể xoá database `CukaE2E_test` và các bucket `e2e-*`.
+Windows (PowerShell) — đặt biến trong **mỗi** cửa sổ PowerShell dùng để chạy `npm run dev` và `npm -w @cuka/web run e2e`:
+
+```powershell
+$env:MONGODB_URI='mongodb://127.0.0.1:27017/CukaE2E_test'
+$env:MINIO_BUCKET_ORIGINALS='e2e-cuka-originals'; $env:MINIO_BUCKET_PUBLIC='e2e-cuka-public'
+$env:THROTTLE_DISABLED='true'
+npm run setup
+npm run dev                     # cửa sổ 1
+npm -w @cuka/web run e2e        # cửa sổ 2 (cùng $env:MONGODB_URI)
+```
+
+Playwright dùng Chromium ở `/opt/pw-browsers/chromium` nếu có (container dev). Ở máy khác, cài trình duyệt một lần: `npm -w @cuka/web exec playwright install chromium`. Xong việc có thể xoá database `CukaE2E_test` và các bucket `e2e-*`.

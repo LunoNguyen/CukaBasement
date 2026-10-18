@@ -8,16 +8,28 @@
  *   MONGODB_URI=mongodb://127.0.0.1:27017/CukaE2E_test THROTTLE_DISABLED=true npm run setup
  *   MONGODB_URI=mongodb://127.0.0.1:27017/CukaE2E_test THROTTLE_DISABLED=true npm run dev
  *
- * and run the e2e with the same MONGODB_URI. MinIO must accept browser POST uploads from http://localhost:5173.
+ * and run the e2e with the same MONGODB_URI (required; the run aborts unless the api is using that database).
+ * MinIO must accept browser POST uploads from http://localhost:5173.
  */
 import { fileURLToPath } from 'node:url'
-import { expect, test } from '@playwright/test'
-import { createModerator, dbName, markVerified, newUser, PASSWORD } from './helpers'
+import { expect, test, type APIRequestContext } from '@playwright/test'
+import { assertApiUsesDb, createModerator, markVerified, newUser, PASSWORD } from './helpers'
 
 const TINY_PNG = fileURLToPath(new URL('./fixtures/tiny.png', import.meta.url))
 
-// Fail before touching anything when MONGODB_URI is not a `_test` database.
-test.beforeAll(() => void dbName())
+let probeApi: APIRequestContext | undefined
+let removeProbe: (() => Promise<void>) | undefined
+
+// Before any write through the UI or api: MONGODB_URI must be a `_test` database and the api must be using it.
+test.beforeAll(async ({ playwright }, testInfo) => {
+  probeApi = await playwright.request.newContext({ baseURL: testInfo.project.use.baseURL })
+  removeProbe = await assertApiUsesDb(probeApi)
+})
+
+test.afterAll(async () => {
+  await removeProbe?.()
+  await probeApi?.dispose()
+})
 
 test('register, upload a credited repost, approve, and see it public', async ({ page, browser, request }) => {
   const user = newUser('e2e')
