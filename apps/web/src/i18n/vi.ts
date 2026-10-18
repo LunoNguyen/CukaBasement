@@ -34,6 +34,11 @@ const errors: Record<ErrorCode | 'NETWORK', string> = {
   LAST_ADMIN: 'Không thể thay đổi quản trị viên cuối cùng',
   CANNOT_CHANGE_OWN_ROLE: 'Bạn không thể tự đổi vai trò của mình',
   CREDIT_REQUIRED: 'Vui lòng ghi nguồn tác giả',
+  MAINTENANCE: 'Trang đang bảo trì, vui lòng quay lại sau',
+  BACKUP_BUSY: 'Đang có một tác vụ sao lưu hoặc khôi phục khác',
+  BACKUP_NOT_FOUND: 'Không tìm thấy bản sao lưu',
+  BACKUP_INVALID: 'Bản sao lưu không hợp lệ hoặc bị hỏng',
+  BACKUP_TOO_LARGE: 'Tệp sao lưu quá lớn',
 }
 
 export default {
@@ -53,7 +58,7 @@ export default {
   },
   admin: {
     title: 'Quản trị',
-    tabs: { users: 'Tài khoản', settings: 'Cài đặt', logs: 'Nhật ký' },
+    tabs: { users: 'Tài khoản', settings: 'Cài đặt', logs: 'Nhật ký', backups: 'Sao lưu' },
     roles: { user: 'Thành viên', moderator: 'Kiểm duyệt viên', admin: 'Quản trị viên' },
     statuses: { active: 'Hoạt động', suspended: 'Tạm khóa', banned: 'Bị cấm' },
     actions: {
@@ -61,6 +66,8 @@ export default {
       suspend: 'Tạm khóa tài khoản', ban: 'Cấm tài khoản', unban: 'Mở khóa tài khoản', change_role: 'Đổi vai trò',
       hide_comment: 'Ẩn bình luận', delete_comment: 'Xóa bình luận', update_setting: 'Đổi cài đặt',
       auto_hide: 'Tự động ẩn', update_credit: 'Sửa credit',
+      backup_create: 'Tạo bản sao lưu', backup_scheduled: 'Sao lưu tự động', backup_restore: 'Khôi phục sao lưu',
+      backup_delete: 'Xóa bản sao lưu', backup_upload: 'Tải lên bản sao lưu', backup_download: 'Tải xuống bản sao lưu',
     },
     users: {
       search: 'Tìm theo email hoặc tên người dùng', allRoles: 'Mọi vai trò', allStatuses: 'Mọi trạng thái',
@@ -78,6 +85,33 @@ export default {
     logs: {
       allActions: 'Tất cả', action: 'Hành động', actor: 'Người thực hiện', target: 'Đối tượng', note: 'Ghi chú', time: 'Thời gian',
       system: 'Hệ thống', empty: 'Chưa có nhật ký',
+    },
+    backups: {
+      intro: 'Bản sao lưu gồm toàn bộ cơ sở dữ liệu và mọi tệp đã tải lên, lưu trong thư mục BACKUP_DIR trên máy chủ.',
+      create: 'Tạo bản sao lưu', upload: 'Tải lên bản sao lưu', uploading: 'Đang tải lên… {n}%',
+      uploadType: 'Chỉ nhận tệp .tar.gz', uploadTooLarge: 'Tệp vượt quá giới hạn {max}', uploaded: 'Đã tải lên bản sao lưu',
+      empty: 'Chưa có bản sao lưu nào', scheduledBadge: 'Tự động',
+      download: 'Tải xuống', restore: 'Khôi phục', delete: 'Xóa', deleted: 'Đã xóa bản sao lưu',
+      deleteTitle: 'Xóa bản sao lưu', deleteConfirm: 'Xóa vĩnh viễn {name}? Không thể hoàn tác.',
+      restoreTitle: 'Khôi phục từ bản sao lưu',
+      restoreWarning: 'Toàn bộ dữ liệu và tệp hiện tại sẽ bị THAY THẾ bằng nội dung của bản sao lưu. Trong lúc khôi phục, trang tạm ngưng với mọi người trừ quản trị viên. Sau khi xong, tất cả mọi người (kể cả bạn) phải đăng nhập lại.',
+      restoreType: 'Nhập «{word}» để xác nhận', restoreSubmit: 'Khôi phục',
+      backupSucceeded: 'Đã tạo bản sao lưu', backupFailed: 'Tạo bản sao lưu thất bại',
+      restoreSucceeded: 'Khôi phục hoàn tất', restoreFailed: 'Khôi phục thất bại',
+      restoreDoneBody: 'Khôi phục hoàn tất. Mọi phiên đăng nhập đã hết hiệu lực: hãy đăng nhập lại bằng tài khoản quản trị có trong bản sao lưu.',
+      loginAgain: 'Đăng nhập lại',
+      maintenanceHint: 'Trang đang ở chế độ bảo trì cho tới khi khôi phục xong.',
+      kind: { backup: 'Sao lưu', restore: 'Khôi phục' },
+      status: { running: 'Đang chạy', succeeded: 'Thành công', failed: 'Thất bại' },
+      phase: { verify: 'Đang kiểm tra', database: 'Cơ sở dữ liệu', files: 'Tệp', finalize: 'Hoàn tất' },
+      schedule: {
+        title: 'Sao lưu tự động', enabled: 'Bật sao lưu tự động', frequency: 'Tần suất', daily: 'Hằng ngày', weekly: 'Hằng tuần',
+        weekday: 'Vào thứ', time: 'Giờ chạy ({tz})', keep: 'Giữ lại số bản tự động gần nhất',
+        keepHint: 'Chỉ xóa các bản sao lưu tự động cũ; bản tạo tay hoặc tải lên không bao giờ bị xóa.',
+        invalid: 'Vui lòng nhập giờ hợp lệ và số bản giữ lại từ 1 đến {max}', save: 'Lưu lịch', saved: 'Đã lưu lịch sao lưu',
+        next: 'Lần chạy tới', off: 'Đang tắt', last: 'Lần chạy gần nhất', never: 'Chưa chạy lần nào',
+        outcome: { succeeded: 'Thành công', failed: 'Thất bại', skipped: 'Bỏ qua (đang có sao lưu/khôi phục khác)' },
+      },
     },
   },
   mod: {
@@ -111,6 +145,10 @@ export default {
     title: 'Không tìm thấy trang',
     body: 'Trang bạn tìm không tồn tại.',
     back: 'Về trang chủ',
+  },
+  maintenance: {
+    title: 'Trang đang bảo trì',
+    body: 'Chúng tôi đang khôi phục dữ liệu. Trang sẽ tự tải lại khi xong; sau đó bạn cần đăng nhập lại.',
   },
   forbidden: {
     title: 'Không có quyền truy cập',

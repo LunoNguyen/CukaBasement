@@ -10,6 +10,8 @@ async function bootstrap(): Promise<void> {
   const config = app.get<Config>(CONFIG)
   configureApp(app, config)
   app.enableShutdownHooks()
+  // Node's 5-minute default would cut off uploading a multi-GB backup from the admin page.
+  app.getHttpServer().requestTimeout = 2 * 60 * 60 * 1000
   await app.listen(config.apiPort)
 }
 

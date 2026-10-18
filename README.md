@@ -38,3 +38,9 @@ npm run dev             # build shared rồi chạy shared, api, worker, web; m�
 
 - **Code worker mới không tự nạp:** sau khi `git pull` hoặc sửa code job, dừng `npm run dev` rồi chạy lại.
 - **Kiểm tra:** `npm test`, `npm run type-check`.
+
+## Sao lưu
+
+- `npm run backup` ghi một tệp `.tar.gz` (toàn bộ MongoDB + mọi tệp MinIO) vào `BACKUP_DIR` (mặc định `backups/`).
+- `npm run restore -- <tệp> [--yes]` kiểm tra toàn bộ tệp trước, rồi **thay thế** dữ liệu và tệp hiện có; sau đó mọi người phải đăng nhập lại.
+- Trang Quản trị → tab «Sao lưu»: tạo, tải xuống, tải lên, xóa, khôi phục và đặt lịch sao lưu tự động (worker chạy theo `BACKUP_TZ`).

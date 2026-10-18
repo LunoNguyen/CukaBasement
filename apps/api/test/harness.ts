@@ -4,6 +4,7 @@ import { getConnectionToken, getModelToken } from '@nestjs/mongoose'
 import { Test } from '@nestjs/testing'
 import type { Role, UserStatus } from '@cuka/shared'
 import { readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { extname, join } from 'node:path'
 import * as argon2 from 'argon2'
 import type mongoose from 'mongoose'
@@ -147,6 +148,7 @@ export function testConfig(): Config {
     // Tests never need Redis; feed-cache tests turn it on with createTestHarness({ redisUrl }).
     redis: { ...base.redis, disabled: true },
     minio: { ...base.minio, bucketOriginals: 'test-cuka-originals', bucketPublic: 'test-cuka-public' },
+    backup: { ...base.backup, dir: join(tmpdir(), `cuka-backup-test-${process.pid}`) },
   }
 }
 

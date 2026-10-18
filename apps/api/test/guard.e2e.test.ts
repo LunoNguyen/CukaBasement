@@ -13,7 +13,7 @@ describe('auth guard', () => {
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` })
 
   it('public route with garbage bearer token behaves as anonymous (200)', async () => {
-    await h.http().get('/api/health').set(bearer('garbage')).expect(200, { ok: true })
+    await h.http().get('/api/health').set(bearer('garbage')).expect(200, { ok: true, maintenance: false })
     const r = await h.http().get('/api/__test/public').set(bearer('garbage')).expect(200)
     expect(r.body).toEqual({ viewer: null })
   })

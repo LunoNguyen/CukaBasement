@@ -31,5 +31,10 @@ export const ERROR_CODES = [
   'LAST_ADMIN',
   'CANNOT_CHANGE_OWN_ROLE',
   'CREDIT_REQUIRED',
+  'MAINTENANCE',
+  'BACKUP_BUSY',
+  'BACKUP_NOT_FOUND',
+  'BACKUP_INVALID',
+  'BACKUP_TOO_LARGE',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

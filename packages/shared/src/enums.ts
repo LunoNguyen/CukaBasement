@@ -61,6 +61,12 @@ export const MOD_ACTIONS = [
   'update_setting',
   'auto_hide',
   'update_credit',
+  'backup_create',
+  'backup_scheduled',
+  'backup_restore',
+  'backup_delete',
+  'backup_upload',
+  'backup_download',
 ] as const
 export type ModAction = (typeof MOD_ACTIONS)[number]
 
