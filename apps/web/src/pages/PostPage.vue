@@ -7,6 +7,7 @@ import * as interactionsApi from '@/api/endpoints/interactions'
 import * as modApi from '@/api/endpoints/mod'
 import { getUser } from '@/api/endpoints/users'
 import { ApiError } from '@/api/client'
+import { useErrorText } from '@/composables/useErrorText'
 import type { PostCardDto, PostDto, PublicUserDto } from '@/api/types'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
@@ -51,9 +52,7 @@ const hiddenBadge = computed(() => {
 })
 const loginNext = computed(() => ({ path: '/login', query: { next: route.fullPath } }))
 
-function errorText(e: unknown): string {
-  return t('errors.' + (e instanceof ApiError ? e.code : 'INTERNAL'))
-}
+const errorText = useErrorText()
 
 // ---- loading and polling for media still being processed (Review Focus 5) ----
 
@@ -307,7 +306,7 @@ async function confirmDelete() {
 
 <template>
   <div v-if="loading" class="flex justify-center py-10"><Spinner /></div>
-  <EmptyState v-else-if="error">{{ t('errors.' + error.code) }}</EmptyState>
+  <EmptyState v-else-if="error">{{ errorText(error) }}</EmptyState>
   <article v-else-if="post" class="flex flex-col gap-6">
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <MediaViewer :post="post" />

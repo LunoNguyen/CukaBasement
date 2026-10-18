@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { LIMITS } from '@cuka/shared'
 import * as commentsApi from '@/api/endpoints/comments'
 import * as modApi from '@/api/endpoints/mod'
-import { ApiError } from '@/api/client'
+import { useErrorText } from '@/composables/useErrorText'
 import type { CommentDto } from '@/api/types'
 import { useCursorList } from '@/composables/useCursorList'
 import { useAuth } from '@/stores/auth'
@@ -20,11 +20,11 @@ const props = defineProps<{ postId: string }>()
 const { t } = useI18n()
 const auth = useAuth()
 const toast = useToast()
+const errorText = useErrorText()
 const route = useRoute()
 
 const list = useCursorList((cursor) => commentsApi.listComments(props.postId, cursor))
 onMounted(() => void list.loadMore())
-onBeforeUnmount(() => list.reset())
 
 const canWrite = computed(() => auth.isLoggedIn && !!auth.user?.emailVerified)
 const body = ref('')
@@ -33,7 +33,7 @@ const replyBody = ref('')
 const busy = ref(false)
 
 function fail(e: unknown) {
-  toast.push({ kind: 'error', text: t('errors.' + (e instanceof ApiError ? e.code : 'INTERNAL')) })
+  toast.push({ kind: 'error', text: errorText(e) })
 }
 
 async function send(text: string, parentId?: string): Promise<boolean> {
@@ -165,7 +165,7 @@ async function confirmPending() {
     </div>
 
     <div v-if="list.error.value" class="text-center">
-      <p class="mb-2 text-sm text-[var(--c-muted)]">{{ t('errors.' + list.error.value.code) }}</p>
+      <p class="mb-2 text-sm text-[var(--c-muted)]">{{ errorText(list.error.value) }}</p>
       <Btn variant="ghost" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
     </div>
     <div v-else-if="list.loading.value" class="flex justify-center"><Spinner /></div>

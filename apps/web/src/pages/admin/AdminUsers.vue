@@ -7,11 +7,10 @@ import type { AdminUserDto } from '@/api/types'
 import { useCursorList } from '@/composables/useCursorList'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
-import { useErrorText } from '@/pages/auth/errorText'
+import { useErrorText } from '@/composables/useErrorText'
 import Btn from '@/components/common/Btn.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
 import Modal from '@/components/common/Modal.vue'
-import Spinner from '@/components/common/Spinner.vue'
+import ListFooter from '@/components/common/ListFooter.vue'
 
 /** `adminStatusSchema.note` max in @cuka/shared. */
 const NOTE_MAX = 500
@@ -117,15 +116,7 @@ async function confirm() {
       </li>
     </ul>
 
-    <div v-if="list.error.value" class="py-6 text-center">
-      <p class="mb-2 text-[var(--c-muted)]">{{ errorText(list.error.value) }}</p>
-      <Btn variant="ghost" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
-    </div>
-    <div v-else-if="list.loading.value" class="flex justify-center py-6"><Spinner /></div>
-    <EmptyState v-else-if="list.done.value && list.items.value.length === 0">{{ t('admin.users.empty') }}</EmptyState>
-    <div v-else-if="!list.done.value" class="flex justify-center py-6">
-      <Btn variant="ghost" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn>
-    </div>
+    <ListFooter :list="list" :empty-text="t('admin.users.empty')" />
 
     <Modal v-model:open="open" :title="pending?.kind === 'role' ? t('admin.users.roleTitle') : t('admin.users.statusTitle')">
       <form v-if="pending" class="flex flex-col gap-3" @submit.prevent="confirm">

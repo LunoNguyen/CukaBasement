@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { createPost, type CreatePostBody } from '@/api/endpoints/posts'
 import { useToast } from '@/stores/toast'
 import PostForm from '@/components/upload/PostForm.vue'
-import { useErrorText } from './auth/errorText'
+import { useErrorText } from '@/composables/useErrorText'
 
 const { t } = useI18n()
 const router = useRouter()

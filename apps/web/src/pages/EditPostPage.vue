@@ -10,7 +10,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Spinner from '@/components/common/Spinner.vue'
 import PostForm from '@/components/upload/PostForm.vue'
 import { buildPatch } from '@/components/upload/postForm'
-import { useErrorText } from './auth/errorText'
+import { useErrorText } from '@/composables/useErrorText'
 
 const { t } = useI18n()
 const route = useRoute()

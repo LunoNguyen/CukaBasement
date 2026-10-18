@@ -6,7 +6,7 @@ import { LIMITS } from '@cuka/shared'
 import * as authApi from '@/api/endpoints/auth'
 import Btn from '@/components/common/Btn.vue'
 import AuthCard from './AuthCard.vue'
-import { useErrorText } from './errorText'
+import { useErrorText } from '@/composables/useErrorText'
 
 const { t } = useI18n()
 const route = useRoute()

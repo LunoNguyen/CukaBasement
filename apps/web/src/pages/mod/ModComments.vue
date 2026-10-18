@@ -5,10 +5,9 @@ import * as api from '@/api/endpoints/mod'
 import type { HiddenCommentDto } from '@/api/types'
 import { useCursorList } from '@/composables/useCursorList'
 import { useToast } from '@/stores/toast'
-import { useErrorText } from '@/pages/auth/errorText'
+import { useErrorText } from '@/composables/useErrorText'
 import Btn from '@/components/common/Btn.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Spinner from '@/components/common/Spinner.vue'
+import ListFooter from '@/components/common/ListFooter.vue'
 
 const { t, locale } = useI18n()
 const toast = useToast()
@@ -44,14 +43,6 @@ async function restore(c: HiddenCommentDto) {
         <div class="mt-2"><Btn variant="ghost" :loading="restoring === c.id" @click="restore(c)">{{ t('mod.restore') }}</Btn></div>
       </li>
     </ul>
-    <div v-if="list.error.value" class="py-6 text-center">
-      <p class="mb-2 text-[var(--c-muted)]">{{ errorText(list.error.value) }}</p>
-      <Btn variant="ghost" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
-    </div>
-    <div v-else-if="list.loading.value" class="flex justify-center py-6"><Spinner /></div>
-    <EmptyState v-else-if="list.done.value && list.items.value.length === 0">{{ t('mod.commentsEmpty') }}</EmptyState>
-    <div v-else-if="!list.done.value" class="flex justify-center py-6">
-      <Btn variant="ghost" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn>
-    </div>
+    <ListFooter :list="list" :empty-text="t('mod.commentsEmpty')" />
   </div>
 </template>

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { effectScope } from 'vue'
 import { useCursorList } from '@/composables/useCursorList'
 import type { Page } from '@/api/types'
 
@@ -71,5 +72,36 @@ describe('useCursorList', () => {
     await p
     expect(l.items.value).toEqual([])
     expect(l.done.value).toBe(false)
+  })
+
+  it('resets itself when its scope is disposed (unmount): a late response is dropped', async () => {
+    let release!: (p: Page<Item>) => void
+    const fetchPage = vi.fn(() => new Promise<Page<Item>>((r) => (release = r)))
+    const scope = effectScope()
+    const l = scope.run(() => useCursorList(fetchPage))!
+    const p = l.loadMore()
+    scope.stop()
+    release(page([], 'more'))
+    await p
+    expect(fetchPage).toHaveBeenCalledTimes(1)
+    expect(l.items.value).toEqual([])
+    expect(l.loading.value).toBe(false)
+  })
+
+  it('after a capped-out empty run, auto-loading stops until an explicit loadMore', async () => {
+    const fetchPage = vi.fn(async () => page([], 'more'))
+    const l = useCursorList(fetchPage)
+    await l.autoLoadMore()
+    expect(fetchPage).toHaveBeenCalledTimes(6)
+    expect(l.stalled.value).toBe(true)
+    await l.autoLoadMore()
+    expect(fetchPage).toHaveBeenCalledTimes(6)
+    await l.loadMore()
+    expect(fetchPage).toHaveBeenCalledTimes(12)
+    fetchPage.mockResolvedValueOnce(page(['a'], 'next'))
+    await l.loadMore()
+    expect(l.stalled.value).toBe(false)
+    await l.autoLoadMore() // allowed again: one page plus 5 empty follow-ups
+    expect(fetchPage).toHaveBeenCalledTimes(19)
   })
 })

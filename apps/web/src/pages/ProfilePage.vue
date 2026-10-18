@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ApiError } from '@/api/client'
+import { useErrorText } from '@/composables/useErrorText'
 import { getUser, getUserBookmarks, getUserPosts } from '@/api/endpoints/users'
 import type { PublicUserDto } from '@/api/types'
 import { useAuth } from '@/stores/auth'
@@ -16,6 +17,7 @@ import NotFoundPage from './NotFoundPage.vue'
 const { t } = useI18n()
 const route = useRoute()
 const auth = useAuth()
+const errorText = useErrorText()
 
 const username = computed(() => String(route.params.username ?? ''))
 const user = ref<PublicUserDto | null>(null)
@@ -74,7 +76,7 @@ function onFollow(s: { following: boolean; followerCount: number }) {
   <div v-if="loading" class="flex justify-center py-10"><Spinner /></div>
   <NotFoundPage v-else-if="failure?.code === 'NOT_FOUND'" />
   <div v-else-if="failure" class="py-10 text-center">
-    <p class="mb-2 text-[var(--c-muted)]">{{ t('errors.' + failure.code) }}</p>
+    <p class="mb-2 text-[var(--c-muted)]">{{ errorText(failure) }}</p>
     <Btn variant="ghost" @click="load()">{{ t('common.retry') }}</Btn>
   </div>
   <div v-else-if="user" class="flex flex-col gap-4">

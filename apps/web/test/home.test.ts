@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory } from 'vue-router'
@@ -61,6 +61,32 @@ describe('Home', () => {
     await tabs[1]!.trigger('click')
     await flushPromises()
     expect(w.text()).toContain('Chó')
+  })
+
+  it('after 5 extra empty pages the scroll trigger stops until "Tải thêm" is clicked', async () => {
+    const observers: Array<(entries: Array<{ isIntersecting: boolean }>) => void> = []
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) {
+          observers.push(cb)
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    fake = installFakeFetch({ 'GET /api/tags/featured': { status: 200, body: [] }, 'GET /api/feed/home': ok([], 'more') })
+    const { w } = await mountAt('/')
+    expect(fake.callsTo('GET /api/feed/home')).toHaveLength(6)
+    expect(observers.length).toBeGreaterThan(0)
+    observers.at(-1)!([{ isIntersecting: true }])
+    await flushPromises()
+    expect(fake.callsTo('GET /api/feed/home')).toHaveLength(6)
+    const more = w.findAll('button').find((b) => b.text() === 'Tải thêm')!
+    await more.trigger('click')
+    await flushPromises()
+    expect(fake.callsTo('GET /api/feed/home')).toHaveLength(12)
+    w.unmount()
   })
 
   it('shows an empty state when the feed is empty', async () => {

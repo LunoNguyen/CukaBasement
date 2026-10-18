@@ -1,20 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as api from '@/api/endpoints/notifications'
 import type { NotificationDto } from '@/api/types'
 import { useCursorList } from '@/composables/useCursorList'
-import { useInfiniteTrigger } from '@/composables/useInfiniteTrigger'
 import { useNotifications } from '@/stores/notifications'
 import Btn from '@/components/common/Btn.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Spinner from '@/components/common/Spinner.vue'
+import ListFooter from '@/components/common/ListFooter.vue'
 
 const { t, te, locale } = useI18n()
 const store = useNotifications()
 const list = useCursorList<NotificationDto>(api.list)
-const sentinel = ref<HTMLElement | null>(null)
-useInfiniteTrigger(sentinel, () => void list.loadMore())
 onMounted(() => void list.loadMore())
 
 // Rows stay highlighted for this visit; the server (and the badge) already count them as read.
@@ -66,14 +62,6 @@ function link(n: NotificationDto): string | null {
         </component>
       </li>
     </ul>
-    <div v-if="list.error.value" class="py-6 text-center">
-      <p class="mb-2 text-[var(--c-muted)]">{{ t('errors.' + list.error.value.code) }}</p>
-      <Btn variant="ghost" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
-    </div>
-    <div v-else-if="list.loading.value" class="flex justify-center py-6"><Spinner /></div>
-    <EmptyState v-else-if="list.done.value && list.items.value.length === 0">{{ t('notifications.empty') }}</EmptyState>
-    <div v-else-if="!list.done.value" :key="list.items.value.length" ref="sentinel" class="flex justify-center py-6">
-      <Btn variant="ghost" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn>
-    </div>
+    <ListFooter :list="list" :empty-text="t('notifications.empty')" auto />
   </section>
 </template>

@@ -2,11 +2,12 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as authApi from '@/api/endpoints/auth'
-import { ApiError } from '@/api/client'
+import { useErrorText } from '@/composables/useErrorText'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
 
 const { t } = useI18n()
+const errorText = useErrorText()
 const auth = useAuth()
 const toast = useToast()
 const busy = ref(false)
@@ -18,7 +19,7 @@ async function resend() {
     await authApi.resendVerification()
     toast.push({ kind: 'success', text: t('auth.resent') })
   } catch (e) {
-    toast.push({ kind: 'error', text: t('errors.' + (e instanceof ApiError ? e.code : 'INTERNAL')) })
+    toast.push({ kind: 'error', text: errorText(e) })
   } finally {
     busy.value = false
   }

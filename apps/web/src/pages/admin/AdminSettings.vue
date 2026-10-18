@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { DEFAULT_SETTINGS, type GlobalSettings } from '@cuka/shared'
 import * as api from '@/api/endpoints/admin'
 import { useToast } from '@/stores/toast'
-import { useErrorText } from '@/pages/auth/errorText'
+import { useErrorText } from '@/composables/useErrorText'
 import Btn from '@/components/common/Btn.vue'
 import Spinner from '@/components/common/Spinner.vue'
 

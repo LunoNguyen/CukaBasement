@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import * as postsApi from '@/api/endpoints/posts'
 import { ApiError } from '@/api/client'
+import { useErrorText } from '@/composables/useErrorText'
 import type { PostDto, PostMediaDto } from '@/api/types'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
@@ -39,9 +40,7 @@ function statusText(m: PostMediaDto): string {
   return m.status === 'failed' ? t('post.failed') : t('post.processing')
 }
 
-function errorText(e: unknown): string {
-  return t('errors.' + (e instanceof ApiError ? e.code : 'INTERNAL'))
-}
+const errorText = useErrorText()
 
 /** The tab is opened before the request so popup blockers still see the click. */
 async function openFile(m: PostMediaDto) {

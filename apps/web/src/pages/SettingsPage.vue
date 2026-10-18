@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { onMounted, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { LIMITS } from '@cuka/shared'
@@ -14,7 +13,7 @@ import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
 import Btn from '@/components/common/Btn.vue'
 import ImageField from '@/components/user/ImageField.vue'
-import { useErrorText } from './auth/errorText'
+import { useErrorText } from '@/composables/useErrorText'
 
 const { t, locale } = useI18n()
 const auth = useAuth()

@@ -3,7 +3,7 @@ import { updateSettings } from '@/api/endpoints/me'
 import { setLocale, type Locale } from '@/i18n'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
-import { useErrorText } from '@/pages/auth/errorText'
+import { useErrorText } from '@/composables/useErrorText'
 
 /**
  * Switches the UI language. Logged in: saved on the account first and applied only on success

@@ -6,7 +6,7 @@ import * as authApi from '@/api/endpoints/auth'
 import { useAuth } from '@/stores/auth'
 import Spinner from '@/components/common/Spinner.vue'
 import AuthCard from './AuthCard.vue'
-import { useErrorText } from './errorText'
+import { useErrorText } from '@/composables/useErrorText'
 
 const { t } = useI18n()
 const route = useRoute()

@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
 import { ApiError } from '@/api/client'
 import type { Page } from '@/api/types'
 
@@ -10,6 +10,8 @@ export function useCursorList<T extends { id: string }>(fetchPage: (cursor: stri
   const loading = ref(false)
   const done = ref(false)
   const error = ref<ApiError | null>(null)
+  /** The last run gave up after empty pages: automatic triggers wait for an explicit `loadMore`. */
+  const stalled = ref(false)
   let cursor: string | null = null
   let generation = 0
 
@@ -18,8 +20,10 @@ export function useCursorList<T extends { id: string }>(fetchPage: (cursor: stri
     const gen = generation
     loading.value = true
     error.value = null
+    stalled.value = false
     try {
       for (let extra = 0; ; extra++) {
+        if (gen !== generation) return
         const page = await fetchPage(cursor)
         if (gen !== generation) return
         const seen = new Set(items.value.map((i) => i.id))
@@ -30,7 +34,11 @@ export function useCursorList<T extends { id: string }>(fetchPage: (cursor: stri
           done.value = true
           return
         }
-        if (page.items.length > 0 || extra >= MAX_EMPTY_FOLLOWUPS) return
+        if (page.items.length > 0) return
+        if (extra >= MAX_EMPTY_FOLLOWUPS) {
+          stalled.value = true
+          return
+        }
       }
     } catch (e) {
       if (gen !== generation) return
@@ -40,6 +48,11 @@ export function useCursorList<T extends { id: string }>(fetchPage: (cursor: stri
     }
   }
 
+  /** For scroll/intersection triggers: does nothing while stalled. */
+  function autoLoadMore(): Promise<void> {
+    return stalled.value ? Promise.resolve() : loadMore()
+  }
+
   function reset() {
     generation++
     items.value = []
@@ -47,7 +60,13 @@ export function useCursorList<T extends { id: string }>(fetchPage: (cursor: stri
     done.value = false
     error.value = null
     loading.value = false
+    stalled.value = false
   }
 
-  return { items, loading, done, error, loadMore, reset }
+  // Every caller is covered: responses arriving after unmount are dropped and no follow-up is fetched.
+  if (getCurrentScope()) onScopeDispose(reset)
+
+  return { items, loading, done, error, stalled, loadMore, autoLoadMore, reset }
 }
+
+export type CursorList<T extends { id: string }> = ReturnType<typeof useCursorList<T>>

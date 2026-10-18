@@ -6,7 +6,7 @@ import { useAuth } from '@/stores/auth'
 import { i18n, setLocale } from '@/i18n'
 import Btn from '@/components/common/Btn.vue'
 import AuthCard from './AuthCard.vue'
-import { useErrorText } from './errorText'
+import { useErrorText } from '@/composables/useErrorText'
 
 const { t } = useI18n()
 const route = useRoute()
