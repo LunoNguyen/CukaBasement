@@ -1,0 +1,97 @@
+<script setup lang="ts">
+import { onBeforeUnmount, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ALLOWED_FILE_TYPES } from '@cuka/shared'
+import { useUploader, validateFile } from '@/composables/useUploader'
+import { useToast } from '@/stores/toast'
+import Spinner from '@/components/common/Spinner.vue'
+
+/**
+ * One profile image (avatar or banner): uploads a single image and, once the file is accepted by the
+ * server (processing/ready), hands its id to `save`. The public URL only exists after the worker has
+ * published it, so the picked file is previewed locally.
+ */
+const props = defineProps<{
+  label: string
+  testId: string
+  shape: 'avatar' | 'banner'
+  save: (fileId: string) => Promise<void>
+}>()
+const { t } = useI18n()
+const toast = useToast()
+const up = useUploader()
+
+const accept = ALLOWED_FILE_TYPES.filter((f) => f.kind === 'image')
+  .map((f) => '.' + f.ext)
+  .join(',')
+const preview = ref<string | null>(null)
+const saving = ref(false)
+const input = ref<HTMLInputElement | null>(null)
+
+function setPreview(file: File | null) {
+  if (preview.value) URL.revokeObjectURL(preview.value)
+  preview.value = file && typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null
+}
+onBeforeUnmount(() => setPreview(null))
+
+function onChange(e: Event) {
+  const el = e.target as HTMLInputElement
+  const file = el.files?.[0]
+  el.value = ''
+  if (!file) return
+  const v = validateFile(file)
+  if (!v.ok || v.kind !== 'image') {
+    toast.push({ kind: 'error', text: t(v.ok || v.reason === 'type' ? 'settings.imageOnly' : 'errors.FILE_TOO_LARGE') })
+    return
+  }
+  for (const q of [...up.queue.value]) up.remove(q.id)
+  setPreview(file)
+  up.add([file])
+}
+
+async function persist(fileId: string) {
+  saving.value = true
+  try {
+    await props.save(fileId)
+  } finally {
+    saving.value = false
+  }
+}
+
+const state = () => {
+  const q = up.queue.value[0]
+  return q ? `${q.status}:${q.fileId ?? ''}` : ''
+}
+watch(state, () => {
+  const q = up.queue.value[0]
+  if (!q) return
+  if ((q.status === 'processing' || q.status === 'ready') && q.fileId) void persist(q.fileId)
+  else if (q.status === 'failed') toast.push({ kind: 'error', text: t('errors.' + (q.error ?? 'INTERNAL')) })
+})
+
+const busy = () => saving.value || up.queue.value.some((q) => q.status === 'queued' || q.status === 'uploading')
+</script>
+
+<template>
+  <div class="flex flex-col gap-2 text-sm">
+    <span>{{ label }}</span>
+    <div class="flex items-center gap-3">
+      <div
+        class="flex shrink-0 items-center justify-center overflow-hidden bg-[var(--c-border)]"
+        :class="shape === 'avatar' ? 'h-20 w-20 rounded-full' : 'h-20 w-40 rounded'"
+      >
+        <img v-if="preview" :src="preview" alt="" :data-test="testId + '-preview'" class="h-full w-full object-cover" />
+      </div>
+      <button
+        type="button"
+        class="rounded border border-[var(--c-border)] px-3 py-1.5 font-semibold disabled:opacity-60"
+        :disabled="busy()"
+        @click="input?.click()"
+      >
+        <Spinner v-if="busy()" />
+        <span v-else>{{ t('settings.chooseImage') }}</span>
+      </button>
+      <input ref="input" :data-test="testId + '-input'" type="file" class="sr-only" tabindex="-1" aria-hidden="true" :accept="accept" @change="onChange" />
+    </div>
+  </div>
+</template>
