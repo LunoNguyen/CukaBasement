@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ALLOWED_FILE_TYPES } from '@cuka/shared'
 import { useUploader, validateFile } from '@/composables/useUploader'
@@ -15,6 +15,8 @@ const props = defineProps<{
   label: string
   testId: string
   shape: 'avatar' | 'banner'
+  /** Public URL of the image currently saved on the profile, if any. */
+  currentUrl?: string | null
   save: (fileId: string) => Promise<void>
 }>()
 const { t } = useI18n()
@@ -25,6 +27,7 @@ const accept = ALLOWED_FILE_TYPES.filter((f) => f.kind === 'image')
   .map((f) => '.' + f.ext)
   .join(',')
 const preview = ref<string | null>(null)
+const shown = computed(() => preview.value ?? props.currentUrl ?? null)
 const saving = ref(false)
 const input = ref<HTMLInputElement | null>(null)
 
@@ -53,6 +56,8 @@ async function persist(fileId: string) {
   saving.value = true
   try {
     await props.save(fileId)
+  } catch {
+    setPreview(null)
   } finally {
     saving.value = false
   }
@@ -80,11 +85,13 @@ const busy = () => saving.value || up.queue.value.some((q) => q.status === 'queu
         class="flex shrink-0 items-center justify-center overflow-hidden bg-[var(--c-border)]"
         :class="shape === 'avatar' ? 'h-20 w-20 rounded-full' : 'h-20 w-40 rounded'"
       >
-        <img v-if="preview" :src="preview" alt="" :data-test="testId + '-preview'" class="h-full w-full object-cover" />
+        <img v-if="shown" :src="shown" alt="" :data-test="testId + '-preview'" class="h-full w-full object-cover" />
       </div>
       <button
         type="button"
         class="rounded border border-[var(--c-border)] px-3 py-1.5 font-semibold disabled:opacity-60"
+        :data-test="testId + '-choose'"
+        :aria-label="t('settings.chooseImage') + ': ' + label"
         :disabled="busy()"
         @click="input?.click()"
       >

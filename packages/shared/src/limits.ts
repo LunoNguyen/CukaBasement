@@ -3,6 +3,7 @@ export const LIMITS = {
   descriptionMax: 3000,
   commentMax: 1000,
   bioMax: 500,
+  displayNameMax: 50,
   tagMax: 30,
   tagsPerPost: 10,
   passwordMin: 8,

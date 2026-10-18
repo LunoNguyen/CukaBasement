@@ -7,7 +7,7 @@ export const registerSchema = z.object({
   email: z.email(),
   password,
   username: z.string().regex(/^[a-z0-9_]{3,24}$/),
-  displayName: z.string().min(1).max(50),
+  displayName: z.string().min(1).max(LIMITS.displayNameMax),
 })
 export const loginSchema = z.object({ email: z.email(), password: z.string().min(1).max(128) })
 export const emailOnlySchema = z.object({ email: z.email() })

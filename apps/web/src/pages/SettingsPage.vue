@@ -1,24 +1,25 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { LIMITS, type Locale } from '@cuka/shared'
+import { LIMITS } from '@cuka/shared'
 import { ApiError } from '@/api/client'
 import { changePassword, updateProfile, updateSettings, type UpdateProfileInput, type UpdateSettingsInput } from '@/api/endpoints/me'
-import type { MeDto, SocialLinks } from '@/api/types'
-import { setLocale } from '@/i18n'
+import type { SocialLinks } from '@/api/types'
+import type { Locale } from '@/i18n'
+import { getUser } from '@/api/endpoints/users'
+import { useChangeLocale } from '@/composables/useChangeLocale'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
 import Btn from '@/components/common/Btn.vue'
 import ImageField from '@/components/user/ImageField.vue'
 import { useErrorText } from './auth/errorText'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const auth = useAuth()
 const toast = useToast()
 const errorText = useErrorText()
 
-/** Mirrors `updateProfileSchema` (displayName 1..50), which has no exported constant. */
-const DISPLAY_NAME_MAX = 50
 const me = auth.user!
 
 const LINKS = [
@@ -74,13 +75,14 @@ function saveProfile() {
   return run('profile', async () => auth.setUser(await updateProfile(body)))
 }
 
-/** Avatar/banner: reported through the image field; failures are toasted here. */
+/** Avatar/banner: failures are toasted here and rethrown so the image field drops its preview. */
 async function saveImage(body: UpdateProfileInput) {
   try {
     auth.setUser(await updateProfile(body))
     toast.push({ kind: 'success', text: t('settings.saved') })
   } catch (e) {
     toast.push({ kind: 'error', text: e instanceof ApiError && e.code === 'FILE_NOT_READY' ? t('settings.imageInUse') : errorText(e) })
+    throw e
   }
 }
 
@@ -98,15 +100,18 @@ function savePassword() {
   })
 }
 
-// --- locale
-const locale = ref<Locale>(me.locale)
+// --- locale: the radios follow the live UI locale and move only after a successful save
+const changeLocale = useChangeLocale()
+/** Bumped on a failed save so the radios re-render from the live locale. */
+const localeRev = ref(0)
 
-function pickLocale(l: Locale) {
-  locale.value = l
-  return run('locale', async () => {
-    auth.setUser(await updateSettings({ locale: l }))
-    setLocale(l)
-  })
+async function pickLocale(l: Locale) {
+  busy.value.locale = true
+  try {
+    if (!(await changeLocale(l))) localeRev.value++
+  } finally {
+    busy.value.locale = false
+  }
 }
 
 // --- R18
@@ -116,8 +121,30 @@ const showR18 = ref(me.showR18)
 function saveR18() {
   const body: UpdateSettingsInput = { showR18: showR18.value }
   if (birthDate.value) body.birthDate = birthDate.value
-  return run('r18', async () => auth.setUser((await updateSettings(body)) as MeDto), { AGE_REQUIRED: 'settings.ageRequired' })
+  return run(
+    'r18',
+    async () => {
+      const u = await updateSettings(body)
+      auth.setUser(u)
+      showR18.value = u.showR18
+      birthDate.value = u.birthDate ?? ''
+    },
+    { AGE_REQUIRED: 'settings.ageRequired' },
+  )
 }
+
+// --- current images (public profile): the initial preview of the image fields
+const avatarUrl = ref<string | null>(null)
+const bannerUrl = ref<string | null>(null)
+onMounted(async () => {
+  try {
+    const u = await getUser(me.profile.username)
+    avatarUrl.value = u.avatarUrl
+    bannerUrl.value = u.bannerUrl
+  } catch {
+    /* no current image to show */
+  }
+})
 
 const field = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5'
 const section = 'flex flex-col gap-3 rounded border border-[var(--c-border)] bg-[var(--c-surface)] p-4'
@@ -129,11 +156,11 @@ const section = 'flex flex-col gap-3 rounded border border-[var(--c-border)] bg-
 
     <form :class="section" data-test="profile-form" @submit.prevent="saveProfile">
       <h2 class="font-semibold">{{ t('settings.profile') }}</h2>
-      <ImageField :label="t('settings.avatar')" test-id="avatar" shape="avatar" :save="(id) => saveImage({ avatarFileId: id })" />
-      <ImageField :label="t('settings.banner')" test-id="banner" shape="banner" :save="(id) => saveImage({ bannerFileId: id })" />
+      <ImageField :label="t('settings.avatar')" test-id="avatar" shape="avatar" :current-url="avatarUrl" :save="(id) => saveImage({ avatarFileId: id })" />
+      <ImageField :label="t('settings.banner')" test-id="banner" shape="banner" :current-url="bannerUrl" :save="(id) => saveImage({ bannerFileId: id })" />
       <label class="flex flex-col gap-1 text-sm">
         {{ t('settings.displayName') }}
-        <input v-model="displayName" data-test="display-name" required :maxlength="DISPLAY_NAME_MAX" :class="field" />
+        <input v-model="displayName" data-test="display-name" required :maxlength="LIMITS.displayNameMax" :class="field" />
       </label>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('settings.bio') }}
@@ -162,7 +189,7 @@ const section = 'flex flex-col gap-3 rounded border border-[var(--c-border)] bg-
       <Btn type="submit" data-test="save-password" :loading="busy.password" :disabled="!passwordValid">{{ t('settings.changePassword') }}</Btn>
     </form>
 
-    <fieldset :class="section" :disabled="busy.locale">
+    <fieldset :key="localeRev" :class="section" :disabled="busy.locale">
       <legend class="sr-only">{{ t('settings.language') }}</legend>
       <h2 class="font-semibold">{{ t('settings.language') }}</h2>
       <div class="flex gap-4 text-sm">

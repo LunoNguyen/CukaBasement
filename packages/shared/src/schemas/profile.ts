@@ -5,7 +5,7 @@ import { LOCALES } from '../enums'
 const link = z.union([z.literal(''), z.url()])
 
 export const updateProfileSchema = z.object({
-  displayName: z.string().min(1).max(50).optional(),
+  displayName: z.string().min(1).max(LIMITS.displayNameMax).optional(),
   bio: z.string().max(LIMITS.bioMax).optional(),
   avatarFileId: z.string().min(1).optional(),
   bannerFileId: z.string().min(1).optional(),

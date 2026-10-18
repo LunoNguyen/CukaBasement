@@ -8,6 +8,7 @@ import { useAuth } from '@/stores/auth'
 import App from '@/App.vue'
 import { installFakeFetch, makeMe, type FakeFetch, type FakeRequest, type FakeRoute } from './fakeApi'
 import { installFakeXhr } from './fakeXhr'
+import { publicUser } from './fixtures'
 
 let fake: FakeFetch | undefined
 let wrapper: VueWrapper | undefined
@@ -142,6 +143,68 @@ describe('Settings page', () => {
       await pick(w, 'a.zip', 'application/zip')
       expect(fake.callsTo('POST /api/uploads')).toHaveLength(0)
       expect(w.text()).toContain('Chỉ nhận tệp ảnh')
+    })
+  })
+
+  describe('fix round 1', () => {
+    it('header switch persists when logged in; failure keeps the old locale', async () => {
+      fake = installFakeFetch({ 'PATCH /api/me/settings': [err(500, 'INTERNAL'), ok(makeMe({ locale: 'en' }))] })
+      const w = await mountSettings()
+      await w.get('[data-test="lang-en"]').trigger('click')
+      await flushPromises()
+      expect(fake.callsTo('PATCH /api/me/settings')[0]!.body).toEqual({ locale: 'en' })
+      expect(i18n.global.locale.value).toBe('vi')
+      expect((w.get('[data-test="locale-vi"]').element as HTMLInputElement).checked).toBe(true)
+      expect((w.get('[data-test="locale-en"]').element as HTMLInputElement).checked).toBe(false)
+      await w.get('[data-test="lang-en"]').trigger('click')
+      await flushPromises()
+      expect(i18n.global.locale.value).toBe('en')
+      expect(auth.user!.locale).toBe('en')
+      expect((w.get('[data-test="locale-en"]').element as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('settings radios stay on the old locale when the save fails', async () => {
+      fake = installFakeFetch({ 'PATCH /api/me/settings': err(500, 'INTERNAL') })
+      const w = await mountSettings()
+      await w.get('[data-test="locale-en"]').setValue(true)
+      await flushPromises()
+      expect(i18n.global.locale.value).toBe('vi')
+      expect((w.get('[data-test="locale-vi"]').element as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('shows the current avatar from the public profile; local preview wins; failed save clears it', async () => {
+      installFakeXhr()
+      fake = installFakeFetch({
+        'GET /api/users/cuka': ok(publicUser({ avatarUrl: 'http://cdn/a.webp', bannerUrl: null })),
+        'POST /api/uploads': ok({ fileId: 'F1', url: 'http://minio.local/o', fields: { key: 'k' }, maxBytes: 8 }),
+        'POST /api/uploads/F1/complete': ok({ id: 'F1', kind: 'image', mimeType: 'image/png', sizeBytes: 8, status: 'processing', originalName: 'a.png' }),
+        'PATCH /api/me': err(400, 'FILE_NOT_READY'),
+      })
+      const w = await mountSettings()
+      expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/a.webp')
+      expect(w.find('[data-test="banner-preview"]').exists()).toBe(false)
+      const input = w.get('[data-test="avatar-input"]')
+      Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], 'a.png', { type: 'image/png' })], configurable: true })
+      await input.trigger('change')
+      await flushPromises()
+      expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/a.webp')
+    })
+
+    it('R18 form re-syncs from the returned user', async () => {
+      fake = installFakeFetch({ 'PATCH /api/me/settings': ok(makeMe({ showR18: false, birthDate: '2001-05-06' })) })
+      const w = await mountSettings()
+      await w.get('[data-test="show-r18"]').setValue(true)
+      await w.get('[data-test="save-r18"]').trigger('click')
+      await flushPromises()
+      expect((w.get('[data-test="show-r18"]').element as HTMLInputElement).checked).toBe(false)
+      expect((w.get('[data-test="birthdate"]').element as HTMLInputElement).value).toBe('2001-05-06')
+    })
+
+    it('image buttons have distinct accessible names', async () => {
+      fake = installFakeFetch({})
+      const w = await mountSettings()
+      const names = w.findAll('[data-test$="-choose"]').map((b) => b.attributes('aria-label'))
+      expect(names).toEqual(['Chọn ảnh: Ảnh đại diện', 'Chọn ảnh: Ảnh bìa'])
     })
   })
 })
