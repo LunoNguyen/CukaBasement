@@ -119,7 +119,7 @@ const busy = () => saving.value || up.queue.value.some((q) => q.status === 'queu
     <div class="flex items-center gap-3">
       <div
         class="flex shrink-0 items-center justify-center overflow-hidden bg-[var(--c-border)]"
-        :class="shape === 'avatar' ? 'h-20 w-20 rounded-full' : 'h-20 w-40 rounded'"
+        :class="shape === 'avatar' ? 'h-20 w-20 rounded-full' : 'h-12 w-48 rounded'"
       >
         <img v-if="shown" :src="shown" alt="" :data-test="testId + '-preview'" class="h-full w-full object-cover" />
       </div>

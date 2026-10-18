@@ -319,6 +319,15 @@ describe('Settings page', () => {
       expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/a.webp')
     })
 
+    it('banner preview box is 4:1; a versioned (?v=) image URL is used as-is', async () => {
+      fake = installFakeFetch({})
+      const w = await mountSettings(makeMe({ avatarUrl: 'http://cdn/a.webp?v=1', bannerUrl: 'http://cdn/b.webp?v=2' }))
+      const banner = w.get('[data-test="banner-preview"]')
+      expect(banner.attributes('src')).toBe('http://cdn/b.webp?v=2')
+      expect(banner.element.parentElement!.className).toContain('h-12 w-48')
+      expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/a.webp?v=1')
+    })
+
     it('after an avatar save the header updates from the response and /me is polled every 3 s (≤10 times) until the URL appears', async () => {
       vi.useFakeTimers()
       try {
