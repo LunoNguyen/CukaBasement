@@ -26,6 +26,7 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
 })
 
+const lb = () => document.body.querySelector<HTMLElement>('[data-test="lightbox"]')
 const ok = (body: unknown) => ({ status: 200, body })
 const page = (items: unknown[], nextCursor: string | null = null) => ok({ items, nextCursor })
 const other = () => makeMe({ id: 'u2', profile: { ...makeMe().profile, username: 'other', displayName: 'Other' } })
@@ -123,15 +124,15 @@ describe('Post page — media', () => {
     expect(link.attributes('href')).toBe('/settings')
   })
 
-  it('clicking the image opens the original; 404 shows the restricted toast', async () => {
+  it('the explicit original control opens the original; 404 shows the restricted toast', async () => {
     const win = { opener: {}, location: { href: '' }, close: vi.fn() }
     vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window)
     fake = installFakeFetch(routes(postDto(), { 'GET /api/posts/p1/files/f1/url': [ok({ url: 'http://s3/orig.png' }), { status: 404, body: { error: { code: 'NOT_FOUND', message: 'x' } } }] }))
     const { w } = await mountPost()
-    await w.get('[data-test="media-main"]').trigger('click')
+    await w.get('[data-test="open-original"]').trigger('click')
     await flushPromises()
     expect(win.location.href).toBe('http://s3/orig.png')
-    await w.get('[data-test="media-main"]').trigger('click')
+    await w.get('[data-test="open-original"]').trigger('click')
     await flushPromises()
     expect(win.close).toHaveBeenCalled()
     expect(w.text()).toContain('Chỉ người đăng và kiểm duyệt viên được tải bản gốc')
@@ -215,20 +216,20 @@ describe('Post page — media', () => {
     expect(win.location.href).toBe('http://s3/orig.png')
   })
 
-  it('manga pages are buttons that open the original', async () => {
-    const win = { opener: {}, location: { href: '' }, close: vi.fn() }
-    vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window)
+  it('manga pages are buttons that open the lightbox at that page, not the original', async () => {
+    const open = vi.spyOn(window, 'open')
     fake = installFakeFetch(
-      routes(postDto({ type: 'manga', media: [media({ thumbMdUrl: 'http://cdn/1.webp' }), media({ fileId: 'f2', position: 1, thumbMdUrl: 'http://cdn/2.webp' })] }), {
-        'GET /api/posts/p1/files/f2/url': ok({ url: 'http://s3/p2.png' }),
-      }),
+      routes(postDto({ type: 'manga', media: [media({ thumbMdUrl: 'http://cdn/1.webp' }), media({ fileId: 'f2', position: 1, thumbMdUrl: 'http://cdn/2.webp' })] })),
     )
     const { w } = await mountPost()
-    const buttons = w.findAll('[data-test="open-original"]')
-    expect(buttons.map((b) => b.attributes('aria-label'))).toEqual(['Mở bản gốc: Mèo — trang 1', 'Mở bản gốc: Mèo — trang 2'])
+    const buttons = w.findAll('[data-test="zoom-open"]')
+    expect(buttons.map((b) => b.attributes('aria-label'))).toEqual(['Xem ảnh lớn: Mèo — trang 1', 'Xem ảnh lớn: Mèo — trang 2'])
     await buttons[1]!.trigger('click')
     await flushPromises()
-    expect(win.location.href).toBe('http://s3/p2.png')
+    expect(open).not.toHaveBeenCalled()
+    expect(fake.callsTo('GET /api/posts/p1/files/f2/url')).toHaveLength(0)
+    expect(lb()!.querySelector('[data-test="lightbox-img"]')!.getAttribute('src')).toBe('http://cdn/2.webp')
+    expect(lb()!.querySelector('[data-test="lightbox-indicator"]')!.textContent!.trim()).toBe('2 / 2')
   })
 
   it('failed files show a failure state, not processing', async () => {
@@ -244,6 +245,220 @@ describe('Post page — media', () => {
     )
     const { w } = await mountPost()
     expect(w.findAll('[data-test="manga-page"]').map((i) => i.attributes('src'))).toEqual(['http://cdn/1.webp', 'http://cdn/2.webp'])
+  })
+})
+
+describe('Post page — gallery and lightbox', () => {
+  const gallery = (o: Partial<PostDto> = {}) =>
+    postDto({
+      media: [1, 2, 3, 4].map((n) =>
+        media({ fileId: `f${n}`, position: n - 1, isCover: n === 1, thumbSmUrl: `http://cdn/s${n}.webp`, thumbMdUrl: `http://cdn/md${n}.webp`, previewUrl: n === 2 ? null : `http://cdn/p${n}.webp` }),
+      ),
+      ...o,
+    })
+  const key = (el: Element, k: string, o: KeyboardEventInit = {}) => el.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }))
+  const q = (sel: string) => lb()!.querySelector<HTMLElement>(sel)!
+
+  it('overlay prev/next buttons and the "n / total" indicator; navigation wraps at both ends', async () => {
+    fake = installFakeFetch(routes(gallery()))
+    const { w } = await mountPost()
+    const prev = w.get('[data-test="media-prev"]')
+    const next = w.get('[data-test="media-next"]')
+    expect(prev.element.tagName).toBe('BUTTON')
+    expect(prev.attributes('aria-label')).toBe('Ảnh trước')
+    expect(next.attributes('aria-label')).toBe('Ảnh sau')
+    expect(w.get('[data-test="page-indicator"]').text()).toBe('1 / 4')
+    expect(w.get('[data-test="page-indicator"]').attributes('aria-label')).toBe('Ảnh 1 trên 4')
+    await next.trigger('click')
+    expect(w.get('[data-test="media-main"]').attributes('src')).toBe('http://cdn/md2.webp')
+    expect(w.get('[data-test="page-indicator"]').text()).toBe('2 / 4')
+    expect(w.findAll('[data-test="gallery-thumb"]')[1]!.attributes('aria-current')).toBe('true')
+    await prev.trigger('click')
+    await prev.trigger('click')
+    expect(w.get('[data-test="page-indicator"]').text()).toBe('4 / 4')
+    expect(w.get('[data-test="media-main"]').attributes('src')).toBe('http://cdn/md4.webp')
+    await next.trigger('click')
+    expect(w.get('[data-test="page-indicator"]').text()).toBe('1 / 4')
+    await w.findAll('[data-test="gallery-thumb"]')[2]!.trigger('click')
+    expect(w.get('[data-test="page-indicator"]').text()).toBe('3 / 4')
+  })
+
+  it('a single image has no arrows, indicator or strip', async () => {
+    fake = installFakeFetch(routes(postDto()))
+    const { w } = await mountPost()
+    expect(w.find('[data-test="media-prev"]').exists()).toBe(false)
+    expect(w.find('[data-test="page-indicator"]').exists()).toBe(false)
+    expect(w.find('[data-test="gallery-strip"]').exists()).toBe(false)
+  })
+
+  it('←/→ navigate while focus is inside the gallery, but not from elsewhere on the page', async () => {
+    fake = installFakeFetch(routes(gallery()))
+    const { w } = await mountPost()
+    const indicator = () => w.get('[data-test="page-indicator"]').text()
+    key(document.body, 'ArrowRight')
+    await flushPromises()
+    expect(indicator()).toBe('1 / 4')
+    const main = w.get('[data-test="zoom-open"]').element as HTMLElement
+    main.focus()
+    key(main, 'ArrowRight')
+    await flushPromises()
+    expect(indicator()).toBe('2 / 4')
+    key(w.get('[data-test="gallery-thumb"]').element, 'ArrowLeft')
+    await flushPromises()
+    expect(indicator()).toBe('1 / 4')
+    key(main, 'ArrowLeft')
+    await flushPromises()
+    expect(indicator()).toBe('4 / 4')
+  })
+
+  it('clicking the image opens the lightbox (best public variant), not the original; Esc closes and restores focus and scroll', async () => {
+    const open = vi.spyOn(window, 'open')
+    fake = installFakeFetch(routes(gallery()))
+    const { w } = await mountPost()
+    const main = w.get('[data-test="zoom-open"]')
+    expect(main.attributes('aria-label')).toBe('Xem ảnh lớn: Mèo — trang 1')
+    ;(main.element as HTMLElement).focus()
+    await w.get('[data-test="media-main"]').trigger('click')
+    await flushPromises()
+    expect(open).not.toHaveBeenCalled()
+    expect(fake.callsTo('GET /api/posts/p1/files/f1/url')).toHaveLength(0)
+    const dialog = lb()!
+    expect(dialog.getAttribute('role')).toBe('dialog')
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    expect(dialog.getAttribute('aria-label')).toBe('Trình xem ảnh: Mèo')
+    expect(q('[data-test="lightbox-img"]').getAttribute('src')).toBe('http://cdn/p1.webp')
+    expect(q('[data-test="lightbox-indicator"]').textContent!.trim()).toBe('1 / 4')
+    expect(document.body.style.overflow).toBe('hidden')
+    expect(document.activeElement).toBe(q('[data-test="lightbox-close"]'))
+    key(document.activeElement!, 'Escape')
+    await flushPromises()
+    expect(lb()).toBeNull()
+    expect(document.body.style.overflow).toBe('')
+    expect(document.activeElement).toBe(main.element)
+  })
+
+  it('lightbox prev/next and arrow keys move through images and keep the page viewer in step; falls back to thumb_md', async () => {
+    fake = installFakeFetch(routes(gallery()))
+    const { w } = await mountPost()
+    await w.get('[data-test="zoom-open"]').trigger('click')
+    await flushPromises()
+    q('[data-test="lightbox-next"]').click()
+    await flushPromises()
+    expect(q('[data-test="lightbox-img"]').getAttribute('src')).toBe('http://cdn/md2.webp')
+    expect(q('[data-test="lightbox-prev"]').getAttribute('aria-label')).toBe('Ảnh trước')
+    key(lb()!, 'ArrowRight')
+    await flushPromises()
+    expect(q('[data-test="lightbox-indicator"]').textContent!.trim()).toBe('3 / 4')
+    key(lb()!, 'ArrowLeft')
+    key(lb()!, 'ArrowLeft')
+    key(lb()!, 'ArrowLeft')
+    await flushPromises()
+    expect(q('[data-test="lightbox-indicator"]').textContent!.trim()).toBe('4 / 4')
+    q('[data-test="lightbox-close"]').click()
+    await flushPromises()
+    expect(lb()).toBeNull()
+    expect(w.get('[data-test="page-indicator"]').text()).toBe('4 / 4')
+  })
+
+  it('zoom: buttons, wheel, ctrl+wheel, double-click toggles 1x/2x, keys; reset on page change', async () => {
+    fake = installFakeFetch(routes(gallery()))
+    const { w } = await mountPost()
+    await w.get('[data-test="zoom-open"]').trigger('click')
+    await flushPromises()
+    const level = () => q('[data-test="zoom-level"]').textContent!.trim()
+    expect(level()).toBe('100%')
+    expect(q('[data-test="zoom-out"]').hasAttribute('disabled')).toBe(true)
+    expect(q('[data-test="zoom-in"]').getAttribute('aria-label')).toBe('Phóng to')
+    q('[data-test="zoom-in"]').click()
+    await flushPromises()
+    expect(level()).toBe('150%')
+    expect(q('[data-test="lightbox-img"]').style.transform).toContain('scale(1.5)')
+    q('[data-test="zoom-out"]').click()
+    await flushPromises()
+    expect(level()).toBe('100%')
+
+    const img = q('[data-test="lightbox-img"]')
+    img.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    await flushPromises()
+    expect(level()).toBe('200%')
+    img.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    await flushPromises()
+    expect(level()).toBe('100%')
+
+    const wheel = new WheelEvent('wheel', { deltaY: -200, bubbles: true, cancelable: true })
+    q('[data-test="lightbox-stage"]').dispatchEvent(wheel)
+    await flushPromises()
+    expect(wheel.defaultPrevented).toBe(true)
+    expect(parseInt(level())).toBeGreaterThan(100)
+    q('[data-test="lightbox-stage"]').dispatchEvent(new WheelEvent('wheel', { deltaY: 5000, ctrlKey: true, bubbles: true, cancelable: true }))
+    await flushPromises()
+    expect(level()).toBe('100%')
+
+    key(lb()!, '+')
+    await flushPromises()
+    expect(level()).toBe('150%')
+    key(lb()!, 'ArrowRight')
+    await flushPromises()
+    expect(level()).toBe('100%')
+  })
+
+  it('focus is trapped inside the lightbox', async () => {
+    fake = installFakeFetch(routes(gallery()))
+    const { w } = await mountPost()
+    await w.get('[data-test="zoom-open"]').trigger('click')
+    await flushPromises()
+    const last = q('[data-test="lightbox-next"]')
+    last.focus()
+    key(last, 'Tab')
+    expect(document.activeElement).toBe(q('[data-test="zoom-level"]'))
+    key(document.activeElement!, 'Tab', { shiftKey: true })
+    expect(document.activeElement).toBe(last)
+  })
+
+  it('the lightbox has an explicit original control that keeps the download permission behaviour', async () => {
+    const win = { opener: {}, location: { href: '' }, close: vi.fn() }
+    vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window)
+    fake = installFakeFetch(routes(gallery(), { 'GET /api/posts/p1/files/f2/url': { status: 404, body: { error: { code: 'NOT_FOUND', message: 'x' } } } }))
+    const { w } = await mountPost()
+    await w.get('[data-test="media-next"]').trigger('click')
+    await w.get('[data-test="zoom-open"]').trigger('click')
+    await flushPromises()
+    expect(q('[data-test="lightbox-original"]').getAttribute('aria-label')).toBe('Mở bản gốc: Mèo — trang 2')
+    q('[data-test="lightbox-original"]').click()
+    await flushPromises()
+    expect(fake.callsTo('GET /api/posts/p1/files/f2/url')).toHaveLength(1)
+    expect(win.close).toHaveBeenCalled()
+    expect(w.text()).toContain('Chỉ người đăng và kiểm duyệt viên được tải bản gốc')
+  })
+
+  it('blurred r18: no lightbox, arrows, strip or original control, and nothing but the blurred cover reaches the DOM', async () => {
+    const blurredPost = postDto({
+      rating: 'r18',
+      media: [1, 2, 3].map((n) => media({ fileId: `f${n}`, position: n - 1, isCover: n === 1, thumbSmUrl: 'http://cdn/blur.webp', thumbMdUrl: 'http://cdn/blur.webp', blurred: true })),
+    })
+    const open = vi.spyOn(window, 'open')
+    fake = installFakeFetch(routes(blurredPost))
+    const { w } = await mountPost()
+    for (const t of ['zoom-open', 'media-prev', 'page-indicator', 'gallery-thumb', 'open-original']) expect(w.find(`[data-test="${t}"]`).exists()).toBe(false)
+    await w.get('[data-test="media-main"]').trigger('click')
+    key(w.get('[data-test="media-main"]').element, 'ArrowRight')
+    await flushPromises()
+    expect(lb()).toBeNull()
+    expect(open).not.toHaveBeenCalled()
+    expect(fake.callsTo('GET /api/posts/p1/files/f1/url')).toHaveLength(0)
+    const srcs = Array.from(document.querySelectorAll('img')).map((i) => i.getAttribute('src'))
+    expect(srcs.filter((s) => s?.startsWith('http://cdn/') && s !== 'http://cdn/blur.webp')).toEqual([])
+  })
+
+  it('the lightbox itself refuses blurred files', async () => {
+    const { default: MediaLightbox } = await import('@/components/post/MediaLightbox.vue')
+    wrapper = mount(MediaLightbox, {
+      props: { open: true, index: 0, title: 'x', items: [media({ thumbMdUrl: 'http://cdn/blur.webp', previewUrl: 'http://cdn/p.webp', blurred: true })] },
+      global: { plugins: [i18n] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    expect(lb()).toBeNull()
   })
 })
 

@@ -9,6 +9,7 @@ import type { PostDto, PostMediaDto } from '@/api/types'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
 import MediaPlaceholder from './MediaPlaceholder.vue'
+import MediaLightbox from './MediaLightbox.vue'
 
 const props = defineProps<{ post: PostDto }>()
 const { t } = useI18n()
@@ -24,11 +25,43 @@ const blurred = computed(() => props.post.media.some((m) => m.blurred))
 const cover = computed(() => props.post.media.find((m) => m.isCover) ?? props.post.media[0] ?? null)
 
 const selected = ref(0)
+const lightbox = ref(false)
 const main = computed(() => images.value[Math.min(selected.value, images.value.length - 1)] ?? null)
 watch(
   () => props.post.id,
-  () => (selected.value = 0),
+  () => {
+    selected.value = 0
+    lightbox.value = false
+  },
 )
+
+/** Prev/next wrap around, in the page viewer and the lightbox alike. */
+function go(delta: number) {
+  const n = images.value.length
+  if (n < 2) return
+  selected.value = (selected.value + delta + n) % n
+}
+
+/** ←/→ while focus is anywhere inside the gallery (its buttons); never a global listener. */
+function onGalleryKey(e: KeyboardEvent) {
+  if (e.altKey || e.ctrlKey || e.metaKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
+  e.preventDefault()
+  go(e.key === 'ArrowLeft' ? -1 : 1)
+}
+
+const strip = ref<HTMLElement | null>(null)
+watch(selected, async (i) => {
+  await nextTick()
+  strip.value?.children[i]?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+})
+
+/** Clicking an image zooms it in a lightbox (public variants only); the original is a separate, explicit control. */
+const mainName = computed(() => (images.value.length > 1 ? t('post.pageAlt', { title: props.post.title, n: selected.value + 1 }) : props.post.title))
+
+function openLightbox(i: number) {
+  selected.value = i
+  lightbox.value = true
+}
 
 /** Playable sources, fetched on the element's first `play`: presigned URLs expire, so none is requested up front. */
 const sources = reactive<Record<string, string>>({})
@@ -109,7 +142,7 @@ function onPlaying(m: PostMediaDto) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-3">
+  <div class="flex min-w-0 flex-col gap-3">
     <div v-if="blurred" class="relative overflow-hidden rounded">
       <img v-if="cover?.thumbMdUrl" data-test="media-main" :src="cover.thumbMdUrl" :alt="post.title" class="w-full" />
       <div v-else class="aspect-[4/3]"><MediaPlaceholder /></div>
@@ -131,10 +164,10 @@ function onPlaying(m: PostMediaDto) {
           <button
             v-if="m.thumbMdUrl"
             type="button"
-            data-test="open-original"
+            data-test="zoom-open"
             class="mx-auto block w-full max-w-3xl cursor-zoom-in"
-            :aria-label="t('post.openOriginal', { name: t('post.pageAlt', { title: post.title, n: i + 1 }) })"
-            @click="openFile(m)"
+            :aria-label="t('post.viewLarger', { name: t('post.pageAlt', { title: post.title, n: i + 1 }) })"
+            @click="openLightbox(i)"
           >
             <img data-test="manga-page" :src="m.thumbMdUrl" :alt="t('post.pageAlt', { title: post.title, n: i + 1 })" loading="lazy" class="w-full" />
           </button>
@@ -142,34 +175,67 @@ function onPlaying(m: PostMediaDto) {
         </template>
       </template>
 
-      <template v-else-if="main">
-        <button
-          v-if="main.thumbMdUrl"
-          type="button"
-          data-test="open-original"
-          class="mx-auto block cursor-zoom-in"
-          :aria-label="t('post.openOriginal', { name: post.title })"
-          @click="openFile(main)"
-        >
-          <img data-test="media-main" :src="main.thumbMdUrl" :alt="post.title" class="max-h-[80vh] rounded" />
-        </button>
-        <div v-else class="flex aspect-[4/3] w-full flex-col"><MediaPlaceholder /><p class="py-2 text-center text-sm text-[var(--c-muted)]">{{ statusText(main) }}</p></div>
-        <div v-if="images.length > 1" class="flex gap-2 overflow-x-auto">
+      <div v-else-if="main" role="group" data-test="gallery" :aria-label="t('post.gallery')" class="flex min-w-0 flex-col gap-3" @keydown="onGalleryKey">
+        <div class="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-[var(--c-soft)]">
           <button
-            v-for="(m, i) in images"
-            :key="m.fileId"
+            v-if="main.thumbMdUrl"
             type="button"
-            data-test="gallery-thumb"
-            class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2"
-            :class="i === selected ? 'border-[var(--c-accent)]' : 'border-transparent'"
-            :aria-label="t('post.pageAlt', { title: post.title, n: i + 1 })"
-            @click="selected = i"
+            data-test="zoom-open"
+            class="block max-w-full cursor-zoom-in"
+            :aria-label="t('post.viewLarger', { name: mainName })"
+            @click="openLightbox(selected)"
           >
-            <img v-if="m.thumbSmUrl" :src="m.thumbSmUrl" alt="" class="h-full w-full object-cover" />
-            <MediaPlaceholder v-else />
+            <img data-test="media-main" :src="main.thumbMdUrl" :alt="mainName" class="block max-h-[80vh] max-w-full object-contain" />
+          </button>
+          <div v-else class="flex aspect-[4/3] w-full flex-col"><MediaPlaceholder /><p class="py-2 text-center text-sm text-[var(--c-muted)]">{{ statusText(main) }}</p></div>
+
+          <template v-if="images.length > 1">
+            <p
+              data-test="page-indicator"
+              class="pointer-events-none absolute top-2 right-2 rounded-full bg-[var(--c-cellar)]/75 px-2.5 py-1 font-mono text-xs text-[var(--c-cellar-text)] tabular-nums"
+              :aria-label="t('post.pageOf', { n: selected + 1, total: images.length })"
+            >
+              {{ selected + 1 }} / {{ images.length }}
+            </p>
+            <button type="button" data-test="media-prev" class="icon-btn media-nav left-2" :aria-label="t('post.prevImage')" @click="go(-1)">
+              <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+            </button>
+            <button type="button" data-test="media-next" class="icon-btn media-nav right-2" :aria-label="t('post.nextImage')" @click="go(1)">
+              <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+            </button>
+          </template>
+        </div>
+
+        <div class="flex min-w-0 items-start gap-2">
+          <div v-if="images.length > 1" ref="strip" data-test="gallery-strip" class="flex min-w-0 flex-1 gap-2 overflow-x-auto p-0.5">
+            <button
+              v-for="(m, i) in images"
+              :key="m.fileId"
+              type="button"
+              data-test="gallery-thumb"
+              class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2"
+              :class="i === selected ? 'border-[var(--c-accent)]' : 'border-transparent opacity-80 hover:opacity-100'"
+              :aria-label="t('post.pageAlt', { title: post.title, n: i + 1 })"
+              :aria-current="i === selected ? 'true' : undefined"
+              @click="selected = i"
+            >
+              <img v-if="m.thumbSmUrl" :src="m.thumbSmUrl" alt="" class="h-full w-full object-cover" />
+              <MediaPlaceholder v-else />
+            </button>
+          </div>
+          <button
+            v-if="main.thumbMdUrl"
+            type="button"
+            data-test="open-original"
+            class="ml-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm hover:border-[var(--c-latte)]"
+            :aria-label="t('post.openOriginal', { name: mainName })"
+            @click="openFile(main)"
+          >
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
+            {{ t('post.original') }}
           </button>
         </div>
-      </template>
+      </div>
 
       <div v-for="m in players" :key="m.fileId">
         <template v-if="m.kind === 'video'">
@@ -212,6 +278,23 @@ function onPlaying(m: PostMediaDto) {
           ⬇ {{ t('post.download') }}
         </button>
       </div>
+
+      <MediaLightbox v-if="images.length" v-model:open="lightbox" v-model:index="selected" :items="images" :title="post.title" @original="openFile" />
     </template>
   </div>
 </template>
+
+<style scoped>
+/* Overlay arrows on the main image: a cream disc that reads on any artwork. */
+.media-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, var(--c-surface) 85%, transparent);
+  box-shadow: 0 2px 8px rgb(23 17 14 / 0.18);
+  backdrop-filter: blur(4px);
+}
+.media-nav:hover {
+  background: var(--c-surface);
+}
+</style>
