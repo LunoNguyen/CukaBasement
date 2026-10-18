@@ -10,6 +10,14 @@ const en: typeof vi = {
     retry: 'Retry',
     loadMore: 'Load more',
   },
+  brand: {
+    taglineLead: 'Real art.',
+    taglineRest: 'Real',
+    taglineAccent: 'credit.',
+    taglineOther: 'Vẽ thật. Ghi công thật.',
+    heroBody: 'A home for illustrations, comics, video and audio — every work says who made it, and none of it is AI.',
+    footerNote: 'Every work, credited',
+  },
   admin: {
     title: 'Administration',
     tabs: { users: 'Users', settings: 'Settings', logs: 'Logs' },

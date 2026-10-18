@@ -128,7 +128,7 @@ async function confirmPending() {
       <div class="flex justify-end"><Btn type="submit" :loading="busy" :disabled="busy || !body.trim()">{{ t('comments.submit') }}</Btn></div>
     </form>
     <p v-else-if="auth.isLoggedIn" data-test="verify-hint" class="text-sm text-[var(--c-muted)]">{{ t('comments.verifyHint', { resend: t('auth.resend') }) }}</p>
-    <RouterLink v-else :to="{ path: '/login', query: { next: route.fullPath } }" class="text-sm font-semibold text-[var(--c-accent)]">{{ t('comments.loginHint') }}</RouterLink>
+    <RouterLink v-else :to="{ path: '/login', query: { next: route.fullPath } }" class="link text-sm">{{ t('comments.loginHint') }}</RouterLink>
 
     <div class="flex flex-col gap-4">
       <div v-for="c in list.items.value" :key="c.id" class="flex flex-col gap-2">

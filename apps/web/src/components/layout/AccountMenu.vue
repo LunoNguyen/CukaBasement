@@ -50,7 +50,7 @@ const item = 'menu-item'
       type="button"
       ref="button"
       data-test="account-menu-button"
-      class="flex min-h-9 items-center gap-2 rounded-full py-1 pr-3 pl-1 text-sm font-semibold hover:bg-[var(--c-soft)]"
+      class="flex min-h-11 min-w-11 items-center gap-2 rounded-full py-1 pr-1.5 pl-1.5 sm:pr-3 text-sm font-semibold hover:bg-[var(--c-soft)]"
       :aria-expanded="open"
       :aria-label="t('account.menu')"
       @click="open = !open"
@@ -60,13 +60,13 @@ const item = 'menu-item'
         :src="auth.user.avatarUrl"
         alt=""
         data-test="account-avatar"
-        class="h-7 w-7 shrink-0 rounded-full bg-[var(--c-border)] object-cover"
+        class="h-8 w-8 shrink-0 rounded-full bg-[var(--c-border)] object-cover"
         @error="brokenAvatar = auth.user.avatarUrl"
       />
       <span
         v-else
         data-test="account-initial"
-        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--c-primary)] text-xs text-[var(--c-bg)]"
+        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--c-primary)] text-xs text-[var(--c-bg)]"
         aria-hidden="true"
       >
         {{ auth.user.profile.displayName.charAt(0).toUpperCase() }}

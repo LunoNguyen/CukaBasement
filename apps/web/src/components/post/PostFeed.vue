@@ -14,6 +14,6 @@ onMounted(() => void list.loadMore())
 <template>
   <div>
     <PostGrid :items="list.items.value" />
-    <ListFooter :list="list" :empty-text="emptyText" auto />
+    <ListFooter :list="list" :empty-text="emptyText" auto art />
   </div>
 </template>

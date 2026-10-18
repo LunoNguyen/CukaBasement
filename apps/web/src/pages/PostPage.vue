@@ -401,7 +401,7 @@ async function confirmDelete() {
           </Btn>
           <Btn v-if="!isOwner" data-test="report" variant="ghost" @click="openReport">{{ t('post.report') }}</Btn>
           <template v-if="isOwner">
-            <RouterLink data-test="edit-post" :to="`/posts/${post.id}/edit`" class="inline-flex min-h-10 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-surface)] px-4 text-sm font-semibold hover:border-[var(--c-latte)]">{{
+            <RouterLink data-test="edit-post" :to="`/posts/${post.id}/edit`" class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:border-[var(--c-latte)]">{{
               t('post.edit')
             }}</RouterLink>
             <Btn data-test="delete-post" variant="danger" @click="deleteOpen = true">{{ t('post.delete') }}</Btn>
@@ -414,7 +414,7 @@ async function confirmDelete() {
 
         <p v-if="post.description" class="text-sm leading-relaxed break-words whitespace-pre-line">{{ post.description }}</p>
         <div v-if="post.tags.length" class="flex flex-wrap gap-2">
-          <RouterLink v-for="tag in post.tags" :key="tag" :to="`/tags/${encodeURIComponent(tag)}`" class="chip"><span class="text-[var(--c-accent)]">#</span>{{ tag }}</RouterLink>
+          <RouterLink v-for="tag in post.tags" :key="tag" :to="`/tags/${encodeURIComponent(tag)}`" class="chip"><span class="text-[var(--c-accent-text)]" aria-hidden="true">#</span>{{ tag }}</RouterLink>
         </div>
 
         <UserCard v-if="author" :user="author" @change="author = $event" />
@@ -432,7 +432,7 @@ async function confirmDelete() {
     <Modal v-model:open="loginPrompt" :title="t('post.reportTitle')">
       <div data-test="login-prompt" class="flex flex-col gap-3 text-sm">
         <p>{{ t('post.reportLogin') }}</p>
-        <RouterLink :to="loginNext" class="self-start inline-flex min-h-10 items-center rounded-full bg-[var(--c-primary)] px-4 font-semibold text-[var(--c-bg)]">{{ t('auth.login') }}</RouterLink>
+        <RouterLink :to="loginNext" class="self-start inline-flex min-h-11 items-center rounded-full bg-[var(--c-primary)] px-4 font-semibold text-[var(--c-bg)]">{{ t('auth.login') }}</RouterLink>
       </div>
     </Modal>
     <Modal v-model:open="deleteOpen" :title="t('post.deleteTitle')">

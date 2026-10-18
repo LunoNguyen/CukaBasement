@@ -72,7 +72,7 @@ const iconBtn = 'inline-flex h-10 w-10 items-center justify-center rounded-full 
       <button
         type="button"
         data-test="add-link"
-        class="self-start inline-flex min-h-10 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-surface)] px-4 font-semibold hover:border-[var(--c-latte)] disabled:opacity-60"
+        class="self-start inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 font-semibold hover:border-[var(--c-latte)] disabled:opacity-60"
         :disabled="full"
         @click="add"
       >

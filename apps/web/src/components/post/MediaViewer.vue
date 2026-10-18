@@ -118,10 +118,10 @@ function onPlaying(m: PostMediaDto) {
         <RouterLink
           v-if="!auth.isLoggedIn"
           :to="{ path: '/login', query: { next: route.fullPath } }"
-          class="inline-flex min-h-10 items-center rounded-full bg-[var(--c-accent)] px-4 text-sm font-semibold text-[#17110e]"
+          class="inline-flex min-h-11 items-center rounded-full bg-[var(--c-accent)] px-4 text-sm font-semibold text-[#17110e]"
           >{{ t('post.r18Login') }}</RouterLink
         >
-        <RouterLink v-else to="/settings" class="inline-flex min-h-10 items-center rounded-full bg-[var(--c-accent)] px-4 text-sm font-semibold text-[#17110e]">{{ t('post.r18Settings') }}</RouterLink>
+        <RouterLink v-else to="/settings" class="inline-flex min-h-11 items-center rounded-full bg-[var(--c-accent)] px-4 text-sm font-semibold text-[#17110e]">{{ t('post.r18Settings') }}</RouterLink>
       </div>
     </div>
 
@@ -206,7 +206,7 @@ function onPlaying(m: PostMediaDto) {
           :key="m.fileId"
           type="button"
           data-test="download"
-          class="inline-flex min-h-10 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-surface)] px-4 text-sm hover:border-[var(--c-latte)]"
+          class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm hover:border-[var(--c-latte)]"
           @click="openFile(m)"
         >
           ⬇ {{ t('post.download') }}

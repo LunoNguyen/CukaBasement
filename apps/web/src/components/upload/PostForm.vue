@@ -90,7 +90,7 @@ const input = 'w-full field'
           @cover="uploader.setCover(item.id)"
         />
       </ul>
-      <p v-if="filesChanged" data-test="files-changed" class="text-sm text-amber-600">{{ t('upload.filesChanged') }}</p>
+      <p v-if="filesChanged" data-test="files-changed" class="badge badge-accent self-start">{{ t('upload.filesChanged') }}</p>
     </section>
 
     <label class="flex flex-col gap-1 text-sm">

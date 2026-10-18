@@ -9,7 +9,7 @@ import EmptyState from './EmptyState.vue'
 import Spinner from './Spinner.vue'
 
 /** Footer of a cursor list: error + retry, spinner, empty state, or "load more" (also a scroll trigger when `auto`). */
-const props = defineProps<{ list: CursorList<{ id: string }>; emptyText: string; auto?: boolean }>()
+const props = defineProps<{ list: CursorList<{ id: string }>; emptyText: string; auto?: boolean; art?: boolean }>()
 const { t } = useI18n()
 const errorText = useErrorText()
 
@@ -23,7 +23,7 @@ if (props.auto) useInfiniteTrigger(sentinel, () => void props.list.autoLoadMore(
     <Btn variant="ghost" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
   </div>
   <div v-else-if="list.loading.value" class="flex justify-center py-6"><Spinner /></div>
-  <EmptyState v-else-if="list.done.value && list.items.value.length === 0">{{ emptyText }}</EmptyState>
+  <EmptyState v-else-if="list.done.value && list.items.value.length === 0" :art="art">{{ emptyText }}</EmptyState>
   <div v-else-if="!list.done.value" :key="list.items.value.length" ref="sentinel" class="flex justify-center py-6">
     <Btn variant="ghost" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn>
   </div>

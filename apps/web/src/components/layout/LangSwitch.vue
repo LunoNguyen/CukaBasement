@@ -16,7 +16,7 @@ const langs: Locale[] = ['vi', 'en']
       type="button"
       :data-test="'lang-' + l"
       :aria-pressed="locale === l"
-      class="min-h-7 rounded-full px-2.5 font-mono text-[11px] font-medium uppercase transition-colors"
+      class="min-h-9 min-w-9 rounded-full px-2.5 font-mono text-[11px] font-medium uppercase transition-colors"
       :class="locale === l ? 'bg-[var(--c-primary)] text-[var(--c-bg)]' : 'text-[var(--c-muted)] hover:text-[var(--c-text)]'"
       @click="changeLocale(l)"
     >

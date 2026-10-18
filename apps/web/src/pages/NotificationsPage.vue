@@ -62,6 +62,6 @@ function link(n: NotificationDto): string | null {
         </component>
       </li>
     </ul>
-    <ListFooter :list="list" :empty-text="t('notifications.empty')" auto />
+    <ListFooter :list="list" :empty-text="t('notifications.empty')" auto art />
   </section>
 </template>

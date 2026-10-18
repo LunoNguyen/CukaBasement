@@ -37,7 +37,7 @@ function onDrop(e: DragEvent) {
     @drop.prevent="onDrop"
   >
     <p>{{ t('upload.drop') }}</p>
-    <button type="button" class="font-semibold text-[var(--c-accent)]" @click="input?.click()">{{ t('upload.choose') }}</button>
+    <button type="button" class="link underline" @click="input?.click()">{{ t('upload.choose') }}</button>
     <input ref="input" data-test="file-input" type="file" multiple class="sr-only" tabindex="-1" aria-hidden="true" :accept="accept" @change="onChange" />
     <p class="text-xs text-[var(--c-muted)]">{{ t('upload.allowed', { types, mb }) }}</p>
   </div>

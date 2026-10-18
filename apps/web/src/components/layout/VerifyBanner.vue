@@ -30,7 +30,7 @@ async function resend() {
   <div v-if="auth.isLoggedIn && !auth.user!.emailVerified" role="status" class="border-b border-[var(--c-border)] bg-[var(--c-surface)] px-3 py-2 text-sm">
     <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-2">
       <span>{{ t('auth.unverifiedBanner') }}</span>
-      <button type="button" data-test="resend-verification" class="font-semibold text-[var(--c-accent)] disabled:opacity-60" :disabled="busy" @click="resend">
+      <button type="button" data-test="resend-verification" class="link underline disabled:opacity-60" :disabled="busy" @click="resend">
         {{ t('auth.resend') }}
       </button>
     </div>

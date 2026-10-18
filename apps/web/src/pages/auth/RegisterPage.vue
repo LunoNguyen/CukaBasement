@@ -96,7 +96,7 @@ const input = 'field'
       </label>
       <Btn type="submit" :loading="busy">{{ t('auth.register') }}</Btn>
       <p class="text-sm text-[var(--c-muted)]">
-        {{ t('auth.haveAccount') }} <RouterLink to="/login" class="text-[var(--c-accent)]">{{ t('auth.login') }}</RouterLink>
+        {{ t('auth.haveAccount') }} <RouterLink to="/login" class="link">{{ t('auth.login') }}</RouterLink>
       </p>
     </form>
   </AuthCard>

@@ -43,7 +43,7 @@ const input = 'field'
     <p v-if="!token" role="alert" class="text-sm text-[var(--c-danger)]">{{ t('errors.TOKEN_INVALID') }}</p>
     <div v-else-if="done" data-test="reset-success" class="text-sm">
       <p>{{ t('auth.resetSuccess') }}</p>
-      <RouterLink to="/login" class="mt-3 inline-block text-[var(--c-accent)]">{{ t('auth.login') }}</RouterLink>
+      <RouterLink to="/login" class="link mt-3 inline-block">{{ t('auth.login') }}</RouterLink>
     </div>
     <form v-else class="flex flex-col gap-3" novalidate @submit.prevent="submit">
       <label class="flex flex-col gap-1 text-sm">

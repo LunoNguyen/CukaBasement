@@ -46,6 +46,14 @@ export default {
     retry: 'Thử lại',
     loadMore: 'Tải thêm',
   },
+  brand: {
+    taglineLead: 'Vẽ thật.',
+    taglineRest: 'Ghi công',
+    taglineAccent: 'thật.',
+    taglineOther: 'Real art. Real credit.',
+    heroBody: 'Nơi đăng tranh, truyện tranh, video và âm thanh — mỗi tác phẩm đều ghi rõ ai đã làm ra nó, và không dùng AI.',
+    footerNote: 'Mỗi tác phẩm đều được ghi công',
+  },
   admin: {
     title: 'Quản trị',
     tabs: { users: 'Tài khoản', settings: 'Cài đặt', logs: 'Nhật ký' },

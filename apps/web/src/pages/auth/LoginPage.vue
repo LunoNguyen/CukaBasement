@@ -57,7 +57,7 @@ async function submit() {
       <Btn type="submit" :loading="busy">{{ t('auth.login') }}</Btn>
       <RouterLink to="/forgot-password" class="text-sm text-[var(--c-muted)]">{{ t('auth.forgotLink') }}</RouterLink>
       <p class="text-sm text-[var(--c-muted)]">
-        {{ t('auth.noAccount') }} <RouterLink to="/register" class="text-[var(--c-accent)]">{{ t('auth.register') }}</RouterLink>
+        {{ t('auth.noAccount') }} <RouterLink to="/register" class="link">{{ t('auth.register') }}</RouterLink>
       </p>
     </form>
   </AuthCard>

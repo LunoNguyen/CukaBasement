@@ -24,6 +24,6 @@ function updated(post: PostCardDto) {
     <ul class="flex flex-col gap-3">
       <ModQueueItem v-for="p in list.items.value" :key="p.id" :post="p" @removed="remove(p.id)" @updated="updated" />
     </ul>
-    <ListFooter :list="list" :empty-text="t('mod.queueEmpty')" />
+    <ListFooter :list="list" :empty-text="t('mod.queueEmpty')" art />
   </div>
 </template>
