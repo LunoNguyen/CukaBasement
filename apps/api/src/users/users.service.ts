@@ -89,6 +89,13 @@ export class UsersService {
     const $set: Record<string, unknown> = {}
     if (input.displayName !== undefined) $set['profile.displayName'] = input.displayName
     if (input.bio !== undefined) $set['profile.bio'] = input.bio
+    if (input.avatarFileId !== undefined || input.bannerFileId !== undefined) {
+      // One file cannot be both: each role has its own crop (avatar 1:1, banner 4:1) under the same variant keys.
+      const p = (await this.getUser(id)).profile
+      const avatar = input.avatarFileId ?? p.avatarFileId?.toString()
+      const banner = input.bannerFileId ?? p.bannerFileId?.toString()
+      if (avatar && avatar === banner) throw new AppError('VALIDATION_FAILED', 400, 'avatarFileId and bannerFileId must be different files')
+    }
     for (const key of ['avatarFileId', 'bannerFileId'] as const) {
       const v = input[key]
       if (v === undefined) continue
