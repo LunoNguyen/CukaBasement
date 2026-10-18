@@ -11,6 +11,7 @@ import ProfilePage from '@/pages/ProfilePage.vue'
 import SettingsPage from '@/pages/SettingsPage.vue'
 import NotificationsPage from '@/pages/NotificationsPage.vue'
 import ModPage from '@/pages/mod/ModPage.vue'
+import AdminPage from '@/pages/admin/AdminPage.vue'
 import NotFoundPage from '@/pages/NotFoundPage.vue'
 import LoginPage from '@/pages/auth/LoginPage.vue'
 import RegisterPage from '@/pages/auth/RegisterPage.vue'
@@ -47,7 +48,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       { path: '/settings', component: SettingsPage, meta: { auth: true } },
       { path: '/notifications', component: NotificationsPage, meta: { auth: true } },
       { path: '/mod', component: ModPage, meta: { auth: true, roles: ['moderator', 'admin'] } },
-      { path: '/admin', component: Stub, meta: { auth: true, roles: ['admin'] } },
+      { path: '/admin', component: AdminPage, meta: { auth: true, roles: ['admin'] } },
       { path: '/tags/:tag', component: TagPage },
       { path: '/search', component: SearchPage },
       { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage },

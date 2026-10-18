@@ -47,6 +47,34 @@ export default {
     loadMore: 'Tải thêm',
     underConstruction: 'Đang xây dựng',
   },
+  admin: {
+    title: 'Quản trị',
+    tabs: { users: 'Tài khoản', settings: 'Cài đặt', logs: 'Nhật ký' },
+    roles: { user: 'Thành viên', moderator: 'Kiểm duyệt viên', admin: 'Quản trị viên' },
+    statuses: { active: 'Hoạt động', suspended: 'Tạm khóa', banned: 'Bị cấm' },
+    actions: {
+      approve: 'Duyệt bài', reject: 'Từ chối bài', hide: 'Ẩn bài', restore: 'Khôi phục', remove: 'Gỡ bài',
+      suspend: 'Tạm khóa tài khoản', ban: 'Cấm tài khoản', unban: 'Mở khóa tài khoản', change_role: 'Đổi vai trò',
+      hide_comment: 'Ẩn bình luận', delete_comment: 'Xóa bình luận', update_setting: 'Đổi cài đặt',
+      auto_hide: 'Tự động ẩn', update_credit: 'Sửa credit',
+    },
+    users: {
+      search: 'Tìm theo email hoặc tên người dùng', allRoles: 'Mọi vai trò', allStatuses: 'Mọi trạng thái',
+      email: 'Email', username: 'Tên người dùng', role: 'Vai trò', status: 'Trạng thái', verified: 'Đã xác thực', created: 'Ngày tạo',
+      empty: 'Không có tài khoản nào', statusTitle: 'Đổi trạng thái', statusConfirm: 'Đổi trạng thái của {name} thành «{status}»?',
+      roleTitle: 'Đổi vai trò', roleConfirm: 'Đổi vai trò của {name} thành «{role}»?', note: 'Ghi chú (không bắt buộc)', confirm: 'Xác nhận',
+    },
+    settings: {
+      reportHideThreshold: 'Ngưỡng báo cáo để ẩn bài', reportAiHideThreshold: 'Ngưỡng báo cáo AI để ẩn bài',
+      maxFileBytes: 'Dung lượng tối đa mỗi tệp (MB)', maxFilesPerPost: 'Số tệp tối đa mỗi bài',
+      dailyUploadQuotaBytes: 'Hạn mức tải lên mỗi ngày (GB)', save: 'Lưu cài đặt', saved: 'Đã lưu cài đặt',
+      maxFileTooBig: 'Dung lượng tối đa mỗi tệp không được vượt quá {max} MB', invalid: 'Vui lòng nhập số nguyên dương',
+    },
+    logs: {
+      allActions: 'Tất cả', action: 'Hành động', actor: 'Người thực hiện', target: 'Đối tượng', note: 'Ghi chú', time: 'Thời gian',
+      system: 'Hệ thống', empty: 'Chưa có nhật ký',
+    },
+  },
   mod: {
     title: 'Kiểm duyệt',
     tabs: { queue: 'Chờ duyệt', reports: 'Báo cáo', comments: 'Bình luận ẩn' },

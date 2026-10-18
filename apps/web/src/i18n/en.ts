@@ -11,6 +11,34 @@ const en: typeof vi = {
     loadMore: 'Load more',
     underConstruction: 'Under construction',
   },
+  admin: {
+    title: 'Administration',
+    tabs: { users: 'Users', settings: 'Settings', logs: 'Logs' },
+    roles: { user: 'User', moderator: 'Moderator', admin: 'Admin' },
+    statuses: { active: 'Active', suspended: 'Suspended', banned: 'Banned' },
+    actions: {
+      approve: 'Approved post', reject: 'Rejected post', hide: 'Hid post', restore: 'Restored', remove: 'Removed post',
+      suspend: 'Suspended account', ban: 'Banned account', unban: 'Reactivated account', change_role: 'Changed role',
+      hide_comment: 'Hid comment', delete_comment: 'Deleted comment', update_setting: 'Changed setting',
+      auto_hide: 'Auto-hidden', update_credit: 'Edited credit',
+    },
+    users: {
+      search: 'Search by email or username', allRoles: 'All roles', allStatuses: 'All statuses',
+      email: 'Email', username: 'Username', role: 'Role', status: 'Status', verified: 'Verified', created: 'Created',
+      empty: 'No users found', statusTitle: 'Change status', statusConfirm: 'Change the status of {name} to "{status}"?',
+      roleTitle: 'Change role', roleConfirm: 'Change the role of {name} to "{role}"?', note: 'Note (optional)', confirm: 'Confirm',
+    },
+    settings: {
+      reportHideThreshold: 'Reports needed to hide a post', reportAiHideThreshold: 'AI-art reports needed to hide a post',
+      maxFileBytes: 'Max size per file (MB)', maxFilesPerPost: 'Max files per post',
+      dailyUploadQuotaBytes: 'Daily upload quota (GB)', save: 'Save settings', saved: 'Settings saved',
+      maxFileTooBig: 'Max size per file cannot exceed {max} MB', invalid: 'Enter a positive whole number',
+    },
+    logs: {
+      allActions: 'All', action: 'Action', actor: 'Actor', target: 'Target', note: 'Note', time: 'Time',
+      system: 'System', empty: 'No logs yet',
+    },
+  },
   mod: {
     title: 'Moderation',
     tabs: { queue: 'Pending', reports: 'Reports', comments: 'Hidden comments' },
