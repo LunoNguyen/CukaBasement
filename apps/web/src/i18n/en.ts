@@ -80,6 +80,7 @@ const en: typeof vi = {
   tag: { empty: 'No posts with this tag' },
   search: { placeholder: 'Search posts...', empty: 'No results found' },
   post: {
+    hiddenBadge: 'This post is hidden',
     artBy: 'Art by',
     processing: 'Processing…',
     originalRestricted: 'Only the uploader and moderators can download the original',
@@ -204,6 +205,10 @@ const en: typeof vi = {
   },
   user: { follow: 'Follow', following: 'Following', followers: '{n} followers' },
   comments: {
+    deleteTitle: 'Delete comment',
+    deleteConfirm: 'Delete this comment?',
+    hideTitle: 'Hide comment',
+    hideConfirm: 'Hide this comment from everyone?',
     title: 'Comments',
     placeholder: 'Write a comment...',
     submit: 'Send',

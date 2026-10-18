@@ -175,6 +175,23 @@ describe('account menu and banner', () => {
     w.unmount()
   })
 
+  it('header fits 360px: actions wrap, display name and upload label collapse below sm', async () => {
+    const { pinia, auth, router } = setup('user')
+    auth.setUser(makeMe({ profile: { ...makeMe().profile, displayName: 'Một cái tên hiển thị rất là dài luôn đó nha' } }))
+    auth.ready = true
+    await router.push('/')
+    const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
+    await flushPromises()
+    const actions = w.get('[data-test="header-actions"]').classes()
+    expect(actions).toEqual(expect.arrayContaining(['min-w-0', 'flex-wrap']))
+    const name = w.get('[data-test="account-name"]').classes()
+    expect(name).toEqual(expect.arrayContaining(['hidden', 'sm:inline']))
+    const label = w.get('[data-test="upload-label"]')
+    expect(label.text()).toBe('Đăng bài')
+    expect(label.classes()).toEqual(expect.arrayContaining(['sr-only', 'sm:not-sr-only']))
+    w.unmount()
+  })
+
   it('logout from the menu clears the session', async () => {
     fake = installFakeFetch({ 'POST /api/auth/logout': { status: 204 } })
     const { pinia, auth, router } = setup('user')

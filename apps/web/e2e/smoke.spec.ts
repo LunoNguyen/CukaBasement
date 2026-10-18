@@ -32,7 +32,8 @@ test.afterAll(async () => {
 })
 
 test('register, upload a credited repost, approve, and see it public', async ({ page, browser, request }) => {
-  const user = newUser('e2e')
+  // A long display name: the logged-in header must still fit a 360px screen.
+  const user = { ...newUser('e2e'), displayName: 'E2E người dùng có cái tên hiển thị rất dài' }
   const title = `E2E smoke ${user.username}`
 
   // Register user A in the UI.
@@ -70,6 +71,17 @@ test('register, upload a credited repost, approve, and see it public', async ({ 
   const postUrl = new URL(page.url()).pathname
   await expect(page.getByTestId('review-badge')).toHaveText('Đang chờ duyệt')
   await expect(page.getByTestId('credit')).toContainText('Art by @_rurisuisen · X')
+
+  // No horizontal scroll at 360px while logged in, on the home page and the post page.
+  await page.setViewportSize({ width: 360, height: 800 })
+  for (const path of ['/', postUrl]) {
+    await page.goto(path)
+    await expect(page.getByTestId('account-menu-button')).toBeVisible()
+    // The callback runs in the browser; the e2e tsconfig has no DOM lib.
+    const width = await page.evaluate(() => (globalThis as unknown as { document: { documentElement: { scrollWidth: number } } }).document.documentElement.scrollWidth)
+    expect(width).toBeLessThanOrEqual(360)
+  }
+  await page.setViewportSize({ width: 1280, height: 720 })
 
   // A helper-created moderator approves it in /mod.
   const mod = await createModerator(request)

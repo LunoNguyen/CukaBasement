@@ -524,7 +524,96 @@ describe('Post page — comments', () => {
     expect(items[0]!.find('[data-test="delete-comment"]').exists()).toBe(false)
     await items[1]!.get('[data-test="delete-comment"]').trigger('click')
     await flushPromises()
+    expect(fake.callsTo('DELETE /api/comments/c3')).toHaveLength(0)
+    ;(document.querySelector('[data-test="confirm-comment"]') as HTMLElement).click()
+    await flushPromises()
     expect(fake.callsTo('DELETE /api/comments/c3')).toHaveLength(1)
     expect(w.text()).not.toContain('Của tôi')
+  })
+
+  it('staff can hide a comment after confirming; it then shows as hidden', async () => {
+    fake = installFakeFetch(
+      routes(postDto(), {
+        'GET /api/posts/p1/comments': page([comment({ id: 'c1', body: 'Spam' })]),
+        'POST /api/mod/comments/c1/hide': ok({ id: 'c1', status: 'hidden' }),
+      }),
+    )
+    let { w } = await mountPost(other())
+    expect(w.find('[data-test="hide-comment"]').exists()).toBe(false)
+    w.unmount()
+
+    ;({ w } = await mountPost(makeMe({ id: 'm1', role: 'moderator' })))
+    await w.get('[data-test="hide-comment"]').trigger('click')
+    expect(fake.callsTo('POST /api/mod/comments/c1/hide')).toHaveLength(0)
+    ;(document.querySelector('[data-test="confirm-comment"]') as HTMLElement).click()
+    await flushPromises()
+    expect(fake.callsTo('POST /api/mod/comments/c1/hide')).toHaveLength(1)
+    expect(w.get('[data-test="comment"]').text()).toContain('Bình luận đã bị ẩn')
+    expect(w.find('[data-test="hide-comment"]').exists()).toBe(false)
+  })
+
+  it('hiding a peer comment shows CANNOT_MODERATE_PEER', async () => {
+    fake = installFakeFetch(
+      routes(postDto(), {
+        'GET /api/posts/p1/comments': page([comment({ id: 'c1' })]),
+        'POST /api/mod/comments/c1/hide': { status: 403, body: { error: { code: 'CANNOT_MODERATE_PEER', message: 'x' } } },
+      }),
+    )
+    const { w } = await mountPost(makeMe({ id: 'm1', role: 'moderator' }))
+    await w.get('[data-test="hide-comment"]').trigger('click')
+    ;(document.querySelector('[data-test="confirm-comment"]') as HTMLElement).click()
+    await flushPromises()
+    expect(w.text()).toContain('Không thể kiểm duyệt nội dung của kiểm duyệt viên/quản trị viên khác')
+    expect(w.get('[data-test="comment"]').text()).not.toContain('Bình luận đã bị ẩn')
+  })
+})
+
+describe('Post page — staff moderation', () => {
+  const mod = () => makeMe({ id: 'm1', role: 'moderator' })
+  const modResult = (visibility: string) => ok({ id: 'p1', review: { status: 'approved', by: null, at: null }, visibility })
+
+  it('staff hide a public post, then restore it; non-staff see neither', async () => {
+    fake = installFakeFetch(
+      routes(postDto(), { 'POST /api/mod/posts/p1/hide': modResult('removed'), 'POST /api/mod/posts/p1/restore': modResult('public') }),
+    )
+    let { w } = await mountPost(other())
+    expect(w.find('[data-test="mod-hide"]').exists()).toBe(false)
+    expect(w.find('[data-test="mod-restore"]').exists()).toBe(false)
+    w.unmount()
+
+    ;({ w } = await mountPost(mod()))
+    expect(w.find('[data-test="mod-restore"]').exists()).toBe(false)
+    await w.get('[data-test="mod-hide"]').trigger('click')
+    await flushPromises()
+    expect(fake.callsTo('POST /api/mod/posts/p1/hide')).toHaveLength(1)
+    expect(w.get('[data-test="visibility-badge"]').text()).toBe('Bài đã bị ẩn')
+    await w.get('[data-test="mod-restore"]').trigger('click')
+    await flushPromises()
+    expect(fake.callsTo('POST /api/mod/posts/p1/restore')).toHaveLength(1)
+    expect(w.find('[data-test="visibility-badge"]').exists()).toBe(false)
+    expect(w.find('[data-test="mod-hide"]').exists()).toBe(true)
+  })
+
+  it('hidden_by_reports offers restore; CANNOT_MODERATE_PEER is shown and nothing changes', async () => {
+    fake = installFakeFetch(
+      routes(postDto({ visibility: 'hidden_by_reports' }), {
+        'POST /api/mod/posts/p1/restore': { status: 403, body: { error: { code: 'CANNOT_MODERATE_PEER', message: 'x' } } },
+      }),
+    )
+    const { w } = await mountPost(mod())
+    expect(w.find('[data-test="mod-hide"]').exists()).toBe(false)
+    await w.get('[data-test="mod-restore"]').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Không thể kiểm duyệt nội dung của kiểm duyệt viên/quản trị viên khác')
+    expect(w.get('[data-test="visibility-badge"]').text()).toBe('Bài đã bị ẩn')
+  })
+
+  it('owner sees the hidden badge; other viewers do not', async () => {
+    fake = installFakeFetch(routes(postDto({ visibility: 'removed' })))
+    let { w } = await mountPost(makeMe())
+    expect(w.get('[data-test="visibility-badge"]').text()).toBe('Bài đã bị ẩn')
+    w.unmount()
+    ;({ w } = await mountPost(other()))
+    expect(w.find('[data-test="visibility-badge"]').exists()).toBe(false)
   })
 })

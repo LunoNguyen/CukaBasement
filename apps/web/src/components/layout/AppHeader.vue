@@ -20,12 +20,15 @@ const auth = useAuth()
         <RouterLink to="/">{{ t('nav.home') }}</RouterLink>
         <RouterLink to="/search">{{ t('nav.search') }}</RouterLink>
       </nav>
-      <div class="ml-auto flex items-center gap-2">
+      <div data-test="header-actions" class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
         <LangSwitch />
         <ThemeToggle />
         <slot name="right" />
         <template v-if="auth.isLoggedIn">
-          <RouterLink to="/upload" class="rounded bg-[var(--c-primary)] px-3 py-1 text-sm font-semibold text-[var(--c-bg)]">{{ t('nav.upload') }}</RouterLink>
+          <RouterLink to="/upload" class="rounded bg-[var(--c-primary)] px-3 py-1 text-sm font-semibold text-[var(--c-bg)]">
+            <span aria-hidden="true" class="sm:hidden">+</span>
+            <span data-test="upload-label" class="sr-only sm:not-sr-only">{{ t('nav.upload') }}</span>
+          </RouterLink>
           <NotificationBell />
           <AccountMenu />
         </template>

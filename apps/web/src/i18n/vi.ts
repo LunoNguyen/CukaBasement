@@ -116,6 +116,7 @@ export default {
   tag: { empty: 'Chưa có bài đăng với thẻ này' },
   search: { placeholder: 'Tìm bài đăng...', empty: 'Không tìm thấy kết quả' },
   post: {
+    hiddenBadge: 'Bài đã bị ẩn',
     artBy: 'Art by',
     processing: 'Đang xử lý…',
     originalRestricted: 'Chỉ người đăng và kiểm duyệt viên được tải bản gốc',
@@ -240,6 +241,10 @@ export default {
   },
   user: { follow: 'Theo dõi', following: 'Đang theo dõi', followers: '{n} người theo dõi' },
   comments: {
+    deleteTitle: 'Xóa bình luận',
+    deleteConfirm: 'Xóa bình luận này?',
+    hideTitle: 'Ẩn bình luận',
+    hideConfirm: 'Ẩn bình luận này với mọi người?',
     title: 'Bình luận',
     placeholder: 'Viết bình luận...',
     submit: 'Gửi',

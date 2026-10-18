@@ -5,11 +5,12 @@ import type { CommentDto } from '@/api/types'
 import { useAuth } from '@/stores/auth'
 
 const props = defineProps<{ comment: CommentDto; isReply?: boolean; canReply?: boolean }>()
-defineEmits<{ reply: []; delete: [] }>()
+defineEmits<{ reply: []; delete: []; hide: [] }>()
 const { t, locale } = useI18n()
 const auth = useAuth()
 
 const canDelete = computed(() => !!auth.user && (auth.user.id === props.comment.author.id || auth.isStaff))
+const canHide = computed(() => auth.isStaff && props.comment.status !== 'hidden')
 </script>
 
 <template>
@@ -29,6 +30,9 @@ const canDelete = computed(() => !!auth.user && (auth.user.id === props.comment.
       </button>
       <button v-if="canDelete" type="button" data-test="delete-comment" class="font-semibold text-[var(--c-muted)]" @click="$emit('delete')">
         {{ t('comments.delete') }}
+      </button>
+      <button v-if="canHide" type="button" data-test="hide-comment" class="font-semibold text-[var(--c-muted)]" @click="$emit('hide')">
+        {{ t('mod.hide') }}
       </button>
     </div>
   </div>

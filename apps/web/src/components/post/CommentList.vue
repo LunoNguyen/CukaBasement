@@ -4,12 +4,14 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { LIMITS } from '@cuka/shared'
 import * as commentsApi from '@/api/endpoints/comments'
+import * as modApi from '@/api/endpoints/mod'
 import { ApiError } from '@/api/client'
 import type { CommentDto } from '@/api/types'
 import { useCursorList } from '@/composables/useCursorList'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
 import Btn from '@/components/common/Btn.vue'
+import Modal from '@/components/common/Modal.vue'
 import Spinner from '@/components/common/Spinner.vue'
 import CommentItem from './CommentItem.vue'
 
@@ -70,14 +72,42 @@ function startReply(c: CommentDto) {
   replyBody.value = ''
 }
 
-async function remove(c: CommentDto) {
+/** Applies `fn` to the comment (top-level or reply) with `c.id`; `null` removes it. */
+function replace(c: CommentDto, fn: (x: CommentDto) => CommentDto | null) {
+  const map = (xs: CommentDto[]) => xs.flatMap((x) => (x.id === c.id ? (fn(x) ?? []) : [x]))
+  list.items.value = c.parentId
+    ? list.items.value.map((p) => (p.id === c.parentId ? { ...p, replies: map(p.replies ?? []) } : p))
+    : map(list.items.value)
+}
+
+// Delete and staff hide both ask first.
+const pending = ref<{ kind: 'delete' | 'hide'; comment: CommentDto } | null>(null)
+const confirmOpen = computed({
+  get: () => pending.value !== null,
+  set: (v) => {
+    if (!v) pending.value = null
+  },
+})
+const acting = ref(false)
+
+async function confirmPending() {
+  const p = pending.value
+  if (!p || acting.value) return
+  acting.value = true
   try {
-    await commentsApi.deleteComment(c.id)
-    list.items.value = c.parentId
-      ? list.items.value.map((p) => (p.id === c.parentId ? { ...p, replies: (p.replies ?? []).filter((r) => r.id !== c.id) } : p))
-      : list.items.value.filter((p) => p.id !== c.id)
+    if (p.kind === 'delete') {
+      await commentsApi.deleteComment(p.comment.id)
+      replace(p.comment, () => null)
+    } else {
+      await modApi.hideComment(p.comment.id)
+      replace(p.comment, (x) => ({ ...x, status: 'hidden' }))
+    }
+    pending.value = null
   } catch (e) {
+    pending.value = null
     fail(e)
+  } finally {
+    acting.value = false
   }
 }
 </script>
@@ -102,8 +132,21 @@ async function remove(c: CommentDto) {
 
     <div class="flex flex-col gap-4">
       <div v-for="c in list.items.value" :key="c.id" class="flex flex-col gap-2">
-        <CommentItem :comment="c" :can-reply="canWrite" @reply="startReply(c)" @delete="remove(c)" />
-        <CommentItem v-for="r in c.replies ?? []" :key="r.id" :comment="r" is-reply @delete="remove(r)" />
+        <CommentItem
+          :comment="c"
+          :can-reply="canWrite"
+          @reply="startReply(c)"
+          @delete="pending = { kind: 'delete', comment: c }"
+          @hide="pending = { kind: 'hide', comment: c }"
+        />
+        <CommentItem
+          v-for="r in c.replies ?? []"
+          :key="r.id"
+          :comment="r"
+          is-reply
+          @delete="pending = { kind: 'delete', comment: r }"
+          @hide="pending = { kind: 'hide', comment: r }"
+        />
         <form v-if="replyTo === c.id" data-test="reply-form" class="ml-8 flex flex-col gap-2" @submit.prevent="submitReply">
           <textarea
             v-model="replyBody"
@@ -128,5 +171,15 @@ async function remove(c: CommentDto) {
     <div v-else-if="list.loading.value" class="flex justify-center"><Spinner /></div>
     <p v-else-if="list.done.value && list.items.value.length === 0" class="text-sm text-[var(--c-muted)]">{{ t('comments.empty') }}</p>
     <div v-else-if="!list.done.value" class="flex justify-center"><Btn variant="ghost" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn></div>
+
+    <Modal v-model:open="confirmOpen" :title="pending?.kind === 'hide' ? t('comments.hideTitle') : t('comments.deleteTitle')">
+      <p class="mb-4 text-sm">{{ pending?.kind === 'hide' ? t('comments.hideConfirm') : t('comments.deleteConfirm') }}</p>
+      <div class="flex justify-end gap-2">
+        <Btn variant="ghost" @click="pending = null">{{ t('common.cancel') }}</Btn>
+        <Btn data-test="confirm-comment" variant="danger" :loading="acting" @click="confirmPending">
+          {{ pending?.kind === 'hide' ? t('mod.hide') : t('comments.delete') }}
+        </Btn>
+      </div>
+    </Modal>
   </section>
 </template>

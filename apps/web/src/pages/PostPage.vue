@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import * as postsApi from '@/api/endpoints/posts'
 import * as interactionsApi from '@/api/endpoints/interactions'
+import * as modApi from '@/api/endpoints/mod'
 import { getUser } from '@/api/endpoints/users'
 import { ApiError } from '@/api/client'
 import type { PostCardDto, PostDto, PublicUserDto } from '@/api/types'
@@ -43,6 +44,10 @@ const reviewBadge = computed((): string | null => {
   if (p.review.status === 'pending') return t('post.pending')
   if (p.review.status === 'rejected') return t('post.rejected', { reason: p.review.reason ?? '' })
   return null
+})
+const hiddenBadge = computed(() => {
+  const p = post.value
+  return !!p && (isOwner.value || auth.isStaff) && p.visibility !== 'public'
 })
 const loginNext = computed(() => ({ path: '/login', query: { next: route.fullPath } }))
 
@@ -254,6 +259,25 @@ async function share() {
   }
 }
 
+// ---- staff: hide / restore (visibility) ----
+
+const modBusy = ref(false)
+async function moderate(action: 'hide' | 'restore') {
+  const p = post.value
+  if (!p || modBusy.value) return
+  const id = p.id
+  modBusy.value = true
+  try {
+    const r = await (action === 'hide' ? modApi.hide(id) : modApi.restore(id))
+    patch(id, (x) => (x.visibility = r.visibility))
+  } catch (e) {
+    // CANNOT_MODERATE_PEER (another moderator's/admin's post) has its own message under errors.*.
+    toast.push({ kind: 'error', text: errorText(e) })
+  } finally {
+    modBusy.value = false
+  }
+}
+
 // ---- report / delete ----
 
 const reportOpen = ref(false)
@@ -292,6 +316,9 @@ async function confirmDelete() {
         <div class="flex flex-col gap-1">
           <p v-if="reviewBadge" data-test="review-badge" class="self-start rounded bg-[var(--c-accent)] px-2 py-0.5 text-xs font-semibold text-white">
             {{ reviewBadge }}
+          </p>
+          <p v-if="hiddenBadge" data-test="visibility-badge" class="self-start rounded bg-[var(--c-muted)] px-2 py-0.5 text-xs font-semibold text-white">
+            {{ t('post.hiddenBadge') }}
           </p>
           <h1 class="text-xl font-bold break-words">{{ post.title }}</h1>
           <div data-test="credit" class="flex flex-col gap-0.5 text-sm text-[var(--c-muted)]">
@@ -342,6 +369,10 @@ async function confirmDelete() {
               t('post.edit')
             }}</RouterLink>
             <Btn data-test="delete-post" variant="danger" @click="deleteOpen = true">{{ t('post.delete') }}</Btn>
+          </template>
+          <template v-if="auth.isStaff">
+            <Btn v-if="post.visibility === 'public'" data-test="mod-hide" variant="ghost" :loading="modBusy" @click="moderate('hide')">{{ t('mod.hide') }}</Btn>
+            <Btn v-else data-test="mod-restore" variant="ghost" :loading="modBusy" @click="moderate('restore')">{{ t('mod.restore') }}</Btn>
           </template>
         </div>
 

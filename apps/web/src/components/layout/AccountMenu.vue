@@ -49,7 +49,7 @@ const item = 'block w-full px-3 py-1.5 text-left text-sm hover:bg-[var(--c-borde
       <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--c-primary)] text-xs text-[var(--c-bg)]" aria-hidden="true">
         {{ auth.user.profile.displayName.charAt(0).toUpperCase() }}
       </span>
-      <span class="max-w-[8rem] truncate">{{ auth.user.profile.displayName }}</span>
+      <span data-test="account-name" class="hidden max-w-[8rem] truncate sm:inline">{{ auth.user.profile.displayName }}</span>
     </button>
     <div
       v-if="open"
