@@ -10,7 +10,7 @@ import Btn from '@/components/common/Btn.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Spinner from '@/components/common/Spinner.vue'
 
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 const store = useNotifications()
 const list = useCursorList<NotificationDto>(api.list)
 const sentinel = ref<HTMLElement | null>(null)
@@ -32,6 +32,7 @@ async function markAll() {
 }
 
 function text(n: NotificationDto): string {
+  if (!te('notifications.type.' + n.type)) return t('notifications.unknown')
   return t('notifications.type.' + n.type, {
     title: n.post?.title ?? t('notifications.deletedPost'),
     actor: n.actor?.displayName ?? t('notifications.someone'),

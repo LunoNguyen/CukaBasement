@@ -171,6 +171,7 @@ const en: typeof vi = {
     empty: 'No notifications yet',
     deletedPost: '(deleted post)',
     someone: 'Someone',
+    unknown: 'New notification',
     type: {
       post_approved: 'Your post «{title}» was approved',
       post_rejected: 'Your post «{title}» was rejected: {reason}',

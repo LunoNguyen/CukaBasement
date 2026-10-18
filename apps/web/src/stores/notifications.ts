@@ -11,9 +11,14 @@ export const useNotifications = defineStore('notifications', () => {
   let timer: ReturnType<typeof setInterval> | null = null
   let running = false
 
+  /** Only the newest request may assign; a response arriving after stop() is ignored. */
+  let seq = 0
+
   async function refresh() {
+    const mine = ++seq
     try {
-      count.value = (await api.unreadCount()).count
+      const { count: c } = await api.unreadCount()
+      if (mine === seq && running) count.value = c
     } catch {
       /* keep the last known count; the next poll retries */
     }
@@ -41,6 +46,7 @@ export const useNotifications = defineStore('notifications', () => {
 
   function stop() {
     running = false
+    seq++
     document.removeEventListener('visibilitychange', sync)
     clearTimer()
     count.value = 0
@@ -50,7 +56,7 @@ export const useNotifications = defineStore('notifications', () => {
     if (!ids.length) return
     try {
       await api.markRead({ ids })
-      count.value = Math.max(0, count.value - ids.length)
+      await refresh()
     } catch {
       /* stays unread; the next visit retries */
     }
@@ -60,6 +66,7 @@ export const useNotifications = defineStore('notifications', () => {
     try {
       await api.markRead({ all: true })
       count.value = 0
+      await refresh()
       return true
     } catch {
       return false

@@ -207,6 +207,7 @@ export default {
     empty: 'Chưa có thông báo nào',
     deletedPost: '(bài đã xóa)',
     someone: 'Ai đó',
+    unknown: 'Thông báo mới',
     type: {
       post_approved: 'Bài «{title}» đã được duyệt',
       post_rejected: 'Bài «{title}» bị từ chối: {reason}',

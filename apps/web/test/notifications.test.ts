@@ -7,6 +7,10 @@ import { createAppRouter } from '@/router'
 import { useAuth } from '@/stores/auth'
 import type { NotificationDto } from '@/api/types'
 import App from '@/App.vue'
+import { NOTIFICATION_TYPES } from '@cuka/shared'
+import en from '@/i18n/en'
+import viMsgs from '@/i18n/vi'
+import { useNotifications } from '@/stores/notifications'
 import { installFakeFetch, makeMe, type FakeFetch, type FakeRoute } from './fakeApi'
 
 let fake: FakeFetch | undefined
@@ -89,8 +93,9 @@ describe('Notification bell', () => {
 
 describe('Notifications page', () => {
   it('renders post_rejected with reason and handles post: null', async () => {
+    let unread = 3
     const { w } = await mountAt('/notifications', {
-      'GET /api/notifications/unread-count': ok({ count: 3 }),
+      'GET /api/notifications/unread-count': () => ok({ count: unread }),
       'GET /api/notifications': ok({
         items: [
           note({ id: 'a', type: 'post_rejected', actor: null, reason: 'Thiếu nguồn', post: { id: 'p9', title: 'Tranh' } }),
@@ -99,7 +104,10 @@ describe('Notifications page', () => {
         ],
         nextCursor: null,
       }),
-      'POST /api/notifications/read': { status: 204 },
+      'POST /api/notifications/read': () => {
+        unread = 1
+        return { status: 204 }
+      },
     })
     const rows = w.findAll('[data-test="notification"]')
     expect(rows[0]!.text()).toContain('Bài «Tranh» bị từ chối: Thiếu nguồn')
@@ -117,10 +125,14 @@ describe('Notifications page', () => {
   })
 
   it('mark all read posts {all:true} and clears badge', async () => {
+    let unread = 5
     const { w } = await mountAt('/notifications', {
-      'GET /api/notifications/unread-count': ok({ count: 5 }),
+      'GET /api/notifications/unread-count': () => ok({ count: unread }),
       'GET /api/notifications': ok({ items: [note({ id: 'a' })], nextCursor: 'c2' }),
-      'POST /api/notifications/read': { status: 204 },
+      'POST /api/notifications/read': (req) => {
+        unread = (req.body as { all?: boolean }).all ? 0 : 4
+        return { status: 204 }
+      },
     })
     expect(w.get('[data-test="bell-badge"]').text()).toBe('4')
     await w.get('[data-test="mark-all"]').trigger('click')
@@ -128,5 +140,82 @@ describe('Notifications page', () => {
     expect(fake!.callsTo('POST /api/notifications/read').at(-1)!.body).toEqual({ all: true })
     expect(w.find('[data-test="bell-badge"]').exists()).toBe(false)
     expect(w.find('.is-unread').exists()).toBe(false)
+  })
+})
+
+describe('Notification store races', () => {
+  const deferred = () => {
+    let resolve!: (n: number) => void
+    const p = new Promise<number>((r) => (resolve = r))
+    return { p, resolve }
+  }
+
+  it('server count after mark-read is authoritative; stale polls are dropped', async () => {
+    const polls: Array<ReturnType<typeof deferred>> = []
+    fake = installFakeFetch({
+      'GET /api/notifications/unread-count': async () => {
+        const d = deferred()
+        polls.push(d)
+        return ok({ count: await d.p })
+      },
+      'POST /api/notifications/read': { status: 204 },
+    })
+    setActivePinia(createPinia())
+    const store = useNotifications()
+    store.start()
+    await flushPromises()
+    polls[0]!.resolve(5)
+    await flushPromises()
+    expect(store.count).toBe(5)
+
+    const early = store.refresh() // poll started before the POST
+    await flushPromises()
+    const marking = store.markRead(['a', 'b'])
+    await flushPromises() // POST done, authoritative refresh issued
+    polls[2]!.resolve(3)
+    await marking
+    await flushPromises()
+    expect(store.count).toBe(3)
+    polls[1]!.resolve(5) // stale response arriving late
+    await early
+    expect(store.count).toBe(3)
+
+    // a later poll with a lower count must not be decremented again
+    const later = store.refresh()
+    await flushPromises()
+    polls[3]!.resolve(2)
+    await later
+    expect(store.count).toBe(2)
+    store.stop()
+  })
+
+  it('a response arriving after stop() does not set the count', async () => {
+    const d = deferred()
+    fake = installFakeFetch({ 'GET /api/notifications/unread-count': async () => ok({ count: await d.p }) })
+    setActivePinia(createPinia())
+    const store = useNotifications()
+    store.start()
+    await flushPromises()
+    store.stop()
+    d.resolve(7)
+    await flushPromises()
+    expect(store.count).toBe(0)
+  })
+})
+
+describe('Notification copy', () => {
+  it('has vi and en text for every notification type', () => {
+    for (const type of NOTIFICATION_TYPES) {
+      expect(viMsgs.notifications.type[type], 'vi ' + type).toBeTruthy()
+      expect(en.notifications.type[type], 'en ' + type).toBeTruthy()
+    }
+  })
+
+  it('falls back to generic text for an unknown type', async () => {
+    const { w } = await mountAt('/notifications', {
+      'GET /api/notifications/unread-count': ok({ count: 0 }),
+      'GET /api/notifications': ok({ items: [note({ type: 'brand_new' as never, readAt: 'x' })], nextCursor: null }),
+    })
+    expect(w.get('[data-test="notification"]').text()).toContain('Thông báo mới')
   })
 })
