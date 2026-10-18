@@ -20,11 +20,37 @@ export const socialLinkSchema = z
   })
   .transform(({ platform, label, url }) => (platform === 'other' ? { platform, label: label!, url } : { platform, url }))
 
+/** Slack for float rounding when checking that a crop rectangle stays inside the image. */
+const CROP_EPSILON = 1e-6
+
+/**
+ * A crop rectangle of a profile image, as fractions (0..1) of the original's width and height (after EXIF
+ * orientation). The worker crops every frame to it (keeping an animation), then trims it to the role's aspect ratio.
+ */
+export const cropRectSchema = z
+  .object({
+    x: z.number().min(0).max(1),
+    y: z.number().min(0).max(1),
+    w: z.number().gt(0).max(1),
+    h: z.number().gt(0).max(1),
+  })
+  .strict()
+  .refine((r) => r.x + r.w <= 1 + CROP_EPSILON, { path: ['w'], message: 'x + w must be at most 1' })
+  .refine((r) => r.y + r.h <= 1 + CROP_EPSILON, { path: ['h'], message: 'y + h must be at most 1' })
+
+export type CropRect = z.infer<typeof cropRectSchema>
+
 export const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(LIMITS.displayNameMax).optional(),
   bio: z.string().max(LIMITS.bioMax).optional(),
   avatarFileId: z.string().min(1).optional(),
   bannerFileId: z.string().min(1).optional(),
+  /**
+   * Crop of the avatar (`avatarFileId` in the same body, else the current one); null: centred crop. A new
+   * `avatarFileId` without `avatarCrop` resets it to the centred crop. Same for `bannerCrop`.
+   */
+  avatarCrop: cropRectSchema.nullable().optional(),
+  bannerCrop: cropRectSchema.nullable().optional(),
   /** The whole ordered list (replaces the stored one); `[]` removes every link. */
   links: z.array(socialLinkSchema).max(LIMITS.socialLinksMax).optional(),
 })
