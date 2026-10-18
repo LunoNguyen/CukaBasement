@@ -5,6 +5,7 @@ import { i18n } from '@/i18n'
 import Modal from '@/components/common/Modal.vue'
 import Spinner from '@/components/common/Spinner.vue'
 import Btn from '@/components/common/Btn.vue'
+import Tabs from '@/components/common/Tabs.vue'
 
 const plugins = [i18n]
 
@@ -89,5 +90,32 @@ describe('a11y bits', () => {
   it('Btn sets aria-busy when loading', () => {
     expect(mount(Btn, { props: { loading: true }, global: { plugins } }).attributes('aria-busy')).toBe('true')
     expect(mount(Btn, { global: { plugins } }).attributes('aria-busy')).toBeUndefined()
+  })
+})
+
+describe('Tabs', () => {
+  const tabs = [
+    { key: 'a', label: 'A' },
+    { key: 'b', label: 'B' },
+  ]
+
+  // Regression: tabs pulled 1px below the row (-mb-px) overflowed an overflow-x-auto row vertically, so browsers
+  // drew a vertical scrollbar at its right edge.
+  it('scrolls only sideways: no tab is pulled below the row, the baseline is an inset shadow', () => {
+    const w = mount(Tabs, { props: { tabs, modelValue: 'a' } })
+    const row = w.get('[role="tablist"]')
+    expect(row.classes()).toEqual(expect.arrayContaining(['overflow-x-auto', 'overflow-y-hidden']))
+    expect(row.classes()).not.toContain('border-b')
+    expect(row.classes().some((c) => c.startsWith('shadow-[inset'))).toBe(true)
+    for (const tab of w.findAll('[role="tab"]')) expect(tab.classes()).not.toContain('-mb-px')
+  })
+
+  it('marks the active tab and switches on click', async () => {
+    const w = mount(Tabs, { props: { tabs, modelValue: 'a', 'onUpdate:modelValue': (v: string) => w.setProps({ modelValue: v }) } })
+    const [a, b] = w.findAll('[role="tab"]')
+    expect(a!.attributes('aria-selected')).toBe('true')
+    expect(a!.classes()).toContain('border-[var(--c-accent)]')
+    await b!.trigger('click')
+    expect(w.findAll('[role="tab"]')[1]!.attributes('aria-selected')).toBe('true')
   })
 })
