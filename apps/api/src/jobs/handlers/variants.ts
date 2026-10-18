@@ -28,6 +28,25 @@ export function animationPlan(meta: { format?: string; width?: number; height?: 
   return (meta.width ?? 0) * (meta.height ?? 0) * pages <= SHARP_INPUT.limitInputPixels
 }
 
+/**
+ * Largest animated render kept per variant; a bigger one (or one bigger than the original file) is re-rendered from
+ * the first frame, so a thumbnail never costs more to load than the image it stands for.
+ */
+export const MAX_ANIMATED_BYTES: Record<VariantName, number> = {
+  thumb_sm: 1.5 * 1024 * 1024,
+  thumb_md: 4 * 1024 * 1024,
+  preview: 4 * 1024 * 1024,
+  blurred: 4 * 1024 * 1024,
+}
+
+/** An animated render at most this big is always kept, even when it outweighs a tiny original. */
+export const ANIMATED_SMALL_BYTES = 256 * 1024
+
+/** Whether an animated render of `bytes` for `name` is too heavy (see MAX_ANIMATED_BYTES) next to an `originalBytes` original. */
+export function animatedTooLarge(name: VariantName, bytes: number, originalBytes: number): boolean {
+  return bytes > MAX_ANIMATED_BYTES[name] || (bytes > originalBytes && bytes > ANIMATED_SMALL_BYTES)
+}
+
 const WEBP = { quality: 82 }
 const logger = new Logger('Variants')
 

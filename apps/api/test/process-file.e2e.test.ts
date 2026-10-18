@@ -11,7 +11,7 @@ import { type JobDeps, run } from '../src/jobs/handlers/media'
 import { processFile, processFileHooks } from '../src/jobs/handlers/process-file'
 import { relocateFile, relocateVariants } from '../src/jobs/handlers/relocate-variants'
 import { rewatermark } from '../src/jobs/handlers/rewatermark'
-import { animationPlan, renderBlurred } from '../src/jobs/handlers/variants'
+import { ANIMATED_SMALL_BYTES, animatedTooLarge, animationPlan, MAX_ANIMATED_BYTES, renderBlurred } from '../src/jobs/handlers/variants'
 import { watermarkHash, watermarkText } from '../src/jobs/handlers/watermark'
 import { StorageService } from '../src/storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../src/uploads/file.schema'
@@ -628,6 +628,32 @@ describe('process-file / relocate-variants', () => {
       // 2000 × 2000 × 30 = 120 M pixels > the 100 M limitInputPixels budget.
       expect(animationPlan({ format: 'gif', width: 2000, height: 2000, pages: 30 })).toBe(false)
       expect(animationPlan({ format: 'png', width: 80, height: 60, pages: 3 })).toBe(false)
+    })
+
+    it('an animated thumb over its size cap is re-rendered static; the other thumb stays animated', async () => {
+      const fileId = await seedFile('image', 'image/gif', 'gif', await animated(800, 600, 3))
+      const cap = MAX_ANIMATED_BYTES.thumb_md
+      MAX_ANIMATED_BYTES.thumb_md = 1
+      try {
+        await processFile(deps, { fileId })
+      } finally {
+        MAX_ANIMATED_BYTES.thumb_md = cap
+      }
+      expect((await metaOf(fileId, 'thumb_md')).pages ?? 1).toBe(1)
+      expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 800, height: 600 })
+      expect((await metaOf(fileId, 'thumb_sm')).pages).toBe(3)
+    })
+
+    it('animatedTooLarge: over the per-variant cap, or bigger than the original once past the small floor', () => {
+      const MB = 1024 * 1024
+      expect(animatedTooLarge('thumb_md', 4 * MB + 1, 50 * MB)).toBe(true)
+      expect(animatedTooLarge('thumb_md', 3 * MB, 50 * MB)).toBe(false)
+      expect(animatedTooLarge('thumb_sm', 1.6 * MB, 50 * MB)).toBe(true)
+      expect(animatedTooLarge('preview', 4 * MB + 1, 50 * MB)).toBe(true)
+      // A 6.9 MB gif whose animated thumb_md would be 10.9 MB.
+      expect(animatedTooLarge('thumb_md', 10.9 * MB, 6.9 * MB)).toBe(true)
+      expect(animatedTooLarge('thumb_md', 2 * MB, 1 * MB)).toBe(true)
+      expect(animatedTooLarge('thumb_md', ANIMATED_SMALL_BYTES, 1000)).toBe(false)
     })
 
     describe('profile images are center-cropped', () => {

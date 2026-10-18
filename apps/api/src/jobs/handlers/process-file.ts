@@ -9,6 +9,7 @@ import type { FileDoc, FileVariant } from '../../uploads/file.schema'
 import { extractFrame, type JobDeps, probe, SHARP_INPUT } from './media'
 import { watermarkHash } from './watermark'
 import {
+  animatedTooLarge,
   animationPlan,
   findContextForFile,
   MAX_ANIMATED_PAGES,
@@ -70,13 +71,24 @@ async function inspectImage(input: Buffer, fileId: string): Promise<ImageInput> 
 
 async function thumbsFrom(input: Buffer, crop: ProfileCrop | null = null, fileId = ''): Promise<Rendered[]> {
   const img = await inspectImage(input, fileId)
+  const widths = THUMBS.map(([name, width]): [VariantName, number] => [name, crop ? PROFILE[crop].widths[name as 'thumb_sm' | 'thumb_md'] : width])
   // sharp strips EXIF (incl. GPS) unless withMetadata/withExif is called; never call them here.
   // An animated input is a "toilet roll" of frames; resize/extract apply per frame and webp output keeps the animation.
-  let base: Sharp = sharp(input, { ...SHARP_INPUT, animated: img.animated }).rotate()
-  if (!crop) return Promise.all(THUMBS.map(([name, width]) => render(name, base.clone(), width)))
-  const profile = PROFILE[crop]
-  base = base.extract(centerBox(img.width, img.height, profile.ratio))
-  return Promise.all(THUMBS.map(([name]) => render(name, base.clone(), profile.widths[name as 'thumb_sm' | 'thumb_md'])))
+  const pipeline = (animated: boolean): Sharp => {
+    const base = sharp(input, { ...SHARP_INPUT, animated }).rotate()
+    return crop ? base.extract(centerBox(img.width, img.height, PROFILE[crop].ratio)) : base
+  }
+  const animated = pipeline(img.animated)
+  const rendered = await Promise.all(widths.map(([name, width]) => render(name, animated.clone(), width)))
+  if (!img.animated) return rendered
+  // An animated render heavier than its cap or than the original falls back to the first frame.
+  return Promise.all(
+    rendered.map(async (r, i) => {
+      if (!animatedTooLarge(r.name, r.body.length, input.length)) return r
+      logger.warn(`File ${fileId}: animated ${r.name} is ${r.body.length} bytes (original ${input.length}); using the first frame`)
+      return render(r.name, pipeline(false), widths[i]![1])
+    }),
+  )
 }
 
 /**
