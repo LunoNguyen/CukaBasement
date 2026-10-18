@@ -26,6 +26,8 @@ export interface FileDoc {
   variants: FileVariant[]
   /** watermarkHash of the text burned into the variants; '' for clean renders (see buildMedia's repost gate). */
   watermarkedFor: string
+  /** When the display variants were last rendered; versions their public URLs, whose keys a re-render reuses. */
+  variantsAt: Date | null
   createdAt: Date
 }
 
@@ -59,6 +61,7 @@ export const FileSchema = new Schema<FileDoc>(
     status: { type: String, enum: [...FILE_STATUSES, 'validating'], default: 'uploading' },
     variants: { type: [variantSchema], default: [] },
     watermarkedFor: { type: String, default: '' },
+    variantsAt: { type: Date, default: null },
   },
   { collection: 'files', timestamps: { createdAt: true, updatedAt: false } },
 )

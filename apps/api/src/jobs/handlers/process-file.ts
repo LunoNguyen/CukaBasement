@@ -148,7 +148,7 @@ export async function publishVariants(
 ): Promise<void> {
   const files = deps.conn.collection<FileDoc>('files')
   let variants: FileVariant[] = await storeFinalVariants(deps, file, clean, ctx)
-  await files.updateOne({ _id: file._id }, { $set: { ...set, variants, watermarkedFor: clean.length ? watermarkHash(ctx.watermark) : '' } })
+  await files.updateOne({ _id: file._id }, { $set: { ...set, variants, watermarkedFor: clean.length ? watermarkHash(ctx.watermark) : '', variantsAt: new Date() } })
   if (clean.length === 0) return
   for (let i = 0; i < MAX_REDRAWS; i++) {
     const now = await findContextForFile(deps.conn, file._id)
@@ -156,7 +156,7 @@ export async function publishVariants(
     if (now.crop !== ctx.crop && rerender) clean = await rerender(now.crop)
     ctx = now
     variants = await storeFinalVariants(deps, file, clean, ctx)
-    await files.updateOne({ _id: file._id }, { $set: { variants, watermarkedFor: watermarkHash(ctx.watermark) } })
+    await files.updateOne({ _id: file._id }, { $set: { variants, watermarkedFor: watermarkHash(ctx.watermark), variantsAt: new Date() } })
   }
 }
 

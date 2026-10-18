@@ -178,14 +178,17 @@ export class UsersService {
 
   /**
    * Public URL of the file's `thumb_md` variant; null when the file or variant does not exist, or the variant is
-   * not in the public bucket (e.g. a file of an r18 post), where a public URL would not resolve.
+   * not in the public bucket (e.g. a file of an r18 post), where a public URL would not resolve. A re-render (e.g. the
+   * profile crop) reuses the object key, so `?v=` carries the render time and browsers fetch the new image.
    */
   async publicAvatarUrl(fileId: string): Promise<string | null> {
     const oid = objectId(fileId)
     if (!oid) return null
     const file = await this.files.findById(oid).lean()
     const variant = file?.variants.find((v) => v.name === 'thumb_md')
-    return variant && variant.bucket === this.config.minio.bucketPublic ? this.storage.publicUrl(variant.objectKey) : null
+    if (!variant || variant.bucket !== this.config.minio.bucketPublic) return null
+    const url = this.storage.publicUrl(variant.objectKey)
+    return file?.variantsAt ? `${url}?v=${file.variantsAt.getTime()}` : url
   }
 
   async toMe(user: User): Promise<MeDto> {

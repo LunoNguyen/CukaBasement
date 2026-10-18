@@ -143,9 +143,11 @@ describe('me and user endpoints', () => {
     await relocateFile(jobDeps(h), { fileId: avatar })
     await relocateFile(jobDeps(h), { fileId: banner })
 
+    // The public thumb_md URL, versioned by its render time.
+    const versioned = (fileId: string) => expect.stringMatching(new RegExp(`^${storage.publicUrl(`${u.id}/${fileId}/thumb_md.webp`).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\?v=\\d+$`))
     const want = {
-      avatarUrl: storage.publicUrl(`${u.id}/${avatar}/thumb_md.webp`),
-      bannerUrl: storage.publicUrl(`${u.id}/${banner}/thumb_md.webp`),
+      avatarUrl: versioned(avatar),
+      bannerUrl: versioned(banner),
     }
     expect((await h.http().get('/api/me').set(auth(u.token))).body).toMatchObject(want)
     expect((await h.http().patch('/api/me').set(auth(u.token)).send({ bio: 'x' })).body).toMatchObject(want)
