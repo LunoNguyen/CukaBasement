@@ -14,7 +14,6 @@ const { t } = useI18n()
 const route = useRoute()
 const auth = useAuth()
 const toast = useToast()
-const root = ref<HTMLElement | null>(null)
 
 const images = computed(() => props.post.media.filter((m) => m.kind === 'image'))
 const players = computed(() => props.post.media.filter((m) => m.kind === 'video' || m.kind === 'audio'))
@@ -30,8 +29,15 @@ watch(
   () => (selected.value = 0),
 )
 
-/** Playable sources, fetched on demand: presigned URLs expire, so they are not requested up front. */
+/** Playable sources, fetched on the element's first `play`: presigned URLs expire, so none is requested up front. */
 const sources = reactive<Record<string, string>>({})
+const fetching = new Set<string>()
+/** Files whose URL was re-fetched after a media error, with the position to resume at; one retry per failure. */
+const resumeAt = new Map<string, number>()
+
+function statusText(m: PostMediaDto): string {
+  return m.status === 'failed' ? t('post.failed') : t('post.processing')
+}
 
 function errorText(e: unknown): string {
   return t('errors.' + (e instanceof ApiError ? e.code : 'INTERNAL'))
@@ -53,23 +59,58 @@ async function openFile(m: PostMediaDto) {
   }
 }
 
-async function play(m: PostMediaDto) {
-  if (!sources[m.fileId]) {
-    try {
-      sources[m.fileId] = (await postsApi.fileUrl(props.post.id, m.fileId)).url
-    } catch (e) {
-      toast.push({ kind: 'error', text: errorText(e) })
-      return
-    }
+async function fetchSource(m: PostMediaDto): Promise<boolean> {
+  if (fetching.has(m.fileId)) return false
+  fetching.add(m.fileId)
+  try {
+    sources[m.fileId] = (await postsApi.fileUrl(props.post.id, m.fileId)).url
     await nextTick()
+    return true
+  } catch (e) {
+    toast.push({ kind: 'error', text: errorText(e) })
+    return false
+  } finally {
+    fetching.delete(m.fileId)
   }
-  const el = root.value?.querySelector<HTMLMediaElement>(`[data-file="${m.fileId}"]`)
-  void el?.play()?.catch(() => {})
+}
+
+/** Native play without a source: fetch it, then start playback on the same element. */
+async function onPlay(m: PostMediaDto, e: Event) {
+  if (sources[m.fileId]) return
+  const el = e.target as HTMLMediaElement
+  if (await fetchSource(m)) void el.play()?.catch(() => {})
+}
+
+/** Most likely the presigned URL expired: fetch a fresh one once and resume where playback stopped. */
+async function onError(m: PostMediaDto, e: Event) {
+  if (!sources[m.fileId]) return
+  if (resumeAt.has(m.fileId)) {
+    resumeAt.delete(m.fileId)
+    toast.push({ kind: 'error', text: t('errors.INTERNAL') })
+    return
+  }
+  const el = e.target as HTMLMediaElement
+  resumeAt.set(m.fileId, el.currentTime || 0)
+  delete sources[m.fileId]
+  if (!(await fetchSource(m))) resumeAt.delete(m.fileId)
+}
+
+function onLoadedMetadata(m: PostMediaDto, e: Event) {
+  const at = resumeAt.get(m.fileId)
+  if (at === undefined) return
+  const el = e.target as HTMLMediaElement
+  el.currentTime = at
+  void el.play()?.catch(() => {})
+}
+
+/** Playback reached `playing` on the fresh URL: a later expiry may retry again. */
+function onPlaying(m: PostMediaDto) {
+  resumeAt.delete(m.fileId)
 }
 </script>
 
 <template>
-  <div ref="root" class="flex flex-col gap-3">
+  <div class="flex flex-col gap-3">
     <div v-if="blurred" class="relative overflow-hidden rounded">
       <img v-if="cover?.thumbMdUrl" data-test="media-main" :src="cover.thumbMdUrl" :alt="post.title" class="w-full" />
       <div v-else class="aspect-[4/3]"><MediaPlaceholder /></div>
@@ -88,22 +129,32 @@ async function play(m: PostMediaDto) {
     <template v-else>
       <template v-if="post.type === 'manga'">
         <template v-for="(m, i) in images" :key="m.fileId">
-          <img
+          <button
             v-if="m.thumbMdUrl"
-            data-test="manga-page"
-            :src="m.thumbMdUrl"
-            :alt="t('post.pageAlt', { title: post.title, n: i + 1 })"
-            loading="lazy"
-            class="mx-auto w-full max-w-3xl cursor-zoom-in"
+            type="button"
+            data-test="open-original"
+            class="mx-auto block w-full max-w-3xl cursor-zoom-in"
+            :aria-label="t('post.openOriginal', { name: t('post.pageAlt', { title: post.title, n: i + 1 }) })"
             @click="openFile(m)"
-          />
-          <div v-else class="mx-auto flex aspect-[3/4] w-full max-w-3xl flex-col"><MediaPlaceholder /><p class="py-2 text-center text-sm text-[var(--c-muted)]">{{ t('post.processing') }}</p></div>
+          >
+            <img data-test="manga-page" :src="m.thumbMdUrl" :alt="t('post.pageAlt', { title: post.title, n: i + 1 })" loading="lazy" class="w-full" />
+          </button>
+          <div v-else class="mx-auto flex aspect-[3/4] w-full max-w-3xl flex-col"><MediaPlaceholder /><p class="py-2 text-center text-sm text-[var(--c-muted)]">{{ statusText(m) }}</p></div>
         </template>
       </template>
 
       <template v-else-if="main">
-        <img v-if="main.thumbMdUrl" data-test="media-main" :src="main.thumbMdUrl" :alt="post.title" class="mx-auto max-h-[80vh] cursor-zoom-in rounded" @click="openFile(main)" />
-        <div v-else class="flex aspect-[4/3] w-full flex-col"><MediaPlaceholder /><p class="py-2 text-center text-sm text-[var(--c-muted)]">{{ t('post.processing') }}</p></div>
+        <button
+          v-if="main.thumbMdUrl"
+          type="button"
+          data-test="open-original"
+          class="mx-auto block cursor-zoom-in"
+          :aria-label="t('post.openOriginal', { name: post.title })"
+          @click="openFile(main)"
+        >
+          <img data-test="media-main" :src="main.thumbMdUrl" :alt="post.title" class="max-h-[80vh] rounded" />
+        </button>
+        <div v-else class="flex aspect-[4/3] w-full flex-col"><MediaPlaceholder /><p class="py-2 text-center text-sm text-[var(--c-muted)]">{{ statusText(main) }}</p></div>
         <div v-if="images.length > 1" class="flex gap-2 overflow-x-auto">
           <button
             v-for="(m, i) in images"
@@ -121,21 +172,33 @@ async function play(m: PostMediaDto) {
         </div>
       </template>
 
-      <div v-for="m in players" :key="m.fileId" class="relative">
+      <div v-for="m in players" :key="m.fileId">
         <template v-if="m.kind === 'video'">
-          <video v-if="m.previewUrl || m.thumbMdUrl" :data-file="m.fileId" controls :poster="m.previewUrl ?? m.thumbMdUrl ?? undefined" :src="sources[m.fileId]" class="w-full rounded" />
-          <div v-else class="flex aspect-video w-full flex-col"><MediaPlaceholder /><p class="py-2 text-center text-sm text-[var(--c-muted)]">{{ t('post.processing') }}</p></div>
+          <video
+            v-if="m.previewUrl || m.thumbMdUrl"
+            controls
+            preload="none"
+            :poster="m.previewUrl ?? m.thumbMdUrl ?? undefined"
+            :src="sources[m.fileId]"
+            class="w-full rounded"
+            @play="onPlay(m, $event)"
+            @error="onError(m, $event)"
+            @loadedmetadata="onLoadedMetadata(m, $event)"
+            @playing="onPlaying(m)"
+          />
+          <div v-else class="flex aspect-video w-full flex-col"><MediaPlaceholder /><p class="py-2 text-center text-sm text-[var(--c-muted)]">{{ statusText(m) }}</p></div>
         </template>
-        <audio v-else :data-file="m.fileId" controls :src="sources[m.fileId]" class="w-full" />
-        <button
-          v-if="!sources[m.fileId]"
-          type="button"
-          data-test="play"
-          class="mt-2 rounded bg-[var(--c-primary)] px-3 py-1.5 text-sm font-semibold text-[var(--c-bg)]"
-          @click="play(m)"
-        >
-          ▶ {{ t('post.play') }}
-        </button>
+        <audio
+          v-else
+          controls
+          preload="none"
+          :src="sources[m.fileId]"
+          class="w-full"
+          @play="onPlay(m, $event)"
+          @error="onError(m, $event)"
+          @loadedmetadata="onLoadedMetadata(m, $event)"
+          @playing="onPlaying(m)"
+        />
       </div>
 
       <div v-if="downloads.length" class="flex flex-wrap gap-2">

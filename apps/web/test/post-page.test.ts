@@ -146,12 +146,96 @@ describe('Post page — media', () => {
     const { w } = await mountPost()
     const video = w.get('video')
     expect(video.attributes('poster')).toBe('http://cdn/poster.webp')
+    expect(video.attributes('controls')).toBeDefined()
     expect(video.attributes('src')).toBeUndefined()
     expect(fake.callsTo('GET /api/posts/p1/files/f1/url')).toHaveLength(0)
-    await w.get('[data-test="play"]').trigger('click')
+    expect(w.find('[data-test="play"]').exists()).toBe(false)
+    // The native control's play fires `play` on the element even without a source.
+    await video.trigger('play')
     await flushPromises()
     expect(fake.callsTo('GET /api/posts/p1/files/f1/url')).toHaveLength(1)
     expect(w.get('video').attributes('src')).toBe('http://s3/clip.mp4')
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled()
+    await video.trigger('play')
+    await flushPromises()
+    expect(fake.callsTo('GET /api/posts/p1/files/f1/url')).toHaveLength(1)
+  })
+
+  it('audio native play fetches the url too', async () => {
+    fake = installFakeFetch(routes(postDto({ type: 'audio', media: [media({ kind: 'audio', thumbSmUrl: null })] }), { 'GET /api/posts/p1/files/f1/url': ok({ url: 'http://s3/a.mp3' }) }))
+    const { w } = await mountPost()
+    await w.get('audio').trigger('play')
+    await flushPromises()
+    expect(w.get('audio').attributes('src')).toBe('http://s3/a.mp3')
+  })
+
+  it('a media error (expired url) re-fetches once and restores currentTime', async () => {
+    fake = installFakeFetch(
+      routes(postDto({ type: 'video', media: [media({ kind: 'video', thumbMdUrl: 'http://cdn/md.webp', previewUrl: 'http://cdn/poster.webp' })] }), {
+        'GET /api/posts/p1/files/f1/url': [ok({ url: 'http://s3/old.mp4' }), ok({ url: 'http://s3/new.mp4' }), ok({ url: 'http://s3/third.mp4' })],
+      }),
+    )
+    const { w } = await mountPost()
+    const video = w.get('video')
+    const el = video.element as HTMLVideoElement
+    Object.defineProperty(el, 'currentTime', { value: 0, writable: true, configurable: true })
+    await video.trigger('play')
+    await flushPromises()
+    el.currentTime = 42
+    await video.trigger('error')
+    await flushPromises()
+    expect(fake.callsTo('GET /api/posts/p1/files/f1/url')).toHaveLength(2)
+    expect(video.attributes('src')).toBe('http://s3/new.mp4')
+    el.currentTime = 0 // a new source starts from zero
+    await video.trigger('loadedmetadata')
+    expect(el.currentTime).toBe(42)
+
+    // A second consecutive failure is not retried again.
+    await video.trigger('error')
+    await flushPromises()
+    expect(fake.callsTo('GET /api/posts/p1/files/f1/url')).toHaveLength(2)
+    expect(w.text()).toContain('Đã xảy ra lỗi, vui lòng thử lại sau')
+  })
+
+  it('originals open from a keyboard-focusable button with a label', async () => {
+    const win = { opener: {}, location: { href: '' }, close: vi.fn() }
+    vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window)
+    fake = installFakeFetch(routes(postDto(), { 'GET /api/posts/p1/files/f1/url': ok({ url: 'http://s3/orig.png' }) }))
+    const { w } = await mountPost()
+    const btn = w.get('[data-test="open-original"]')
+    expect(btn.element.tagName).toBe('BUTTON')
+    expect(btn.attributes('type')).toBe('button')
+    expect(btn.attributes('aria-label')).toBe('Mở bản gốc: Mèo')
+    ;(btn.element as HTMLButtonElement).focus()
+    expect(document.activeElement).toBe(btn.element)
+    // jsdom has no keyboard activation behaviour: Enter on a native <button> is delivered as a click.
+    await btn.trigger('keydown', { key: 'Enter' })
+    await btn.trigger('click')
+    await flushPromises()
+    expect(win.location.href).toBe('http://s3/orig.png')
+  })
+
+  it('manga pages are buttons that open the original', async () => {
+    const win = { opener: {}, location: { href: '' }, close: vi.fn() }
+    vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window)
+    fake = installFakeFetch(
+      routes(postDto({ type: 'manga', media: [media({ thumbMdUrl: 'http://cdn/1.webp' }), media({ fileId: 'f2', position: 1, thumbMdUrl: 'http://cdn/2.webp' })] }), {
+        'GET /api/posts/p1/files/f2/url': ok({ url: 'http://s3/p2.png' }),
+      }),
+    )
+    const { w } = await mountPost()
+    const buttons = w.findAll('[data-test="open-original"]')
+    expect(buttons.map((b) => b.attributes('aria-label'))).toEqual(['Mở bản gốc: Mèo — trang 1', 'Mở bản gốc: Mèo — trang 2'])
+    await buttons[1]!.trigger('click')
+    await flushPromises()
+    expect(win.location.href).toBe('http://s3/p2.png')
+  })
+
+  it('failed files show a failure state, not processing', async () => {
+    fake = installFakeFetch(routes(postDto({ media: [media({ status: 'failed', thumbSmUrl: null, thumbMdUrl: null })] })))
+    const { w } = await mountPost()
+    expect(w.text()).toContain('Xử lý tệp thất bại')
+    expect(w.text()).not.toContain('Đang xử lý…')
   })
 
   it('manga renders every page vertically', async () => {
@@ -199,6 +283,20 @@ describe('Post page — credit and owner tools', () => {
     fake = installFakeFetch(routes(postDto({ review: { status: 'rejected', reason: 'Thiếu nguồn' } })))
     const { w } = await mountPost(makeMe())
     expect(w.text()).toContain('Bị từ chối: Thiếu nguồn')
+  })
+
+  it('review badge only for pending/rejected', async () => {
+    fake = installFakeFetch(routes(postDto({ review: { status: 'approved', reason: 'cũ' } })))
+    let { w } = await mountPost(makeMe())
+    expect(w.find('[data-test="review-badge"]').exists()).toBe(false)
+    w.unmount()
+
+    // A status this client does not know about (added server-side later) is not shown as a rejection.
+    fake.restore()
+    fake = installFakeFetch(routes(postDto({ review: { status: 'escalated' as never } })))
+    ;({ w } = await mountPost(makeMe()))
+    expect(w.find('[data-test="review-badge"]').exists()).toBe(false)
+    expect(w.text()).not.toContain('Bị từ chối')
   })
 
   it('delete confirms, calls DELETE and goes home', async () => {
@@ -249,6 +347,23 @@ describe('Post page — interactions', () => {
     expect(fake.callsTo('POST /api/posts/p1/bookmark')[0]!.body).toEqual({ isPrivate: true })
     expect(w.get('[data-test="bookmark"]').attributes('aria-pressed')).toBe('true')
     expect(w.get('[data-test="bookmark"]').text()).toContain('3')
+  })
+
+  it('bookmark menu closes on Escape and on outside click', async () => {
+    fake = installFakeFetch(routes(postDto()))
+    const { w } = await mountPost(other())
+    await w.get('[data-test="bookmark-menu"]').trigger('click')
+    expect(w.find('[data-test="bookmark-private"]').exists()).toBe(true)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(w.find('[data-test="bookmark-private"]').exists()).toBe(false)
+
+    await w.get('[data-test="bookmark-menu"]').trigger('click')
+    expect(w.find('[data-test="bookmark-private"]').exists()).toBe(true)
+    ;(w.get('h1').element as HTMLElement).click()
+    await flushPromises()
+    expect(w.find('[data-test="bookmark-private"]').exists()).toBe(false)
+    expect(fake.callsTo('POST /api/posts/p1/bookmark')).toHaveLength(0)
   })
 
   it('share copies the OG link', async () => {

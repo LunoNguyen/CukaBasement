@@ -37,7 +37,13 @@ const author = ref<PublicUserDto | null>(null)
 const more = ref<PostCardDto[]>([])
 
 const isOwner = computed(() => !!post.value && auth.user?.id === post.value.author.id)
-const showReview = computed(() => (isOwner.value || auth.isStaff) && post.value?.review.status !== 'approved')
+const reviewBadge = computed((): string | null => {
+  const p = post.value
+  if (!p || !(isOwner.value || auth.isStaff)) return null
+  if (p.review.status === 'pending') return t('post.pending')
+  if (p.review.status === 'rejected') return t('post.rejected', { reason: p.review.reason ?? '' })
+  return null
+})
 const loginNext = computed(() => ({ path: '/login', query: { next: route.fullPath } }))
 
 function errorText(e: unknown): string {
@@ -163,6 +169,26 @@ async function toggleLike() {
 
 const bookmarkBusy = ref(false)
 const bookmarkMenu = ref(false)
+const bookmarkWrap = ref<HTMLElement | null>(null)
+
+function onMenuKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') bookmarkMenu.value = false
+}
+function onMenuOutside(e: MouseEvent) {
+  if (!bookmarkWrap.value?.contains(e.target as Node)) bookmarkMenu.value = false
+}
+function unlistenMenu() {
+  document.removeEventListener('keydown', onMenuKeydown)
+  document.removeEventListener('click', onMenuOutside)
+}
+// Listeners are added after the opening click has finished dispatching (watchers run later), so it does not close the menu.
+watch(bookmarkMenu, (open) => {
+  unlistenMenu()
+  if (!open) return
+  document.addEventListener('keydown', onMenuKeydown)
+  document.addEventListener('click', onMenuOutside)
+})
+onBeforeUnmount(unlistenMenu)
 async function toggleBookmark(isPrivate = false) {
   bookmarkMenu.value = false
   const p = post.value
@@ -254,8 +280,8 @@ async function confirmDelete() {
 
       <div class="flex min-w-0 flex-col gap-4">
         <div class="flex flex-col gap-1">
-          <p v-if="showReview" data-test="review-badge" class="self-start rounded bg-[var(--c-accent)] px-2 py-0.5 text-xs font-semibold text-white">
-            {{ post.review.status === 'pending' ? t('post.pending') : t('post.rejected', { reason: post.review.reason ?? '' }) }}
+          <p v-if="reviewBadge" data-test="review-badge" class="self-start rounded bg-[var(--c-accent)] px-2 py-0.5 text-xs font-semibold text-white">
+            {{ reviewBadge }}
           </p>
           <h1 class="text-xl font-bold break-words">{{ post.title }}</h1>
           <div data-test="credit" class="flex flex-col gap-0.5 text-sm text-[var(--c-muted)]">
@@ -277,7 +303,7 @@ async function confirmDelete() {
           <Btn data-test="like" variant="ghost" :aria-pressed="post.viewerState.liked" :aria-label="`${t('post.like')} (${post.counts.likes})`" @click="toggleLike">
             <span :class="{ 'text-[var(--c-accent)]': post.viewerState.liked }">♥</span> {{ post.counts.likes }}
           </Btn>
-          <div class="relative flex">
+          <div ref="bookmarkWrap" class="relative flex">
             <Btn data-test="bookmark" variant="ghost" :aria-pressed="post.viewerState.bookmarked" :aria-label="`${t('post.bookmark')} (${post.counts.bookmarks})`" @click="toggleBookmark()">
               <span :class="{ 'text-[var(--c-accent)]': post.viewerState.bookmarked }">★</span> {{ post.counts.bookmarks }}
             </Btn>
