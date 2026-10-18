@@ -35,5 +35,8 @@
     "@vue/server-renderer": "rc",
     "@vue/shared": "rc",
     "@vue/compat": "rc"
+  },
+  "allowScripts": {
+    "argon2@0.45.1": true
   }
 }
