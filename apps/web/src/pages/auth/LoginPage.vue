@@ -47,13 +47,13 @@ async function submit() {
     <form class="flex flex-col gap-3" @submit.prevent="submit">
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.email') }}
-        <input v-model="email" type="email" required autocomplete="email" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5" />
+        <input v-model="email" type="email" required autocomplete="email" class="field" />
       </label>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.password') }}
-        <input v-model="password" type="password" required autocomplete="current-password" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5" />
+        <input v-model="password" type="password" required autocomplete="current-password" class="field" />
       </label>
-      <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
+      <p v-if="error" role="alert" class="text-sm text-[var(--c-danger)]">{{ error }}</p>
       <Btn type="submit" :loading="busy">{{ t('auth.login') }}</Btn>
       <RouterLink to="/forgot-password" class="text-sm text-[var(--c-muted)]">{{ t('auth.forgotLink') }}</RouterLink>
       <p class="text-sm text-[var(--c-muted)]">

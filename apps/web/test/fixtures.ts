@@ -23,7 +23,7 @@ export const postDto = (o: Partial<PostDto> = {}): PostDto => ({
 })
 export const publicUser = (o: Partial<PublicUserDto> = {}): PublicUserDto => ({
   id: 'u1', username: 'cuka', displayName: 'Cuka', bio: '', avatarUrl: null, bannerUrl: null,
-  socialLinks: { x: '', facebook: '', youtube: '', pixiv: '' },
+  links: [],
   stats: { followerCount: 3, followingCount: 0, postCount: 1 }, createdAt: '2026-01-01T00:00:00Z', isFollowing: false, ...o,
 })
 export const comment = (o: Partial<CommentDto> = {}): CommentDto => ({

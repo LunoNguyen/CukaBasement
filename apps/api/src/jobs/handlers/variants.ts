@@ -11,6 +11,42 @@ export { SHARP_INPUT } from './media'
 
 export type Rating = 'all' | 'r18'
 
+/** A post-less profile image is center-cropped for its role: avatar 1:1, banner 4:1. */
+export type ProfileCrop = 'avatar' | 'banner'
+
+/** Frames beyond this make an animation fall back to its first frame. */
+export const MAX_ANIMATED_PAGES = 300
+
+/**
+ * Whether an image is rendered animated: a gif or webp with 2..MAX_ANIMATED_PAGES frames whose whole roll
+ * (width × frame height × frames) fits the limitInputPixels budget. Anything else uses its first frame.
+ */
+export function animationPlan(meta: { format?: string; width?: number; height?: number; pages?: number }): boolean {
+  const pages = meta.pages ?? 1
+  if (meta.format !== 'gif' && meta.format !== 'webp') return false
+  if (pages < 2 || pages > MAX_ANIMATED_PAGES) return false
+  return (meta.width ?? 0) * (meta.height ?? 0) * pages <= SHARP_INPUT.limitInputPixels
+}
+
+/**
+ * Largest animated render kept per variant; a bigger one (or one bigger than the original file) is re-rendered from
+ * the first frame, so a thumbnail never costs more to load than the image it stands for.
+ */
+export const MAX_ANIMATED_BYTES: Record<VariantName, number> = {
+  thumb_sm: 1.5 * 1024 * 1024,
+  thumb_md: 4 * 1024 * 1024,
+  preview: 4 * 1024 * 1024,
+  blurred: 4 * 1024 * 1024,
+}
+
+/** An animated render at most this big is always kept, even when it outweighs a tiny original. */
+export const ANIMATED_SMALL_BYTES = 256 * 1024
+
+/** Whether an animated render of `bytes` for `name` is too heavy (see MAX_ANIMATED_BYTES) next to an `originalBytes` original. */
+export function animatedTooLarge(name: VariantName, bytes: number, originalBytes: number): boolean {
+  return bytes > MAX_ANIMATED_BYTES[name] || (bytes > originalBytes && bytes > ANIMATED_SMALL_BYTES)
+}
+
 const WEBP = { quality: 82 }
 const logger = new Logger('Variants')
 
@@ -33,6 +69,8 @@ export interface VariantContext {
   rating: Rating
   watermark: WatermarkText | null
   published: boolean
+  /** Set only for a post-less profile image: its clean renders are center-cropped for the role. */
+  crop: ProfileCrop | null
 }
 
 interface PostForContext {
@@ -43,27 +81,33 @@ interface PostForContext {
 
 /** Context of a post: own work (or no credit) needs the uploader's username; a missing user means no watermark. */
 export async function contextOfPost(conn: mongoose.Connection, doc: Record<string, unknown> | null): Promise<VariantContext> {
-  if (!doc) return { rating: 'all', watermark: null, published: false }
+  if (!doc) return { rating: 'all', watermark: null, published: false, crop: null }
   const post = doc as PostForContext
   const rating: Rating = post.rating === 'r18' ? 'r18' : 'all'
   const credit = post.credit ?? null
-  if (credit && !credit.isOwnWork) return { rating, watermark: watermarkText(credit, ''), published: true }
+  if (credit && !credit.isOwnWork) return { rating, watermark: watermarkText(credit, ''), published: true, crop: null }
   const user = post.authorId ? await conn.collection('users').findOne({ _id: post.authorId }, { projection: { 'profile.username': 1 } }) : null
   const username = (user?.profile as { username?: unknown } | undefined)?.username
-  return { rating, watermark: typeof username === 'string' && username ? watermarkText(credit, username) : null, published: true }
+  return { rating, watermark: typeof username === 'string' && username ? watermarkText(credit, username) : null, published: true, crop: null }
 }
 
 /**
  * Same lookup as findRatingForFile: a live post wins, else a soft-deleted one. No post: a user's avatar or banner is
- * published (`all`, no watermark); anything else stays unpublished (private, no watermark).
+ * published (`all`, no watermark) and cropped for its role (avatar wins when a file is both); anything else stays
+ * unpublished (private, no watermark).
  */
 export async function findContextForFile(conn: mongoose.Connection, fileId: Types.ObjectId): Promise<VariantContext> {
   const post = await conn
     .collection('posts')
     .findOne({ 'files.fileId': fileId }, { projection: { rating: 1, credit: 1, authorId: 1 }, sort: { deletedAt: 1 } })
   if (post) return contextOfPost(conn, post)
-  const profile = await conn.collection('users').findOne({ $or: [{ 'profile.avatarFileId': fileId }, { 'profile.bannerFileId': fileId }] }, { projection: { _id: 1 } })
-  return { rating: 'all', watermark: null, published: !!profile }
+  const users = conn.collection('users')
+  const crop: ProfileCrop | null = (await users.findOne({ 'profile.avatarFileId': fileId }, { projection: { _id: 1 } }))
+    ? 'avatar'
+    : (await users.findOne({ 'profile.bannerFileId': fileId }, { projection: { _id: 1 } }))
+      ? 'banner'
+      : null
+  return { rating: 'all', watermark: null, published: !!crop, crop }
 }
 
 /** Bucket for the variants of a file in context `ctx`: unpublished files stay in the private originals bucket. */
@@ -72,7 +116,7 @@ export function contextBucket(deps: JobDeps, ctx: VariantContext): string {
 }
 
 export function sameContext(a: VariantContext, b: VariantContext): boolean {
-  return a.rating === b.rating && a.published === b.published && a.watermark?.full === b.watermark?.full && a.watermark?.short === b.watermark?.short
+  return a.rating === b.rating && a.published === b.published && a.crop === b.crop && a.watermark?.full === b.watermark?.full && a.watermark?.short === b.watermark?.short
 }
 
 /** `all` variants are served publicly; `r18` ones stay private in the originals bucket. */
@@ -88,16 +132,18 @@ function otherBucket(deps: JobDeps, bucket: string): string {
 export interface Rendered {
   name: VariantName
   body: Buffer
+  /** One frame's size, also for an animated render. */
   width: number
   height: number
 }
 
+/** Resizes to `width` (never enlarging) as webp; an animated pipeline gives an animated webp. */
 export async function render(name: VariantName, pipeline: Sharp, width: number): Promise<Rendered> {
   const { data, info } = await pipeline.resize({ width, withoutEnlargement: true }).webp(WEBP).toBuffer({ resolveWithObject: true })
-  return { name, body: data, width: info.width, height: info.height }
+  return { name, body: data, width: info.width, height: info.pageHeight ?? info.height }
 }
 
-/** The blurred teaser shown in place of r18 thumbnails; derived from `thumb_md` (watermark it afterwards). */
+/** The blurred teaser shown in place of r18 thumbnails; derived from `thumb_md` (first frame only, so always static; watermark it afterwards). */
 export function renderBlurred(thumbMd: Buffer): Promise<Rendered> {
   return render('blurred', sharp(thumbMd, SHARP_INPUT).blur(40), 600)
 }

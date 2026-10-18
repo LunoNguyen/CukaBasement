@@ -35,12 +35,12 @@ async function submit() {
   }
 }
 
-const input = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5'
+const input = 'field'
 </script>
 
 <template>
   <AuthCard :title="t('auth.resetTitle')">
-    <p v-if="!token" role="alert" class="text-sm text-red-600">{{ t('errors.TOKEN_INVALID') }}</p>
+    <p v-if="!token" role="alert" class="text-sm text-[var(--c-danger)]">{{ t('errors.TOKEN_INVALID') }}</p>
     <div v-else-if="done" data-test="reset-success" class="text-sm">
       <p>{{ t('auth.resetSuccess') }}</p>
       <RouterLink to="/login" class="mt-3 inline-block text-[var(--c-accent)]">{{ t('auth.login') }}</RouterLink>
@@ -49,14 +49,14 @@ const input = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.newPassword') }}
         <input v-model="form.password" data-test="password" type="password" autocomplete="new-password" :class="input" />
-        <span v-if="errors.password" class="text-red-600">{{ errors.password }}</span>
+        <span v-if="errors.password" class="text-[var(--c-danger)]">{{ errors.password }}</span>
       </label>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.confirmPassword') }}
         <input v-model="form.confirm" data-test="confirm" type="password" autocomplete="new-password" :class="input" />
-        <span v-if="errors.confirm" class="text-red-600">{{ errors.confirm }}</span>
+        <span v-if="errors.confirm" class="text-[var(--c-danger)]">{{ errors.confirm }}</span>
       </label>
-      <p v-if="errors.server" role="alert" class="text-sm text-red-600">{{ errors.server }}</p>
+      <p v-if="errors.server" role="alert" class="text-sm text-[var(--c-danger)]">{{ errors.server }}</p>
       <Btn type="submit" :loading="busy">{{ t('auth.resetSubmit') }}</Btn>
     </form>
   </AuthCard>

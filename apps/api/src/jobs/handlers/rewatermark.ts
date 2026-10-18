@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Types } from 'mongoose'
 import type { FileDoc } from '../../uploads/file.schema'
+import { bumpFeedIfListed } from './feed-gen'
 import type { JobDeps } from './media'
 import { publishVariants, renderCleanVariants } from './process-file'
 import { contextOfPost } from './variants'
@@ -25,9 +26,10 @@ export async function rewatermark(deps: JobDeps, data: { postId: string }): Prom
     const tmp = await mkdtemp(join(tmpdir(), 'cuka-media-'))
     try {
       const { rendered } = await renderCleanVariants(deps, file, tmp)
-      await publishVariants(deps, file, rendered, ctx, {})
+      await publishVariants(deps, file, rendered, ctx, {}, async (crop) => (await renderCleanVariants(deps, file, tmp, crop)).rendered)
     } finally {
       await rm(tmp, { recursive: true, force: true })
     }
   }
+  await bumpFeedIfListed(deps, { postId: post._id as Types.ObjectId })
 }

@@ -5,6 +5,7 @@ import { APP_FILTER } from '@nestjs/core'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { AdminModule } from './admin/admin.module'
 import { AuthModule } from './auth/auth.module'
+import { CacheModule } from './cache/cache.module'
 import { GlobalErrorFilter } from './common/error.filter'
 import { CONFIG, type Config, loadConfig } from './config/config'
 import { DatabaseModule } from './database/database.module'
@@ -48,6 +49,7 @@ export class HealthController {
     JobsModule,
     SettingsModule,
     StorageModule,
+    CacheModule,
     // Limits apply only where a route opts in with @UseGuards(ThrottlerGuard) + @Throttle.
     ThrottlerModule.forRootAsync({
       inject: [CONFIG],

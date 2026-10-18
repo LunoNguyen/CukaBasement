@@ -57,13 +57,15 @@ describe('auth', () => {
         locale: 'vi',
         showR18: false,
         birthDate: null,
+        avatarUrl: null,
+        bannerUrl: null,
         profile: {
           username: 'user_1',
           displayName: 'User 1',
           bio: '',
           avatarFileId: null,
           bannerFileId: null,
-          socialLinks: { x: '', facebook: '', youtube: '', pixiv: '' },
+          links: [],
         },
       },
     })

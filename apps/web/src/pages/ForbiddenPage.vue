@@ -6,7 +6,7 @@ const { t } = useI18n()
 
 <template>
   <div class="py-10 text-center">
-    <h1 class="text-2xl font-bold">{{ t('forbidden.title') }}</h1>
+    <h1 class="font-display text-4xl font-semibold tracking-tight">{{ t('forbidden.title') }}</h1>
     <p class="mt-2 text-[var(--c-muted)]">{{ t('forbidden.body') }}</p>
   </div>
 </template>

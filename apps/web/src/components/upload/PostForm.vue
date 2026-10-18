@@ -69,7 +69,7 @@ function submit() {
   if (canSubmit.value) emit('submit', payload.value)
 }
 
-const input = 'w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5'
+const input = 'w-full field'
 </script>
 
 <template>
@@ -103,7 +103,7 @@ const input = 'w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] p
     <label class="flex flex-col gap-1 text-sm">
       {{ t('upload.postTitle') }} *
       <input v-model="form.title" data-test="title" :class="input" :maxlength="LIMITS.titleMax" @blur="titleTouched = true" />
-      <span v-if="titleTouched && titleMissing" class="text-red-600">{{ t('upload.titleRequired') }}</span>
+      <span v-if="titleTouched && titleMissing" class="text-[var(--c-danger)]">{{ t('upload.titleRequired') }}</span>
     </label>
 
     <label class="flex flex-col gap-1 text-sm">
@@ -118,12 +118,12 @@ const input = 'w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] p
     </div>
 
     <fieldset class="flex flex-col gap-1 text-sm">
-      <legend>{{ t('upload.rating') }}</legend>
-      <div class="flex gap-4">
-        <label class="flex items-center gap-2"><input v-model="form.rating" data-test="rating-all" type="radio" value="all" />{{ t('upload.ratingAll') }}</label>
-        <label class="flex items-center gap-2"><input v-model="form.rating" data-test="rating-r18" type="radio" value="r18" />{{ t('upload.ratingR18') }}</label>
+      <legend class="mb-1">{{ t('upload.rating') }}</legend>
+      <div class="flex flex-wrap gap-2">
+        <label class="chip"><input v-model="form.rating" data-test="rating-all" type="radio" value="all" class="sr-only" />{{ t('upload.ratingAll') }}</label>
+        <label class="chip"><input v-model="form.rating" data-test="rating-r18" type="radio" value="r18" class="sr-only" />{{ t('upload.ratingR18') }}</label>
       </div>
-      <span v-if="r18TagError" data-test="r18-tag-error" class="text-red-600">{{ t('upload.r18TagRequired') }}</span>
+      <span v-if="r18TagError" data-test="r18-tag-error" class="text-[var(--c-danger)]">{{ t('upload.r18TagRequired') }}</span>
     </fieldset>
 
     <CreditFields v-model="credit" />

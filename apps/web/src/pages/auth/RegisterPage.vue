@@ -51,7 +51,7 @@ async function submit() {
   }
 }
 
-const input = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5'
+const input = 'field'
 </script>
 
 <template>
@@ -64,7 +64,7 @@ const input = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.email') }}
         <input v-model="form.email" data-test="email" type="email" autocomplete="email" :class="input" />
-        <span v-if="errors.email" data-test="email-error" class="text-red-600">{{ errors.email }}</span>
+        <span v-if="errors.email" data-test="email-error" class="text-[var(--c-danger)]">{{ errors.email }}</span>
       </label>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.username') }}
@@ -73,26 +73,26 @@ const input = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-
           data-test="username-hint"
           :data-valid="usernameValid"
           class="text-xs"
-          :class="!form.username || usernameValid ? 'text-[var(--c-muted)]' : 'text-red-600'"
+          :class="!form.username || usernameValid ? 'text-[var(--c-muted)]' : 'text-[var(--c-danger)]'"
         >
           {{ t('auth.usernameHint') }}
         </span>
-        <span v-if="errors.username" data-test="username-error" class="text-red-600">{{ errors.username }}</span>
+        <span v-if="errors.username" data-test="username-error" class="text-[var(--c-danger)]">{{ errors.username }}</span>
       </label>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.displayName') }}
         <input v-model="form.displayName" data-test="displayName" :maxlength="LIMITS.displayNameMax" :class="input" />
-        <span v-if="errors.displayName" class="text-red-600">{{ errors.displayName }}</span>
+        <span v-if="errors.displayName" class="text-[var(--c-danger)]">{{ errors.displayName }}</span>
       </label>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.password') }}
         <input v-model="form.password" data-test="password" type="password" autocomplete="new-password" :class="input" />
-        <span v-if="errors.password" class="text-red-600">{{ errors.password }}</span>
+        <span v-if="errors.password" class="text-[var(--c-danger)]">{{ errors.password }}</span>
       </label>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.confirmPassword') }}
         <input v-model="form.confirm" data-test="confirm" type="password" autocomplete="new-password" :class="input" />
-        <span v-if="errors.confirm" class="text-red-600">{{ errors.confirm }}</span>
+        <span v-if="errors.confirm" class="text-[var(--c-danger)]">{{ errors.confirm }}</span>
       </label>
       <Btn type="submit" :loading="busy">{{ t('auth.register') }}</Btn>
       <p class="text-sm text-[var(--c-muted)]">

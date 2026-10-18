@@ -1,5 +1,11 @@
 @import 'tailwindcss';
 
+@theme {
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
 :root {
   color-scheme: light;
   --c-bg: #fbf7f4;
@@ -9,6 +15,12 @@
   --c-primary: #5b3a29;
   --c-accent: #e85d75;
   --c-border: #e6dcd5;
+  /* Tinted fills behind small text: accent at text contrast, and a quiet neutral. */
+  --c-accent-soft: #fde4e8;
+  --c-accent-text: #a3304a;
+  --c-soft: #f3ebe6;
+  --c-latte: #c79a80;
+  --c-danger: #b42318;
 }
 
 [data-theme='dark'] {
@@ -20,14 +32,166 @@
   --c-primary: #c79a80;
   --c-accent: #ff7a90;
   --c-border: #3a2d26;
+  --c-accent-soft: #3d1d25;
+  --c-accent-text: #ff9aac;
+  --c-soft: #2e221c;
+  --c-latte: #8a6a58;
+  --c-danger: #ff8a80;
 }
 
-html,
-body {
-  background: var(--c-bg);
-  color: var(--c-text);
+/* In the base layer so utilities like text-[var(--c-bg)] on links still win. */
+@layer base {
+  html,
+  body {
+    background: var(--c-bg);
+    color: var(--c-text);
+  }
+
+  a {
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 2px;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--c-primary);
+  }
 }
 
-a {
-  color: inherit;
+@layer components {
+  /* Text input, select and textarea. */
+  .field {
+    min-height: 2.5rem;
+    border: 1px solid var(--c-border);
+    border-radius: 0.625rem;
+    background: var(--c-surface);
+    padding: 0.5rem 0.75rem;
+    color: var(--c-text);
+    font-size: 0.875rem;
+    transition: border-color 0.15s;
+  }
+  .field::placeholder {
+    color: var(--c-muted);
+  }
+  .field:hover {
+    border-color: var(--c-latte);
+  }
+  .field:focus {
+    border-color: var(--c-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-primary) 18%, transparent);
+  }
+  .field:disabled {
+    opacity: 0.6;
+  }
+
+  /* Rounded filter/tag pill; pressed or active state fills with the primary colour. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2rem;
+    border: 1px solid var(--c-border);
+    border-radius: 9999px;
+    background: var(--c-surface);
+    padding: 0.25rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition:
+      border-color 0.15s,
+      background-color 0.15s;
+  }
+  .chip:hover {
+    border-color: var(--c-latte);
+  }
+  .chip[aria-pressed='true'],
+  .chip.is-active,
+  .chip:has(> input:checked) {
+    border-color: var(--c-primary);
+    background: var(--c-primary);
+    color: var(--c-bg);
+  }
+
+  /* A radio option drawn as a chip: the input stays in the label for keyboard and screen readers. */
+  label.chip {
+    cursor: pointer;
+  }
+  .chip:has(> input:focus-visible) {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 2px;
+  }
+
+  /* Small status/credit label. */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 0.375rem;
+    background: var(--c-soft);
+    padding: 0.125rem 0.5rem;
+    color: var(--c-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+  }
+  .badge-accent {
+    background: var(--c-accent-soft);
+    color: var(--c-accent-text);
+  }
+
+  /* Monospace section label, as on the brand board. */
+  .eyebrow {
+    color: var(--c-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    border: 1px solid var(--c-border);
+    border-radius: 0.875rem;
+    background: var(--c-surface);
+  }
+
+  /* Dropdown menu panel and its rows. */
+  .menu {
+    border: 1px solid var(--c-border);
+    border-radius: 0.75rem;
+    background: var(--c-surface);
+    padding: 0.25rem;
+    box-shadow: 0 12px 32px rgb(23 17 14 / 0.14);
+  }
+  .menu-item {
+    display: block;
+    width: 100%;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .menu-item:hover {
+    background: var(--c-soft);
+  }
+
+  /* Round icon-only button in the header and toolbars. */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    color: var(--c-text);
+    transition: background-color 0.15s;
+  }
+  .icon-btn:hover {
+    background: var(--c-soft);
+  }
 }

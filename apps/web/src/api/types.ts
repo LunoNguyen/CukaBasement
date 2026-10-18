@@ -14,6 +14,7 @@ import type {
   ReportReason,
   ReviewStatus,
   Role,
+  SocialLink,
   UserStatus,
   Visibility,
 } from '@cuka/shared'
@@ -21,13 +22,6 @@ import type {
 export interface Page<T> {
   items: T[]
   nextCursor: string | null
-}
-
-export interface SocialLinks {
-  x: string
-  facebook: string
-  youtube: string
-  pixiv: string
 }
 
 export interface UserStats {
@@ -54,13 +48,17 @@ export interface MeDto {
   showR18: boolean
   /** `YYYY-MM-DD` */
   birthDate: string | null
+  /** Public URL of the avatar's display render; null until the worker has published it. */
+  avatarUrl: string | null
+  bannerUrl: string | null
   profile: {
     username: string
     displayName: string
     bio: string
     avatarFileId: string | null
     bannerFileId: string | null
-    socialLinks: SocialLinks
+    /** In display order. */
+    links: SocialLink[]
   }
 }
 
@@ -71,7 +69,7 @@ export interface PublicUserDto {
   bio: string
   avatarUrl: string | null
   bannerUrl: string | null
-  socialLinks: SocialLinks
+  links: SocialLink[]
   stats: UserStats
   createdAt: string
   isFollowing: boolean

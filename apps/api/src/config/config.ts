@@ -24,6 +24,8 @@ const envSchema = z.object({
   FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
   FFPROBE_PATH: z.string().optional(),
   THROTTLE_DISABLED: bool.default(false),
+  REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
+  REDIS_DISABLED: bool.default(false),
 })
 
 export interface Config {
@@ -48,6 +50,8 @@ export interface Config {
   ffprobePath: string
   /** Skips every @nestjs/throttler limit; tests set it and flip it off where they exercise limits. */
   throttleDisabled: boolean
+  /** Public list cache (see FeedCache); everything works without it. */
+  redis: { url: string; disabled: boolean }
 }
 
 /** Derives the ffprobe path from the ffmpeg path by replacing the last `ffmpeg` in the file name. */
@@ -81,5 +85,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     ffmpegPath: e.FFMPEG_PATH,
     ffprobePath: e.FFPROBE_PATH ?? deriveFfprobe(e.FFMPEG_PATH),
     throttleDisabled: e.THROTTLE_DISABLED,
+    redis: { url: e.REDIS_URL, disabled: e.REDIS_DISABLED },
   }
 }

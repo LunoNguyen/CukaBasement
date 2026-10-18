@@ -25,24 +25,24 @@ const bad = computed(() => props.item.status === 'invalid' || props.item.status 
 </script>
 
 <template>
-  <li data-test="queue-item" class="flex items-center gap-3 rounded border border-[var(--c-border)] p-2 text-sm">
+  <li data-test="queue-item" class="flex items-center gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] p-2 text-sm">
     <div class="h-12 w-12 shrink-0 overflow-hidden rounded">
       <img v-if="item.thumbUrl" :src="item.thumbUrl" alt="" class="h-full w-full object-cover" />
       <MediaPlaceholder v-else />
     </div>
     <div class="min-w-0 flex-1">
       <p class="truncate font-medium">{{ item.name || t('upload.existingFile') }}</p>
-      <p data-test="queue-status" class="text-xs" :class="bad ? 'text-red-600' : 'text-[var(--c-muted)]'">{{ statusText }}</p>
-      <div v-if="item.status === 'uploading'" class="mt-1 h-1 rounded bg-[var(--c-border)]">
-        <div class="h-1 rounded bg-[var(--c-accent)]" :style="{ width: Math.round(item.progress * 100) + '%' }" />
+      <p data-test="queue-status" class="text-xs" :class="bad ? 'text-[var(--c-danger)]' : 'text-[var(--c-muted)]'">{{ statusText }}</p>
+      <div v-if="item.status === 'uploading'" class="mt-1 h-1 rounded-full bg-[var(--c-border)]">
+        <div class="h-1 rounded-full bg-[var(--c-accent)]" :style="{ width: Math.round(item.progress * 100) + '%' }" />
       </div>
     </div>
     <div class="flex shrink-0 items-center gap-1">
-      <span v-if="cover" class="rounded bg-[var(--c-accent)] px-1.5 text-xs text-white">{{ t('upload.cover') }}</span>
+      <span v-if="cover" class="badge badge-accent">{{ t('upload.cover') }}</span>
       <button v-else-if="canBeCover" data-test="set-cover" type="button" class="text-xs underline" @click="$emit('cover')">{{ t('upload.setCover') }}</button>
       <button data-test="move-up" type="button" class="px-1" :disabled="first" :aria-label="t('upload.moveUp')" @click="$emit('up')">↑</button>
       <button data-test="move-down" type="button" class="px-1" :disabled="last" :aria-label="t('upload.moveDown')" @click="$emit('down')">↓</button>
-      <button data-test="remove-file" type="button" class="px-1 text-red-600" :aria-label="t('upload.remove')" @click="$emit('remove')">✕</button>
+      <button data-test="remove-file" type="button" class="px-1 text-[var(--c-danger)]" :aria-label="t('upload.remove')" @click="$emit('remove')">✕</button>
     </div>
   </li>
 </template>

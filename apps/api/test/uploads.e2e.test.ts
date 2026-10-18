@@ -4,6 +4,7 @@ import { Logger } from '@nestjs/common'
 import { Types } from 'mongoose'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { processFile } from '../src/jobs/handlers/process-file'
+import { relocateFile } from '../src/jobs/handlers/relocate-variants'
 import { UploadsService } from '../src/uploads/uploads.service'
 import { SettingsService } from '../src/settings/settings.service'
 import { StorageService } from '../src/storage/storage.service'
@@ -304,11 +305,47 @@ describe('uploads', () => {
       const u = await createUser(h)
       const fileId = await uploadFixture(h, u, 'tiny.png')
       h.jobs.clear()
-      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: fileId, bannerFileId: fileId })).status).toBe(200)
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: fileId })).status).toBe(200)
       expect(h.jobs.enqueued).toEqual([{ name: 'relocate-file', data: { fileId } }])
       await processFile(jobDeps(h), { fileId })
       const res = await h.http().get(`/api/users/${u.username}`)
-      expect(res.body.avatarUrl).toBe(storage.publicUrl(`${u.id}/${fileId}/thumb_md.webp`))
+      const [url, version] = (res.body.avatarUrl as string).split('?')
+      expect(url).toBe(storage.publicUrl(`${u.id}/${fileId}/thumb_md.webp`))
+      expect(version).toMatch(/^v=\d+$/)
+    })
+
+    it('the same file as both avatar and banner → 400 VALIDATION_FAILED, in one request or against the stored one', async () => {
+      const u = await createUser(h)
+      const fileId = await uploadFixture(h, u, 'tiny.png')
+      h.jobs.clear()
+      const both = await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: fileId, bannerFileId: fileId })
+      expect(both.status).toBe(400)
+      expect(both.body.error.code).toBe('VALIDATION_FAILED')
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: fileId })).status).toBe(200)
+      const banner = await h.http().patch('/api/me').set(auth(u.token)).send({ bannerFileId: fileId })
+      expect(banner.status).toBe(400)
+      expect(banner.body.error.code).toBe('VALIDATION_FAILED')
+      expect(h.jobs.enqueued).toEqual([{ name: 'relocate-file', data: { fileId } }])
+      const user = await h.db.collection('users').findOne({ _id: new Types.ObjectId(u.id) })
+      expect(user!.profile.bannerFileId ?? null).toBeNull()
+      // Swapping roles in one request is fine.
+      const other = await uploadFixture(h, u, 'tiny.jpg')
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: other, bannerFileId: fileId })).status).toBe(200)
+    })
+
+    it('a re-render of the same variant keys changes the ?v= of the public avatar URL', async () => {
+      const u = await createUser(h)
+      const fileId = await uploadFixture(h, u, 'tiny.png')
+      await processFile(jobDeps(h), { fileId })
+      expect((await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: fileId })).status).toBe(200)
+      await relocateFile(jobDeps(h), { fileId })
+      const first = (await h.http().get('/api/me').set(auth(u.token))).body.avatarUrl as string
+      expect(first.split('?')[0]).toBe(storage.publicUrl(`${u.id}/${fileId}/thumb_md.webp`))
+      await new Promise((r) => setTimeout(r, 5))
+      await relocateFile(jobDeps(h), { fileId })
+      const second = (await h.http().get('/api/me').set(auth(u.token))).body.avatarUrl as string
+      expect(second.split('?')[0]).toBe(first.split('?')[0])
+      expect(second).not.toBe(first)
     })
 
     it('a file attached to a post cannot become an avatar or banner → 400 FILE_NOT_READY, nothing published', async () => {

@@ -1,6 +1,6 @@
-import type { Locale } from '@cuka/shared'
+import type { Locale, SocialLink } from '@cuka/shared'
 import { request } from '../client'
-import type { MeDto, SocialLinks } from '../types'
+import type { MeDto } from '../types'
 
 /** Mirrors `updateProfileSchema` in @cuka/shared. */
 export interface UpdateProfileInput {
@@ -8,7 +8,8 @@ export interface UpdateProfileInput {
   bio?: string
   avatarFileId?: string
   bannerFileId?: string
-  socialLinks?: Partial<SocialLinks>
+  /** The whole ordered list; replaces the stored one. */
+  links?: SocialLink[]
 }
 
 /** Mirrors `updateSettingsSchema` in @cuka/shared; `birthDate` is `YYYY-MM-DD`. */

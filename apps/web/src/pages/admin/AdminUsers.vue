@@ -86,29 +86,29 @@ async function confirm() {
 <template>
   <div>
     <div class="mb-3 flex flex-wrap gap-2 text-sm">
-      <input v-model="q" data-test="user-q" type="search" :placeholder="t('admin.users.search')" :aria-label="t('admin.users.search')" class="min-w-0 flex-1 rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
-      <select v-model="role" data-test="filter-role" :aria-label="t('admin.users.role')" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2">
+      <input v-model="q" data-test="user-q" type="search" :placeholder="t('admin.users.search')" :aria-label="t('admin.users.search')" class="min-w-0 flex-1 field" />
+      <select v-model="role" data-test="filter-role" :aria-label="t('admin.users.role')" class="field">
         <option value="">{{ t('admin.users.allRoles') }}</option>
         <option v-for="r in ROLES" :key="r" :value="r">{{ t(`admin.roles.${r}`) }}</option>
       </select>
-      <select v-model="status" data-test="filter-status" :aria-label="t('admin.users.status')" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2">
+      <select v-model="status" data-test="filter-status" :aria-label="t('admin.users.status')" class="field">
         <option value="">{{ t('admin.users.allStatuses') }}</option>
         <option v-for="s in USER_STATUSES" :key="s" :value="s">{{ t(`admin.statuses.${s}`) }}</option>
       </select>
     </div>
 
     <ul class="flex flex-col gap-2">
-      <li v-for="u in list.items.value" :key="u.id" data-test="user-row" class="flex flex-col gap-2 rounded border border-[var(--c-border)] bg-[var(--c-surface)] p-3 text-sm sm:flex-row sm:items-center">
+      <li v-for="u in list.items.value" :key="u.id" data-test="user-row" class="flex flex-col gap-2 card p-3 text-sm sm:flex-row sm:items-center">
         <div class="min-w-0 flex-1">
           <p class="truncate font-semibold">@{{ u.username }} <span v-if="u.emailVerified" class="text-xs font-normal text-[var(--c-muted)]">· {{ t('admin.users.verified') }}</span></p>
           <p class="truncate text-xs text-[var(--c-muted)]">{{ u.email }} · {{ new Date(u.createdAt).toLocaleDateString(locale) }}</p>
           <p class="text-xs text-[var(--c-muted)]">{{ t(`admin.roles.${u.role}`) }} · {{ t(`admin.statuses.${u.status}`) }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <select data-test="role-select" :value="u.role" :disabled="isSelf(u)" :aria-label="t('admin.users.roleOf', { name: '@' + u.username })" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-1.5 disabled:opacity-60" @change="ask(u, 'role', $event)">
+          <select data-test="role-select" :value="u.role" :disabled="isSelf(u)" :aria-label="t('admin.users.roleOf', { name: '@' + u.username })" class="field disabled:opacity-60" @change="ask(u, 'role', $event)">
             <option v-for="r in ROLES" :key="r" :value="r">{{ t(`admin.roles.${r}`) }}</option>
           </select>
-          <select data-test="status-select" :value="u.status" :disabled="isSelf(u)" :aria-label="t('admin.users.statusOf', { name: '@' + u.username })" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-1.5 disabled:opacity-60" @change="ask(u, 'status', $event)">
+          <select data-test="status-select" :value="u.status" :disabled="isSelf(u)" :aria-label="t('admin.users.statusOf', { name: '@' + u.username })" class="field disabled:opacity-60" @change="ask(u, 'status', $event)">
             <option v-for="s in USER_STATUSES" :key="s" :value="s">{{ t(`admin.statuses.${s}`) }}</option>
           </select>
         </div>
@@ -128,7 +128,7 @@ async function confirm() {
         </p>
         <label v-if="pending.kind === 'status'" class="flex flex-col gap-1 text-sm">
           {{ t('admin.users.note') }}
-          <textarea v-model="note" :maxlength="LIMITS.adminNoteMax" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
+          <textarea v-model="note" :maxlength="LIMITS.adminNoteMax" rows="3" class="field" />
         </label>
         <div class="flex justify-end gap-2">
           <Btn variant="ghost" @click="open = false">{{ t('common.cancel') }}</Btn>

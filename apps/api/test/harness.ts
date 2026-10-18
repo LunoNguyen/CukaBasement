@@ -144,12 +144,15 @@ export function testConfig(): Config {
     mongoUri,
     smtpUrl: undefined,
     throttleDisabled: true,
+    // Tests never need Redis; feed-cache tests turn it on with createTestHarness({ redisUrl }).
+    redis: { ...base.redis, disabled: true },
     minio: { ...base.minio, bucketOriginals: 'test-cuka-originals', bucketPublic: 'test-cuka-public' },
   }
 }
 
-export async function createTestHarness(): Promise<Harness> {
+export async function createTestHarness(opts: { redisUrl?: string } = {}): Promise<Harness> {
   const config = testConfig()
+  if (opts.redisUrl) config.redis = { url: opts.redisUrl, disabled: false }
 
   const sent: MailMessage[] = []
   const mailCapture: MailPort = {

@@ -5,6 +5,7 @@ import { getConnectionToken } from '@nestjs/mongoose'
 import type { Job } from 'agenda'
 import { type Connection, Types } from 'mongoose'
 import { AppModule } from '@cuka/api/app.module'
+import { FeedCache } from '@cuka/api/cache/feed-cache.service'
 import { CONFIG, type Config } from '@cuka/api/config/config'
 import { loadEnvFile } from '@cuka/api/config/env-file'
 import type { AgendaJobs } from '@cuka/api/jobs/agenda-jobs'
@@ -29,6 +30,8 @@ async function bootstrap(): Promise<void> {
     conn: app.get<Connection>(getConnectionToken()),
     storage: app.get(StorageService),
     config: app.get<Config>(CONFIG),
+    // Variant jobs that change what list cards show invalidate the API's list cache (see bumpFeedIfListed).
+    feed: app.get(FeedCache),
   }
   const jobs = app.get<AgendaJobs>(JOBS)
   const { agenda } = jobs

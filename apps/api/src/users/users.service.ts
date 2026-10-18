@@ -1,12 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import type { Locale, Role, updateProfileSchema, updateSettingsSchema, UserStatus } from '@cuka/shared'
+import type { Locale, Role, SocialLink, updateProfileSchema, updateSettingsSchema, UserStatus } from '@cuka/shared'
 import * as argon2 from 'argon2'
 import { type Model, Types } from 'mongoose'
 import type { z } from 'zod'
 import { AUTH_TOKEN_MODEL, type AuthToken } from '../auth/auth-token.schema'
 import { hashToken } from '../auth/tokens'
 import { isAdult, type Viewer } from '../auth/viewer'
+import { FeedCache } from '../cache/feed-cache.service'
 import { AppError } from '../common/app-error'
 import { CONFIG, type Config } from '../config/config'
 import { FOLLOW_MODEL, type Follow } from '../interactions/interaction.schemas'
@@ -14,7 +15,8 @@ import { JOBS, type JobsPort } from '../jobs/jobs.port'
 import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 import { UploadsService } from '../uploads/uploads.service'
-import { USER_MODEL, type SocialLinks, type User } from './user.schema'
+import { effectiveLinks, MIGRATED_LEGACY, toStoredLinks } from './social-links'
+import { USER_MODEL, type User } from './user.schema'
 
 export interface MeDto {
   id: string
@@ -26,13 +28,17 @@ export interface MeDto {
   showR18: boolean
   /** `YYYY-MM-DD` */
   birthDate: string | null
+  /** Public URL of the avatar's `thumb_md`; null until the worker has published it (see publicAvatarUrl). */
+  avatarUrl: string | null
+  bannerUrl: string | null
   profile: {
     username: string
     displayName: string
     bio: string
     avatarFileId: string | null
     bannerFileId: string | null
-    socialLinks: SocialLinks
+    /** In display order (legacy fixed links converted, see effectiveLinks). */
+    links: SocialLink[]
   }
 }
 
@@ -43,7 +49,7 @@ export interface PublicUserDto {
   bio: string
   avatarUrl: string | null
   bannerUrl: string | null
-  socialLinks: SocialLinks
+  links: SocialLink[]
   stats: User['stats']
   createdAt: string
   isFollowing: boolean
@@ -70,6 +76,7 @@ export class UsersService {
     private readonly storage: StorageService,
     @Inject(CONFIG) private readonly config: Config,
     @Inject(JOBS) private readonly jobs: JobsPort,
+    private readonly feedCache: FeedCache,
   ) {}
 
   private async getUser(id: string): Promise<User> {
@@ -86,6 +93,13 @@ export class UsersService {
     const $set: Record<string, unknown> = {}
     if (input.displayName !== undefined) $set['profile.displayName'] = input.displayName
     if (input.bio !== undefined) $set['profile.bio'] = input.bio
+    if (input.avatarFileId !== undefined || input.bannerFileId !== undefined) {
+      // One file cannot be both: each role has its own crop (avatar 1:1, banner 4:1) under the same variant keys.
+      const p = (await this.getUser(id)).profile
+      const avatar = input.avatarFileId ?? p.avatarFileId?.toString()
+      const banner = input.bannerFileId ?? p.bannerFileId?.toString()
+      if (avatar && avatar === banner) throw new AppError('VALIDATION_FAILED', 400, 'avatarFileId and bannerFileId must be different files')
+    }
     for (const key of ['avatarFileId', 'bannerFileId'] as const) {
       const v = input[key]
       if (v === undefined) continue
@@ -99,10 +113,11 @@ export class UsersService {
       }
       $set[`profile.${key}`] = oid
     }
-    for (const [k, v] of Object.entries(input.socialLinks ?? {})) {
-      if (v !== undefined) $set[`profile.socialLinks.${k}`] = v
-    }
-    if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set })
+    // The list is replaced whole; moving the legacy fields aside marks the profile migrated (see effectiveLinks).
+    if (input.links !== undefined) $set['profile.links'] = toStoredLinks(input.links)
+    if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set, ...(input.links !== undefined ? { $rename: MIGRATED_LEGACY } : {}) })
+    // Post cards show the author's name and avatar (a new avatar appears once relocate-file publishes it, which bumps again).
+    if (input.displayName !== undefined || input.avatarFileId !== undefined) await this.feedCache.bump()
     // Variants of a file in no post stay private; a new profile image must be published to the public bucket.
     const profileFiles = new Set([input.avatarFileId, input.bannerFileId].filter((f): f is string => !!f))
     for (const fileId of profileFiles) await this.jobs.enqueue('relocate-file', { fileId })
@@ -157,7 +172,6 @@ export class UsersService {
     return Promise.all(
       users.map(async (user) => {
         const p = user.profile
-        const s = p.socialLinks
         return {
           id: user._id.toString(),
           username: p.username,
@@ -165,7 +179,7 @@ export class UsersService {
           bio: p.bio,
           avatarUrl: p.avatarFileId ? await this.publicAvatarUrl(p.avatarFileId.toString()) : null,
           bannerUrl: p.bannerFileId ? await this.publicAvatarUrl(p.bannerFileId.toString()) : null,
-          socialLinks: { x: s.x, facebook: s.facebook, youtube: s.youtube, pixiv: s.pixiv },
+          links: effectiveLinks(p),
           createdAt: user.createdAt.toISOString(),
           isFollowing: following.has(user._id.toString()),
         }
@@ -175,19 +189,25 @@ export class UsersService {
 
   /**
    * Public URL of the file's `thumb_md` variant; null when the file or variant does not exist, or the variant is
-   * not in the public bucket (e.g. a file of an r18 post), where a public URL would not resolve.
+   * not in the public bucket (e.g. a file of an r18 post), where a public URL would not resolve. A re-render (e.g. the
+   * profile crop) reuses the object key, so `?v=` carries the render time and browsers fetch the new image.
    */
   async publicAvatarUrl(fileId: string): Promise<string | null> {
     const oid = objectId(fileId)
     if (!oid) return null
     const file = await this.files.findById(oid).lean()
     const variant = file?.variants.find((v) => v.name === 'thumb_md')
-    return variant && variant.bucket === this.config.minio.bucketPublic ? this.storage.publicUrl(variant.objectKey) : null
+    if (!variant || variant.bucket !== this.config.minio.bucketPublic) return null
+    const url = this.storage.publicUrl(variant.objectKey)
+    return file?.variantsAt ? `${url}?v=${file.variantsAt.getTime()}` : url
   }
 
-  toMe(user: User): MeDto {
+  async toMe(user: User): Promise<MeDto> {
     const p = user.profile
-    const s = p.socialLinks
+    const [avatarUrl, bannerUrl] = await Promise.all([
+      p.avatarFileId ? this.publicAvatarUrl(p.avatarFileId.toString()) : null,
+      p.bannerFileId ? this.publicAvatarUrl(p.bannerFileId.toString()) : null,
+    ])
     return {
       id: user._id.toString(),
       email: user.email,
@@ -197,13 +217,15 @@ export class UsersService {
       locale: user.locale,
       showR18: user.showR18,
       birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : null,
+      avatarUrl,
+      bannerUrl,
       profile: {
         username: p.username,
         displayName: p.displayName,
         bio: p.bio,
         avatarFileId: p.avatarFileId?.toString() ?? null,
         bannerFileId: p.bannerFileId?.toString() ?? null,
-        socialLinks: { x: s.x, facebook: s.facebook, youtube: s.youtube, pixiv: s.pixiv },
+        links: effectiveLinks(p),
       },
     }
   }

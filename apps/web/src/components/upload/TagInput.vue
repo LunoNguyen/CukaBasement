@@ -63,7 +63,7 @@ function onKeydown(e: KeyboardEvent) {
 <template>
   <div class="flex flex-col gap-2 text-sm">
     <ul v-if="model.length" class="flex flex-wrap gap-1">
-      <li v-for="tag in model" :key="tag" data-test="tag-chip" class="flex items-center gap-1 rounded bg-[var(--c-border)] px-2 py-0.5">
+      <li v-for="tag in model" :key="tag" data-test="tag-chip" class="flex items-center gap-1 rounded-full bg-[var(--c-soft)] py-1 pr-2 pl-3 text-[var(--c-primary)]">
         #{{ tag }}
         <button type="button" :aria-label="t('upload.removeTag', { tag })" @click="remove(tag)">✕</button>
       </li>
@@ -72,13 +72,13 @@ function onKeydown(e: KeyboardEvent) {
       <input
         v-model="text"
         data-test="tag-input"
-        class="w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5"
+        class="w-full field"
         :placeholder="t('upload.tagsPlaceholder')"
         :disabled="full"
         :maxlength="LIMITS.tagMax + 1"
         @keydown="onKeydown"
       />
-      <ul v-if="suggestions.length" class="absolute z-10 mt-1 w-full rounded border border-[var(--c-border)] bg-[var(--c-surface)] shadow">
+      <ul v-if="suggestions.length" class="menu absolute z-10 mt-1 w-full">
         <li v-for="s in suggestions" :key="s.name">
           <button data-test="tag-suggestion" type="button" class="w-full px-2 py-1 text-left hover:bg-[var(--c-border)]" @click="add(s.name)">
             #{{ s.display }} <span class="text-xs text-[var(--c-muted)]">{{ s.postCount }}</span>

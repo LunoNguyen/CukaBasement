@@ -4,15 +4,15 @@ const model = defineModel<string>({ required: true })
 </script>
 
 <template>
-  <div role="tablist" class="flex gap-1 overflow-x-auto border-b border-[var(--c-border)]">
+  <div role="tablist" class="flex gap-5 overflow-x-auto border-b border-[var(--c-border)]">
     <button
       v-for="tab in tabs"
       :key="tab.key"
       type="button"
       role="tab"
       :aria-selected="model === tab.key"
-      class="border-b-2 px-3 py-2 text-sm whitespace-nowrap"
-      :class="model === tab.key ? 'border-[var(--c-accent)] font-semibold' : 'border-transparent text-[var(--c-muted)]'"
+      class="-mb-px border-b-2 py-2.5 text-sm whitespace-nowrap transition-colors"
+      :class="model === tab.key ? 'border-[var(--c-accent)] font-semibold text-[var(--c-text)]' : 'border-transparent text-[var(--c-muted)] hover:text-[var(--c-text)]'"
       @click="model = tab.key"
     >
       {{ tab.label }}

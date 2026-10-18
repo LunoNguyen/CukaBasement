@@ -1,22 +1,32 @@
 import { z } from 'zod'
 import { LIMITS } from '../limits'
 import { LOCALES } from '../enums'
+import { SOCIAL_PLATFORMS } from '../social'
 
-const link = z.union([z.literal(''), z.url()])
+/**
+ * One profile link: an http(s) URL of at most `socialLinkUrlMax` characters. `other` needs a label (an issue with
+ * `params.code = 'LABEL_REQUIRED'` otherwise); other platforms are named by the platform, so their label is dropped.
+ */
+export const socialLinkSchema = z
+  .object({
+    platform: z.enum(SOCIAL_PLATFORMS),
+    label: z.string().trim().max(LIMITS.socialLinkLabelMax).optional(),
+    url: z.url({ protocol: /^https?$/ }).max(LIMITS.socialLinkUrlMax),
+  })
+  .superRefine((l, ctx) => {
+    if (l.platform === 'other' && !l.label) {
+      ctx.addIssue({ code: 'custom', path: ['label'], message: 'label is required for platform other', params: { code: 'LABEL_REQUIRED' } })
+    }
+  })
+  .transform(({ platform, label, url }) => (platform === 'other' ? { platform, label: label!, url } : { platform, url }))
 
 export const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(LIMITS.displayNameMax).optional(),
   bio: z.string().max(LIMITS.bioMax).optional(),
   avatarFileId: z.string().min(1).optional(),
   bannerFileId: z.string().min(1).optional(),
-  socialLinks: z
-    .object({
-      x: link.optional(),
-      facebook: link.optional(),
-      youtube: link.optional(),
-      pixiv: link.optional(),
-    })
-    .optional(),
+  /** The whole ordered list (replaces the stored one); `[]` removes every link. */
+  links: z.array(socialLinkSchema).max(LIMITS.socialLinksMax).optional(),
 })
 
 const birthDate = z

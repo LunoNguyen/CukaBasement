@@ -48,11 +48,15 @@ export function escapeXml(s: string): string {
  * Draws `text` in white on a semi-transparent dark rounded strip in the bottom-right corner. Font size follows the
  * image width (`full` ≈ width/32, min 12; `small` ≈ width/24, min 9). When the strip is wider than the image it
  * starts at the left edge, so the start of the credit (the handle) stays visible. Output is webp q82 without metadata.
+ * An animated input (a "toilet roll" of frames) gets the strip on every frame and stays animated.
  */
 export async function applyWatermark(buf: Buffer, text: string, opts: { scale: 'full' | 'small' }): Promise<Buffer> {
-  const meta = await sharp(buf, SHARP_INPUT).metadata()
+  const input = { ...SHARP_INPUT, animated: true }
+  const meta = await sharp(buf, input).metadata()
   const width = meta.width ?? 0
-  const height = meta.height ?? 0
+  const pages = meta.pages ?? 1
+  // One frame's height: the overlay is drawn for one frame and tiled down the roll, once per frame.
+  const height = pages > 1 && meta.pageHeight ? meta.pageHeight : (meta.height ?? 0)
   const fontSize = opts.scale === 'full' ? Math.max(12, Math.round(width / 32)) : Math.max(9, Math.round(width / 24))
   const padX = Math.round(fontSize * 0.5)
   const margin = Math.round(fontSize * 0.5)
@@ -66,9 +70,10 @@ export async function applyWatermark(buf: Buffer, text: string, opts: { scale: '
 <rect x="${x}" y="${y}" width="${stripW}" height="${stripH}" rx="${radius}" ry="${radius}" fill="#000000" fill-opacity="0.55"/>
 <text x="${x + padX}" y="${y + stripH / 2}" dominant-baseline="central" font-family="${FONT_FAMILY}" font-size="${fontSize}" fill="#ffffff" fill-opacity="0.95">${escapeXml(text)}</text>
 </svg>`
+  const overlay = pages > 1 ? await sharp(Buffer.from(svg, 'utf8')).png().toBuffer() : Buffer.from(svg, 'utf8')
   // sharp drops EXIF and other metadata unless withMetadata/withExif is called; never call them here.
-  return sharp(buf, SHARP_INPUT)
-    .composite([{ input: Buffer.from(svg, 'utf8'), top: 0, left: 0 }])
+  return sharp(buf, input)
+    .composite([pages > 1 ? { input: overlay, tile: true, gravity: 'northwest' } : { input: overlay, top: 0, left: 0 }])
     .webp(WEBP)
     .toBuffer()
 }

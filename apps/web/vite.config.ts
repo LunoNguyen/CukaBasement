@@ -22,7 +22,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      proxy: { '/api': api, '/og': api },
+      // Anchored with a trailing slash: a bare '/og' prefix would also swallow /og-default.png from public/.
+      proxy: { '^/api/': api, '^/og/': api },
     },
     test: {
       environment: 'jsdom',
