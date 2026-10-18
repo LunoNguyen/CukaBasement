@@ -126,6 +126,7 @@ const en: typeof vi = {
     creditLabel: 'Source',
     originalWork: 'Original work',
     creditedRepost: 'Reposted with permission',
+    noAi: 'No AI used',
     type: { illustration: 'Illustration', manga: 'Manga', video: 'Video', audio: 'Audio', other: 'Other' },
   },
   upload: {

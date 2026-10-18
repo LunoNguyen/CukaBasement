@@ -248,21 +248,52 @@ describe('Post page — media', () => {
 })
 
 describe('Post page — credit and owner tools', () => {
-  it('repost credit shows "Art by @funo_yun · X"; own work shows © @username', async () => {
+  it('repost credit card: ART BY, the artist, "@funo_yun · X", the repost and no-AI chips; own work shows © @username', async () => {
     const repost = postDto({
-      credit: { isOwnWork: false, artistName: 'Funo', artistHandle: 'funo_yun', platform: 'x', sourceUrl: 'https://x.com/funo_yun/status/1', permissionNote: '' },
+      credit: { isOwnWork: false, artistName: 'Funo', artistHandle: 'funo_yun', platform: 'x', sourceUrl: 'https://x.com/funo_yun/status/1', permissionNote: 'đã hỏi qua DM' },
     })
     fake = installFakeFetch(routes(repost))
     let { w } = await mountPost()
     const credit = w.get('[data-test="credit"]')
-    expect(credit.text()).toContain('Art by @funo_yun · X')
+    expect(credit.attributes('aria-labelledby')).toBe(credit.get('h2').attributes('id'))
+    expect(credit.get('h2').text()).toBe('Nguồn tác phẩm')
+    expect(credit.text()).toContain('Art by')
+    expect(credit.get('[data-test="credit-name"]').text()).toBe('Funo')
+    expect(credit.get('[data-test="credit-handle"]').text()).toBe('@funo_yun · X')
+    expect(credit.get('[data-test="credit-kind"]').text()).toBe('Đăng lại · đã xin phép')
+    expect(credit.get('[data-test="no-ai"]').text()).toBe('Không dùng AI')
+    expect(credit.text()).toContain('Ghi chú xin phép: đã hỏi qua DM')
     expect(credit.get('[data-test="source-link"]').attributes('href')).toBe('https://x.com/funo_yun/status/1')
     w.unmount()
     fake.restore()
 
     fake = installFakeFetch(routes(postDto()))
     ;({ w } = await mountPost())
-    expect(w.get('[data-test="credit"]').text()).toContain('© @cuka')
+    const own = w.get('[data-test="credit"]')
+    expect(own.get('[data-test="credit-name"]').text()).toBe('Cuka')
+    expect(own.get('[data-test="credit-handle"]').text()).toBe('© @cuka · CukaBasement')
+    expect(own.get('[data-test="credit-handle"] a').attributes('href')).toBe('/u/cuka')
+    expect(own.get('[data-test="credit-kind"]').text()).toBe('Tác phẩm gốc')
+    expect(own.find('[data-test="no-ai"]').exists()).toBe(true)
+    expect(own.find('[data-test="source-link"]').exists()).toBe(false)
+  })
+
+  it('a name-only repost credit shows the name once and the platform alone underneath', async () => {
+    const repost = postDto({
+      credit: { isOwnWork: false, artistName: 'Ruri', artistHandle: '', platform: 'pixiv', sourceUrl: 'https://pixiv.net/a/1', permissionNote: '' },
+    })
+    fake = installFakeFetch(routes(repost))
+    const { w } = await mountPost()
+    expect(w.get('[data-test="credit-name"]').text()).toBe('Ruri')
+    expect(w.get('[data-test="credit-handle"]').text()).toBe('pixiv')
+  })
+
+  it('shows type and rating badges; R18 uses the pink tint', async () => {
+    fake = installFakeFetch(routes(postDto({ rating: 'r18' })))
+    const { w } = await mountPost()
+    expect(w.get('[data-test="type-badge"]').text()).toBe('Tranh')
+    expect(w.get('[data-test="rating-badge"]').text()).toBe('R18')
+    expect(w.get('[data-test="rating-badge"]').classes()).toContain('badge-r18')
   })
 
   it('owner sees pending badge and edit/delete; others do not', async () => {
@@ -389,7 +420,52 @@ describe('Post page — interactions', () => {
     expect(fake.callsTo('POST /api/posts/p1/bookmark')).toHaveLength(0)
   })
 
-  it('share copies the OG link', async () => {
+  it('share opens the system share sheet when there is one; closing it copies nothing', async () => {
+    const shareFn = vi.fn().mockResolvedValue(undefined)
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', { value: shareFn, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    try {
+      fake = installFakeFetch(routes(postDto()))
+      const { w } = await mountPost()
+      const btn = w.get('[data-test="share"]')
+      expect(btn.element.tagName).toBe('BUTTON')
+      expect(btn.text()).toContain('Chia sẻ')
+      await btn.trigger('click')
+      await flushPromises()
+      expect(shareFn).toHaveBeenCalledWith({ title: 'Mèo', url: `${location.origin}/og/posts/p1` })
+      expect(writeText).not.toHaveBeenCalled()
+
+      shareFn.mockRejectedValueOnce(new DOMException('cancelled', 'AbortError'))
+      await btn.trigger('click')
+      await flushPromises()
+      expect(writeText).not.toHaveBeenCalled()
+      expect(w.text()).not.toContain('Đã sao chép liên kết')
+    } finally {
+      Reflect.deleteProperty(navigator, 'share')
+      Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
+  it('share falls back to copying the link when the share sheet fails', async () => {
+    const shareFn = vi.fn().mockRejectedValue(new DOMException('no', 'NotAllowedError'))
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', { value: shareFn, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    try {
+      fake = installFakeFetch(routes(postDto()))
+      const { w } = await mountPost()
+      await w.get('[data-test="share"]').trigger('click')
+      await flushPromises()
+      expect(writeText).toHaveBeenCalledWith(`${location.origin}/og/posts/p1`)
+      expect(w.text()).toContain('Đã sao chép liên kết')
+    } finally {
+      Reflect.deleteProperty(navigator, 'share')
+      Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
+  it('share copies the OG link where there is no share sheet', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     fake = installFakeFetch(routes(postDto()))

@@ -162,6 +162,7 @@ export default {
     creditLabel: 'Nguồn tác phẩm',
     originalWork: 'Tác phẩm gốc',
     creditedRepost: 'Đăng lại · đã xin phép',
+    noAi: 'Không dùng AI',
     type: { illustration: 'Tranh', manga: 'Truyện tranh', video: 'Video', audio: 'Âm thanh', other: 'Khác' },
   },
   upload: {

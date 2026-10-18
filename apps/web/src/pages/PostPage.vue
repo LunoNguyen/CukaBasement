@@ -16,7 +16,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Modal from '@/components/common/Modal.vue'
 import Spinner from '@/components/common/Spinner.vue'
 import CommentList from '@/components/post/CommentList.vue'
-import CreditLine from '@/components/post/CreditLine.vue'
+import CreditCard from '@/components/post/CreditCard.vue'
 import MediaViewer from '@/components/post/MediaViewer.vue'
 import PostGrid from '@/components/post/PostGrid.vue'
 import ReportDialog from '@/components/post/ReportDialog.vue'
@@ -39,11 +39,11 @@ const author = ref<PublicUserDto | null>(null)
 const more = ref<PostCardDto[]>([])
 
 const isOwner = computed(() => !!post.value && auth.user?.id === post.value.author.id)
-const reviewBadge = computed((): string | null => {
+const reviewBadge = computed((): { text: string; pending: boolean } | null => {
   const p = post.value
   if (!p || !(isOwner.value || auth.isStaff)) return null
-  if (p.review.status === 'pending') return t('post.pending')
-  if (p.review.status === 'rejected') return t('post.rejected', { reason: p.review.reason ?? '' })
+  if (p.review.status === 'pending') return { text: t('post.pending'), pending: true }
+  if (p.review.status === 'rejected') return { text: t('post.rejected', { reason: p.review.reason ?? '' }), pending: false }
   return null
 })
 const hiddenBadge = computed(() => {
@@ -248,10 +248,21 @@ async function copyText(text: string): Promise<void> {
   if (!ok) throw new Error('copy failed')
 }
 
+/** The system share sheet where there is one (phones, some desktops); otherwise, or if it fails, copy the link. */
 async function share() {
   if (!post.value) return
+  const url = `${location.origin}/og/posts/${post.value.id}`
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: post.value.title, url })
+      return
+    } catch (e) {
+      // Closing the sheet is not an error; anything else (not allowed, unsupported data) falls back to copying.
+      if ((e as { name?: string } | null)?.name === 'AbortError') return
+    }
+  }
   try {
-    await copyText(`${location.origin}/og/posts/${post.value.id}`)
+    await copyText(url)
     toast.push({ kind: 'success', text: t('post.copied') })
   } catch {
     toast.push({ kind: 'error', text: t('errors.INTERNAL') })
@@ -306,41 +317,27 @@ async function confirmDelete() {
 
 <template>
   <div v-if="loading" class="flex justify-center py-10"><Spinner /></div>
-  <EmptyState v-else-if="error">{{ errorText(error) }}</EmptyState>
+  <EmptyState v-else-if="error" art>{{ errorText(error) }}</EmptyState>
   <article v-else-if="post" class="flex flex-col gap-6">
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <MediaViewer :post="post" />
 
       <div class="flex min-w-0 flex-col gap-4">
         <div class="flex flex-col gap-3">
-          <div v-if="reviewBadge || hiddenBadge" class="flex flex-wrap gap-2">
-            <p v-if="reviewBadge" data-test="review-badge" class="badge badge-accent">
-              {{ reviewBadge }}
+          <div class="flex flex-wrap items-center gap-2">
+            <span data-test="type-badge" class="badge badge-outline">{{ t(`post.type.${post.type}`) }}</span>
+            <span data-test="rating-badge" class="badge" :class="post.rating === 'r18' ? 'badge-r18' : 'badge-outline'">{{
+              post.rating === 'r18' ? t('upload.ratingR18') : t('upload.ratingAll')
+            }}</span>
+            <p v-if="reviewBadge" data-test="review-badge" :class="reviewBadge.pending ? 'status' : 'badge badge-accent'">
+              {{ reviewBadge.text }}
             </p>
             <p v-if="hiddenBadge" data-test="visibility-badge" class="badge">
               {{ t('post.hiddenBadge') }}
             </p>
           </div>
           <h1 class="font-display text-3xl leading-tight font-semibold tracking-tight break-words">{{ post.title }}</h1>
-          <!-- The credit "tag" from the brand board: who made it, where it came from. -->
-          <div data-test="credit" class="card flex flex-col gap-2 bg-[var(--c-soft)] p-4 text-sm">
-            <span class="eyebrow">{{ t('post.creditLabel') }}</span>
-            <span class="font-semibold"><CreditLine :credit="post.credit" :author="post.author" /></span>
-            <p v-if="post.credit.permissionNote" class="text-[var(--c-muted)]">{{ t('post.permissionNote', { note: post.credit.permissionNote }) }}</p>
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span class="badge bg-[var(--c-surface)]">{{ post.credit.isOwnWork ? t('post.originalWork') : t('post.creditedRepost') }}</span>
-              <a
-                v-if="!post.credit.isOwnWork && post.credit.sourceUrl"
-                data-test="source-link"
-                :href="post.credit.sourceUrl"
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                class="inline-flex items-center gap-1 text-xs font-semibold text-[var(--c-primary)] underline-offset-2 hover:underline"
-                >{{ t('post.viewSource')
-                }}<svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg
-              ></a>
-            </div>
-          </div>
+          <CreditCard :credit="post.credit" :author="post.author" />
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -357,7 +354,8 @@ async function confirmDelete() {
             >
               <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
             </svg>
-            {{ post.counts.likes }}
+            {{ t('post.like') }}
+            <span class="font-mono text-xs text-[var(--c-muted)] tabular-nums">{{ post.counts.likes }}</span>
           </Btn>
           <div ref="bookmarkWrap" class="relative flex items-center">
             <Btn data-test="bookmark" variant="ghost" :aria-pressed="post.viewerState.bookmarked" :aria-label="`${t('post.bookmark')} (${post.counts.bookmarks})`" @click="toggleBookmark()">
@@ -373,13 +371,14 @@ async function confirmDelete() {
               >
                 <path d="M7 4h10v16l-5-3.5L7 20z" />
               </svg>
-              {{ post.counts.bookmarks }}
+              {{ t('post.bookmark') }}
+              <span class="font-mono text-xs text-[var(--c-muted)] tabular-nums">{{ post.counts.bookmarks }}</span>
             </Btn>
             <button
               v-if="!post.viewerState.bookmarked"
               type="button"
               data-test="bookmark-menu"
-              class="icon-btn h-10 w-8"
+              class="icon-btn w-9"
               :aria-label="t('post.bookmarkMenu')"
               aria-haspopup="menu"
               :aria-expanded="bookmarkMenu"

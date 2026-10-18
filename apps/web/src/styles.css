@@ -21,6 +21,8 @@
   --c-soft: #f3ebe6;
   --c-latte: #c79a80;
   --c-danger: #b42318;
+  /* The credit card's paper: cream on the cream page (with a shadow), the dark surface at night. */
+  --c-paper: #fbf7f4;
   /* "Hầm": the basement panels (tagline, hero, empty-state art) stay dark in both themes. */
   --c-cellar: #17110e;
   --c-cellar-deep: #0f0b09;
@@ -45,6 +47,7 @@
   --c-soft: #2e221c;
   --c-latte: #c79a80;
   --c-danger: #ff8a80;
+  --c-paper: #231a15;
   --c-cellar: #0f0b09;
   --c-cellar-surface: #231a15;
   --c-cellar-accent: #ff7a90;
