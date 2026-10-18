@@ -147,6 +147,7 @@ const en: typeof vi = {
     moveDown: 'Move down',
     remove: 'Remove file',
     filesChanged: 'Changing files will require review again',
+    sections: { files: 'Files', details: 'Details', credit: 'Credit' },
     needMedia: 'At least one image, video or audio file is needed',
     type: 'Type',
     postTitle: 'Title',

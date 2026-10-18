@@ -25,10 +25,15 @@ const input = 'w-full field'
     <div class="flex flex-wrap gap-2">
       <label class="chip">
         <input data-test="credit-own" type="radio" class="sr-only" name="credit-kind" :checked="model.isOwnWork" @change="setOwnWork(true)" />
+        <svg viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
         {{ t('upload.credit.ownWork') }}
       </label>
       <label class="chip">
         <input data-test="credit-repost" type="radio" class="sr-only" name="credit-kind" :checked="!model.isOwnWork" @change="setOwnWork(false)" />
+        <svg viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+          <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+        </svg>
         {{ t('upload.credit.repost') }}
       </label>
     </div>

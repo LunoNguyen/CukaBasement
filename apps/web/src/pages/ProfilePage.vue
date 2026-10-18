@@ -127,9 +127,9 @@ function onFollow(s: { following: boolean; followerCount: number }) {
       </li>
     </ul>
     <dl class="flex gap-6 px-2 text-sm">
-      <div data-test="stat-followers"><dt class="inline text-[var(--c-muted)]">{{ t('profile.followers') }}</dt> <dd class="inline font-semibold">{{ user.stats.followerCount }}</dd></div>
-      <div data-test="stat-following"><dt class="inline text-[var(--c-muted)]">{{ t('profile.following') }}</dt> <dd class="inline font-semibold">{{ user.stats.followingCount }}</dd></div>
-      <div data-test="stat-posts"><dt class="inline text-[var(--c-muted)]">{{ t('profile.postCount') }}</dt> <dd class="inline font-semibold">{{ user.stats.postCount }}</dd></div>
+      <div data-test="stat-followers"><dt class="eyebrow inline">{{ t('profile.followers') }}</dt> <dd class="inline font-semibold">{{ user.stats.followerCount }}</dd></div>
+      <div data-test="stat-following"><dt class="eyebrow inline">{{ t('profile.following') }}</dt> <dd class="inline font-semibold">{{ user.stats.followingCount }}</dd></div>
+      <div data-test="stat-posts"><dt class="eyebrow inline">{{ t('profile.postCount') }}</dt> <dd class="inline font-semibold">{{ user.stats.postCount }}</dd></div>
     </dl>
     <Tabs v-model="tab" :tabs="tabs" />
     <PostFeed

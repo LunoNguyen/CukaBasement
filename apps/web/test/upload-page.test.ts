@@ -127,6 +127,10 @@ describe('Upload page', () => {
     const { w, router } = await mountAt('/upload')
     await fillValid(w, [file('a.png'), file('b.png')])
     await w.get('[data-test="description"]').setValue('Một con mèo')
+    // Type is a group of radio chips; illustration ("Tranh") starts selected.
+    expect((w.get('[data-test="type-illustration"]').element as HTMLInputElement).checked).toBe(true)
+    await w.get('[data-test="type-manga"]').setValue(true)
+    expect(w.get('[data-test="type-manga"]').element.closest('label')!.textContent).toContain('Truyện tranh')
     const tagInput = w.get('[data-test="tag-input"]')
     await tagInput.setValue('Fan Art')
     await tagInput.trigger('keydown', { key: 'Enter' })
@@ -140,7 +144,7 @@ describe('Upload page', () => {
     await flushPromises()
     const [req] = fake.callsTo('POST /api/posts')
     expect(req!.body).toEqual({
-      type: 'illustration',
+      type: 'manga',
       title: 'Mèo con',
       description: 'Một con mèo',
       rating: 'all',

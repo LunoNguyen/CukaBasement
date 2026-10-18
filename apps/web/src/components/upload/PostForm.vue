@@ -74,7 +74,8 @@ const input = 'w-full field'
 
 <template>
   <form class="flex flex-col gap-5" novalidate @submit.prevent="submit">
-    <section class="flex flex-col gap-2">
+    <section class="card flex flex-col gap-2 p-4 sm:p-5">
+      <h2 class="eyebrow">{{ t('upload.sections.files') }}</h2>
       <FileDropzone @files="uploader.add" />
       <ul v-if="queue.length" class="flex flex-col gap-2">
         <FileQueueItem
@@ -93,45 +94,53 @@ const input = 'w-full field'
       <p v-if="filesChanged" data-test="files-changed" class="badge badge-accent self-start">{{ t('upload.filesChanged') }}</p>
     </section>
 
-    <label class="flex flex-col gap-1 text-sm">
-      {{ t('upload.type') }}
-      <select v-model="form.type" data-test="type" :class="input">
-        <option v-for="p in POST_TYPES" :key="p" :value="p">{{ t('post.type.' + p) }}</option>
-      </select>
-    </label>
+    <section class="card flex flex-col gap-5 p-4 sm:p-5">
+      <h2 class="eyebrow">{{ t('upload.sections.details') }}</h2>
+      <!-- Type chips from the board (09): the chosen one filled cocoa, the rest outlined. -->
+      <fieldset data-test="type" class="flex flex-col gap-1 text-sm">
+        <legend class="mb-1">{{ t('upload.type') }}</legend>
+        <div class="flex flex-wrap gap-2">
+          <label v-for="p in POST_TYPES" :key="p" class="chip">
+            <input v-model="form.type" :data-test="'type-' + p" type="radio" name="post-type" :value="p" class="sr-only" />{{ t('post.type.' + p) }}
+          </label>
+        </div>
+      </fieldset>
 
-    <label class="flex flex-col gap-1 text-sm">
-      {{ t('upload.postTitle') }} *
-      <input v-model="form.title" data-test="title" :class="input" :maxlength="LIMITS.titleMax" @blur="titleTouched = true" />
-      <span v-if="titleTouched && titleMissing" class="text-[var(--c-danger)]">{{ t('upload.titleRequired') }}</span>
-    </label>
+      <label class="flex flex-col gap-1 text-sm">
+        {{ t('upload.postTitle') }} *
+        <input v-model="form.title" data-test="title" :class="input" :maxlength="LIMITS.titleMax" @blur="titleTouched = true" />
+        <span v-if="titleTouched && titleMissing" class="text-[var(--c-danger)]">{{ t('upload.titleRequired') }}</span>
+      </label>
 
-    <label class="flex flex-col gap-1 text-sm">
-      {{ t('upload.description') }}
-      <textarea v-model="form.description" data-test="description" :class="input" rows="4" :maxlength="LIMITS.descriptionMax" />
-      <span class="self-end text-xs text-[var(--c-muted)]">{{ form.description.length }}/{{ LIMITS.descriptionMax }}</span>
-    </label>
+      <label class="flex flex-col gap-1 text-sm">
+        {{ t('upload.description') }}
+        <textarea v-model="form.description" data-test="description" :class="input" rows="4" :maxlength="LIMITS.descriptionMax" />
+        <span class="self-end text-xs text-[var(--c-muted)]">{{ form.description.length }}/{{ LIMITS.descriptionMax }}</span>
+      </label>
 
-    <div class="flex flex-col gap-1 text-sm">
-      {{ t('upload.tags') }}
-      <TagInput v-model="form.tags" />
-    </div>
-
-    <fieldset class="flex flex-col gap-1 text-sm">
-      <legend class="mb-1">{{ t('upload.rating') }}</legend>
-      <div class="flex flex-wrap gap-2">
-        <label class="chip"><input v-model="form.rating" data-test="rating-all" type="radio" value="all" class="sr-only" />{{ t('upload.ratingAll') }}</label>
-        <label class="chip"><input v-model="form.rating" data-test="rating-r18" type="radio" value="r18" class="sr-only" />{{ t('upload.ratingR18') }}</label>
+      <div class="flex flex-col gap-1 text-sm">
+        {{ t('upload.tags') }}
+        <TagInput v-model="form.tags" />
       </div>
-      <span v-if="r18TagError" data-test="r18-tag-error" class="text-[var(--c-danger)]">{{ t('upload.r18TagRequired') }}</span>
-    </fieldset>
 
-    <CreditFields v-model="credit" />
+      <fieldset class="flex flex-col gap-1 text-sm">
+        <legend class="mb-1">{{ t('upload.rating') }}</legend>
+        <div class="flex flex-wrap gap-2">
+          <label class="chip"><input v-model="form.rating" data-test="rating-all" type="radio" name="rating" value="all" class="sr-only" />{{ t('upload.ratingAll') }}</label>
+          <label class="chip"><input v-model="form.rating" data-test="rating-r18" type="radio" name="rating" value="r18" class="sr-only" />{{ t('upload.ratingR18') }}</label>
+        </div>
+        <span v-if="r18TagError" data-test="r18-tag-error" class="text-[var(--c-danger)]">{{ t('upload.r18TagRequired') }}</span>
+      </fieldset>
+    </section>
 
-    <label class="flex items-start gap-2 text-sm">
-      <input v-model="form.ai" data-test="ai-declaration" type="checkbox" class="mt-1" />
-      {{ t('upload.aiDeclaration') }}
-    </label>
+    <section class="card flex flex-col gap-4 p-4 sm:p-5">
+      <h2 class="eyebrow">{{ t('upload.sections.credit') }}</h2>
+      <CreditFields v-model="credit" />
+      <label class="flex items-start gap-2 border-t border-dashed border-[var(--c-latte)] pt-4 text-sm">
+        <input v-model="form.ai" data-test="ai-declaration" type="checkbox" class="mt-1" />
+        {{ t('upload.aiDeclaration') }}
+      </label>
+    </section>
 
     <p v-if="!hasMedia(queue)" class="text-xs text-[var(--c-muted)]">{{ t('upload.needMedia') }}</p>
     <Btn data-test="submit" type="submit" class="self-start" :loading="busy" :disabled="!canSubmit">{{ submitLabel }}</Btn>

@@ -78,7 +78,7 @@ async function submitCredit() {
     <RouterLink :to="`/posts/${post.id}`" class="relative block aspect-[4/5] w-full shrink-0 overflow-hidden rounded sm:w-40">
       <img v-if="src" :src="src" :alt="post.title" loading="lazy" class="h-full w-full object-cover" />
       <MediaPlaceholder v-else />
-      <span v-if="post.rating === 'r18'" data-test="r18" class="absolute top-1 left-1 badge badge-accent">R18</span>
+      <span v-if="post.rating === 'r18'" data-test="r18" class="absolute top-1 left-1 badge badge-r18">R18</span>
     </RouterLink>
     <div class="flex min-w-0 flex-1 flex-col gap-1 text-sm">
       <RouterLink :to="`/posts/${post.id}`" class="truncate font-semibold">{{ post.title }}</RouterLink>

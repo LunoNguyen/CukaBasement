@@ -40,7 +40,7 @@ const mediaType = computed(() => (props.post.type === 'video' || props.post.type
         <MediaPlaceholder />
         <span v-if="coverStatus" data-test="card-status" class="absolute inset-x-0 bottom-2 text-center text-xs text-[var(--c-muted)]">{{ coverStatus }}</span>
       </template>
-      <span v-if="blurred" class="badge badge-accent absolute top-2 left-2">R18</span>
+      <span v-if="blurred" class="badge badge-r18 absolute top-2 left-2">R18</span>
       <span v-if="post.pageCount > 1" class="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md bg-[#17110e]/70 px-1.5 font-mono text-[11px] leading-5 text-white">
         <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="3" width="13" height="15" rx="2" /><path d="M16 21H5a2 2 0 0 1-2-2V7" /></svg>
         <span data-test="pages">{{ post.pageCount }}</span>

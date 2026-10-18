@@ -183,6 +183,7 @@ export default {
     moveDown: 'Chuyển xuống',
     remove: 'Xóa tệp',
     filesChanged: 'Thay đổi tệp sẽ cần duyệt lại',
+    sections: { files: 'Tệp', details: 'Thông tin', credit: 'Ghi công' },
     needMedia: 'Cần ít nhất một tệp ảnh, video hoặc âm thanh',
     type: 'Thể loại',
     postTitle: 'Tiêu đề',
