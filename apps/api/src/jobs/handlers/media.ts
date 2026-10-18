@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process'
 import { rm, stat } from 'node:fs/promises'
 import type mongoose from 'mongoose'
+import type { FeedGen } from '../../cache/feed-cache.service'
 import type { Config } from '../../config/config'
 import type { StorageService } from '../../storage/storage.service'
 
-export type JobDeps = { conn: mongoose.Connection; storage: StorageService; config: Config }
+/** `feed`: list cache invalidation (the worker passes FeedCache; omitted when tests run handlers inline). */
+export type JobDeps = { conn: mongoose.Connection; storage: StorageService; config: Config; feed?: FeedGen }
 
 export const MEDIA_TIMEOUT_MS = 60_000
 

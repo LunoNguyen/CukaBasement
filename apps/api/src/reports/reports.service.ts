@@ -3,6 +3,7 @@ import { getConnectionToken, InjectModel } from '@nestjs/mongoose'
 import type { ReportReason } from '@cuka/shared'
 import { type Connection, type Model, Types } from 'mongoose'
 import type { Viewer } from '../auth/viewer'
+import { FeedCache } from '../cache/feed-cache.service'
 import { AppError } from '../common/app-error'
 import { ModerationLogService } from '../moderation/moderation-log.service'
 import { NotificationsService } from '../notifications/notifications.service'
@@ -62,6 +63,7 @@ export class ReportsService {
     private readonly settings: SettingsService,
     private readonly modLog: ModerationLogService,
     private readonly notifications: NotificationsService,
+    private readonly feedCache: FeedCache,
   ) {}
 
   /**
@@ -100,6 +102,7 @@ export class ReportsService {
       )
       .lean()
     if (hidden) {
+      await this.feedCache.bump()
       const id = hidden._id.toString()
       await this.modLog.log('system', 'auto_hide', 'post', id, `total=${hidden.reportCounts.total} ai_art=${hidden.reportCounts.ai_art}`)
       await this.notifications.notify({ userId: hidden.authorId.toString(), type: 'post_hidden', postId: id })

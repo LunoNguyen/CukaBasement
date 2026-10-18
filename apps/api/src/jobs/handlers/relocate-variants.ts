@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { Logger } from '@nestjs/common'
 import { Types } from 'mongoose'
 import type { FileDoc } from '../../uploads/file.schema'
+import { bumpFeedIfListed } from './feed-gen'
 import type { JobDeps } from './media'
 import { publishVariants, renderCleanVariants } from './process-file'
 import { contextOfPost, findContextForFile, moveFileVariants } from './variants'
@@ -22,6 +23,7 @@ export async function relocateVariants(deps: JobDeps, data: { postId: string }):
   for (const file of await files.find({ _id: { $in: fileIds } }).toArray()) {
     await moveFileVariants(deps, file, rating, watermark)
   }
+  await bumpFeedIfListed(deps, { postId: post._id as Types.ObjectId })
 }
 
 const logger = new Logger('RelocateFile')
@@ -51,6 +53,7 @@ export async function relocateFile(deps: JobDeps, data: { fileId: string }): Pro
   if (!(await isPostlessProfileImage(deps, _id))) return
   if (file.kind !== 'image') {
     await moveFileVariants(deps, file, 'all', null)
+    await bumpFeedIfListed(deps, { fileId: _id })
     return
   }
   const tmp = await mkdtemp(join(tmpdir(), 'cuka-media-'))
@@ -61,6 +64,7 @@ export async function relocateFile(deps: JobDeps, data: { fileId: string }): Pro
   } finally {
     await rm(tmp, { recursive: true, force: true })
   }
+  await bumpFeedIfListed(deps, { fileId: _id })
   if (!(await isPostlessProfileImage(deps, _id))) {
     logger.warn(`File ${data.fileId} joined a post during relocate-file; leaving it to the post's rewatermark job`)
   }

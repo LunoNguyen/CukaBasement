@@ -7,6 +7,7 @@ import type { z } from 'zod'
 import { AUTH_TOKEN_MODEL, type AuthToken } from '../auth/auth-token.schema'
 import { hashToken } from '../auth/tokens'
 import { isAdult, type Viewer } from '../auth/viewer'
+import { FeedCache } from '../cache/feed-cache.service'
 import { AppError } from '../common/app-error'
 import { CONFIG, type Config } from '../config/config'
 import { FOLLOW_MODEL, type Follow } from '../interactions/interaction.schemas'
@@ -75,6 +76,7 @@ export class UsersService {
     private readonly storage: StorageService,
     @Inject(CONFIG) private readonly config: Config,
     @Inject(JOBS) private readonly jobs: JobsPort,
+    private readonly feedCache: FeedCache,
   ) {}
 
   private async getUser(id: string): Promise<User> {
@@ -118,6 +120,8 @@ export class UsersService {
       $unset['profile.socialLinks'] = ''
     }
     if (Object.keys($set).length) await this.users.updateOne({ _id: id }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) })
+    // Post cards show the author's name and avatar (a new avatar appears once relocate-file publishes it, which bumps again).
+    if (input.displayName !== undefined || input.avatarFileId !== undefined) await this.feedCache.bump()
     // Variants of a file in no post stay private; a new profile image must be published to the public bucket.
     const profileFiles = new Set([input.avatarFileId, input.bannerFileId].filter((f): f is string => !!f))
     for (const fileId of profileFiles) await this.jobs.enqueue('relocate-file', { fileId })

@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose'
 import { type Credit, REPORT_REASONS, type ReportReason, type ReviewStatus, type Role, type Visibility } from '@cuka/shared'
 import { type Model, type QueryFilter, Types } from 'mongoose'
 import type { Viewer } from '../auth/viewer'
+import { FeedCache } from '../cache/feed-cache.service'
 import { AppError } from '../common/app-error'
 import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
 import { COMMENT_MODEL, type Comment, type CommentStatus } from '../comments/comment.schema'
@@ -71,6 +72,7 @@ export class ModerationService implements OnModuleInit {
     private readonly usersService: UsersService,
     private readonly postEvents: PostEvents,
     @Inject(JOBS) private readonly jobs: JobsPort,
+    private readonly feedCache: FeedCache,
   ) {}
 
   onModuleInit(): void {
@@ -103,6 +105,7 @@ export class ModerationService implements OnModuleInit {
     const post = await this.moderatablePost(actor, id)
     const changed = await this.setVisibility(post._id, ['public', 'hidden_by_reports'], 'removed')
     if (changed) {
+      await this.feedCache.bump()
       await this.modLog.log(actor.id, 'hide', 'post', id, note)
       await this.notifications.notify({ userId: post.authorId.toString(), type: 'post_hidden', postId: id })
     }
@@ -113,7 +116,10 @@ export class ModerationService implements OnModuleInit {
   async restore(actor: Viewer, id: string): Promise<ModPostResult> {
     const post = await this.moderatablePost(actor, id)
     const changed = await this.setVisibility(post._id, ['removed', 'hidden_by_reports'], 'public')
-    if (changed) await this.modLog.log(actor.id, 'restore', 'post', id)
+    if (changed) {
+      await this.feedCache.bump()
+      await this.modLog.log(actor.id, 'restore', 'post', id)
+    }
     return this.result(changed ?? post)
   }
 
@@ -126,6 +132,8 @@ export class ModerationService implements OnModuleInit {
     const post = await this.moderatablePost(actor, id)
     const updated = await this.posts.findOneAndUpdate({ _id: post._id, deletedAt: null }, { $set: { credit } }, NO_TIMESTAMPS).lean()
     if (!updated) throw postNotFound()
+    // Cards show the credit.
+    if (updated.review.status === 'approved') await this.feedCache.bump()
     await this.modLog.log(actor.id, 'update_credit', 'post', id)
     await this.jobs.enqueue('rewatermark', { postId: id })
     return { ...this.result(updated), credit: updated.credit }
@@ -205,6 +213,7 @@ export class ModerationService implements OnModuleInit {
       decision === 'keep'
         ? await this.setVisibility(post._id, ['hidden_by_reports'], 'public')
         : await this.setVisibility(post._id, ['public', 'hidden_by_reports'], 'removed')
+    if (changed) await this.feedCache.bump()
     if (res.modifiedCount > 0 || changed) await this.modLog.log(actor.id, decision === 'keep' ? 'restore' : 'remove', 'post', postId, note)
     if (decision === 'remove' && changed) {
       await this.notifications.notify({ userId: post.authorId.toString(), type: 'post_hidden', postId })
@@ -287,6 +296,8 @@ export class ModerationService implements OnModuleInit {
       )
       .lean()
     if (updated) {
+      // Approve adds the post to the lists; reject can take an approved one out.
+      await this.feedCache.bump()
       await this.modLog.log(actor.id, to === 'approved' ? 'approve' : 'reject', 'post', id, reason ?? undefined)
       await this.notifications.notify({ userId: post.authorId.toString(), type: to === 'approved' ? 'post_approved' : 'post_rejected', postId: id })
       return this.result(updated)

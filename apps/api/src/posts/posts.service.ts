@@ -4,6 +4,7 @@ import { type Credit, type createPostSchema, type cursorQuerySchema, type PostTy
 import { type Model, Types } from 'mongoose'
 import type { z } from 'zod'
 import type { Viewer } from '../auth/viewer'
+import { FeedCache } from '../cache/feed-cache.service'
 import { AppError } from '../common/app-error'
 import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
 import { CONFIG, type Config } from '../config/config'
@@ -127,6 +128,7 @@ export class PostsService {
     private readonly settings: SettingsService,
     private readonly storage: StorageService,
     private readonly events: PostEvents,
+    private readonly feedCache: FeedCache,
   ) {}
 
   private get mediaDeps(): MediaDeps {
@@ -216,6 +218,8 @@ export class PostsService {
       throw isFileTaken(err) ? fileTaken() : err
     }
     if (!updated) throw notFound()
+    // Any edit of a listed post (title, rating, credit, cover...) changes its card; a pending post is in no list.
+    if (post.review.status === 'approved') await this.feedCache.bump()
 
     if (tags) {
       const before = new Set(post.tags)
@@ -243,6 +247,7 @@ export class PostsService {
     }
     const res = await this.posts.updateOne({ _id: post._id, deletedAt: null }, { $set: { deletedAt: new Date() } })
     if (res.modifiedCount === 0) throw notFound()
+    if (post.review.status === 'approved') await this.feedCache.bump()
     await this.users.updateOne({ _id: post.authorId }, { $inc: { 'stats.postCount': -1 } })
     await this.tags.applyDelta([], post.tags)
     // Staff deletes are moderation: the moderation module logs them and notifies the author.

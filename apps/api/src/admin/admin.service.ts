@@ -4,6 +4,7 @@ import type { GlobalSettings, ModAction, Role, UserStatus } from '@cuka/shared'
 import { type Model, type QueryFilter, Types } from 'mongoose'
 import { AUTH_TOKEN_MODEL, type AuthToken } from '../auth/auth-token.schema'
 import type { Viewer } from '../auth/viewer'
+import { FeedCache } from '../cache/feed-cache.service'
 import { AppError } from '../common/app-error'
 import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
 import { MODERATION_LOG_MODEL, type ModerationLog } from '../moderation/moderation-log.schema'
@@ -72,6 +73,7 @@ export class AdminService {
     @InjectModel(MODERATION_LOG_MODEL) private readonly logs: Model<ModerationLog>,
     private readonly modLog: ModerationLogService,
     private readonly settings: SettingsService,
+    private readonly feedCache: FeedCache,
   ) {}
 
   /** Newest first over (createdAt, _id). `q` is a case-insensitive, regex-escaped prefix of email or username. */
@@ -107,6 +109,8 @@ export class AdminService {
       await undo()
       throw e
     }
+    // Lists carry the author's name and avatar; a ban or reactivation should show at once.
+    await this.feedCache.bump()
     return this.toDto((await this.users.findById(target._id).lean()) ?? target)
   }
 

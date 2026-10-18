@@ -6,6 +6,7 @@ import { Logger } from '@nestjs/common'
 import { Types } from 'mongoose'
 import sharp, { type Sharp } from 'sharp'
 import type { FileDoc, FileVariant } from '../../uploads/file.schema'
+import { bumpFeedIfListed } from './feed-gen'
 import { extractFrame, type JobDeps, probe, SHARP_INPUT } from './media'
 import { watermarkHash } from './watermark'
 import {
@@ -177,4 +178,5 @@ export async function processFile(deps: JobDeps, data: { fileId: string }): Prom
   } finally {
     await rm(tmp, { recursive: true, force: true })
   }
+  await bumpFeedIfListed(deps, { fileId: file._id })
 }
