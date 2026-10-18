@@ -115,9 +115,9 @@ const en: typeof vi = {
     reportLogin: 'You need to log in to report a post.',
     reasons: { ai_art: 'AI art', stolen_art: 'Reposted without permission', unmarked_r18: 'Unmarked R18', spam: 'Spam', other: 'Other' },
     moreByAuthor: 'More by this artist',
-    creditLabel: 'Credit',
+    creditLabel: 'Source',
     originalWork: 'Original work',
-    creditedRepost: 'Repost · credited',
+    creditedRepost: 'Reposted with permission',
     type: { illustration: 'Illustration', manga: 'Manga', video: 'Video', audio: 'Audio', other: 'Other' },
   },
   upload: {

@@ -151,9 +151,9 @@ export default {
     reportLogin: 'Bạn cần đăng nhập để báo cáo bài đăng.',
     reasons: { ai_art: 'Tranh AI', stolen_art: 'Đăng lại không xin phép', unmarked_r18: 'R18 không gắn nhãn', spam: 'Spam', other: 'Khác' },
     moreByAuthor: 'Bài khác của tác giả',
-    creditLabel: 'Ghi công',
+    creditLabel: 'Nguồn tác phẩm',
     originalWork: 'Tác phẩm gốc',
-    creditedRepost: 'Đăng lại · có ghi công',
+    creditedRepost: 'Đăng lại · đã xin phép',
     type: { illustration: 'Tranh', manga: 'Truyện tranh', video: 'Video', audio: 'Âm thanh', other: 'Khác' },
   },
   upload: {
