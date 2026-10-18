@@ -282,6 +282,8 @@ const en: typeof vi = {
       comment: '{actor} commented on «{title}»',
       reply: '{actor} replied to your comment on «{title}»',
       follow: '{actor} followed you',
+      post_pending_review: '{actor} posted «{title}» — waiting for review',
+      post_resubmitted: '{actor} edited «{title}» — needs review again',
     },
   },
   account: {

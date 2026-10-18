@@ -8,6 +8,7 @@ export type JobName =
   | 'cleanup-uploads'
   | 'purge-deleted-posts'
   | 'reconcile-counters'
+  | 'notify-staff-review'
 
 export interface JobsPort {
   enqueue(name: JobName, data: Record<string, unknown>): Promise<void>

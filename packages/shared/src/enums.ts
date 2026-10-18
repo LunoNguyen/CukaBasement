@@ -39,6 +39,10 @@ export const NOTIFICATION_TYPES = [
   'comment',
   'reply',
   'follow',
+  /** Staff only: a new post waits in the review queue. */
+  'post_pending_review',
+  /** Staff only: an edited post went back to pending and needs review again. */
+  'post_resubmitted',
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 

@@ -9,6 +9,7 @@ import { AppError } from '../common/app-error'
 import { cursorFilter, decodeCursor, pageOf } from '../common/cursor'
 import { CONFIG, type Config } from '../config/config'
 import { BOOKMARK_MODEL, type Bookmark, LIKE_MODEL, type Like } from '../interactions/interaction.schemas'
+import type { NotifyStaffReviewData } from '../jobs/handlers/notify-staff-review'
 import { JOBS, type JobsPort } from '../jobs/jobs.port'
 import { SettingsService } from '../settings/settings.service'
 import { StorageService } from '../storage/storage.service'
@@ -166,7 +167,18 @@ export class PostsService {
     // Files are usually processed before the post exists, so their variants carry no watermark yet. rewatermark also
     // stores them in the bucket of the post's rating, so no relocate-variants (two jobs would race on the same keys).
     await this.jobs.enqueue('rewatermark', { postId: post._id.toString() })
+    this.notifyStaffReview({ postId: post._id.toString(), event: 'submitted', key: 'new' })
     return this.toDto(post, viewer)
+  }
+
+  /**
+   * Fire and forget: the worker fans the review notification out to staff. A failed enqueue is logged and never fails
+   * (or slows) the post write that caused it.
+   */
+  private notifyStaffReview(data: NotifyStaffReviewData): void {
+    this.jobs
+      .enqueue('notify-staff-review', { ...data })
+      .catch((err: Error) => this.logger.warn(`Could not enqueue the review notification for post ${data.postId}: ${err.message}`))
   }
 
   async get(viewer: Viewer | null, id: string): Promise<PostDto> {
@@ -218,6 +230,11 @@ export class PostsService {
       throw isFileTaken(err) ? fileTaken() : err
     }
     if (!updated) throw notFound()
+    // Back in the queue after a review (approved or rejected): staff are told it needs review again. An edit of a post
+    // that is still pending adds nothing to the queue, so it notifies no one.
+    if (post.review.status !== 'pending' && updated.review.status === 'pending') {
+      this.notifyStaffReview({ postId: post._id.toString(), event: 'resubmitted', key: String(updated.updatedAt.getTime()) })
+    }
     // Any edit of a listed post (title, rating, credit, cover...) changes its card. `post` was read before the write and a
     // moderator may have approved it since, so its stale status cannot tell whether it is listed: always invalidate.
     await this.feedCache.bump()

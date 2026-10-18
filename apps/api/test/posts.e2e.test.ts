@@ -49,6 +49,8 @@ describe('posts', () => {
     await processFile(jobDeps(h), { fileId })
     return fileId
   }
+  /** Enqueued jobs other than the staff review notification (covered by staff-review-notifications.e2e). */
+  const mediaJobs = () => h.jobs.enqueued.filter((j) => j.name !== 'notify-staff-review')
   const create = (u: { token: string }, b: object) => h.http().post('/api/posts').set(auth(u.token)).send(b)
 
   describe('create', () => {
@@ -250,7 +252,7 @@ describe('posts', () => {
       const u = await createUser(h)
       const res = await create(u, body(await readyPng(u)))
       expect(res.status).toBe(201)
-      expect(h.jobs.enqueued.filter((j) => j.name !== 'process-file')).toEqual([{ name: 'rewatermark', data: { postId: res.body.id } }])
+      expect(mediaJobs().filter((j) => j.name !== 'process-file')).toEqual([{ name: 'rewatermark', data: { postId: res.body.id } }])
     })
 
     it('r18 create enqueues only rewatermark (it places variants in the r18 bucket itself)', async () => {
@@ -259,7 +261,7 @@ describe('posts', () => {
       h.jobs.clear()
       const res = await create(u, body(fileId, { rating: 'r18' }))
       expect(res.status).toBe(201)
-      expect(h.jobs.enqueued).toEqual([{ name: 'rewatermark', data: { postId: res.body.id } }])
+      expect(mediaJobs()).toEqual([{ name: 'rewatermark', data: { postId: res.body.id } }])
     })
   })
 
@@ -332,7 +334,7 @@ describe('posts', () => {
       h.jobs.clear()
       const down = await h.http().patch(`/api/posts/${id}`).set(auth(u.token)).send({ rating: 'all' })
       expect(down.body).toMatchObject({ rating: 'all', review: { status: 'pending' } })
-      expect(h.jobs.enqueued).toEqual([{ name: 'relocate-variants', data: { postId: id } }])
+      expect(mediaJobs()).toEqual([{ name: 'relocate-variants', data: { postId: id } }])
     })
 
     it('adding a file to an r18 post enqueues only rewatermark', async () => {

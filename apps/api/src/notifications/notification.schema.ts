@@ -9,6 +9,8 @@ export interface Notification {
   postId: Types.ObjectId | null
   commentId: Types.ObjectId | null
   readAt: Date | null
+  /** Identity of a fan-out event (e.g. `review:<postId>:new`): a retried job cannot notify the same user twice. */
+  dedupeKey?: string
   createdAt: Date
 }
 
@@ -26,6 +28,7 @@ export const NotificationSchema = new Schema<Notification>(
     postId: { type: Schema.Types.ObjectId, default: null },
     commentId: { type: Schema.Types.ObjectId, default: null },
     readAt: { type: Date, default: null },
+    dedupeKey: { type: String },
   },
   { collection: 'notifications', timestamps: { createdAt: true, updatedAt: false } },
 )
@@ -34,3 +37,4 @@ NotificationSchema.index({ userId: 1, readAt: 1, createdAt: -1 })
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: NINETY_DAYS_SECONDS })
 // The purge job removes a post's notifications.
 NotificationSchema.index({ postId: 1 })
+NotificationSchema.index({ userId: 1, dedupeKey: 1 }, { unique: true, partialFilterExpression: { dedupeKey: { $type: 'string' } } })

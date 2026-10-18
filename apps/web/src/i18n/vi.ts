@@ -318,6 +318,8 @@ export default {
       comment: '{actor} đã bình luận bài «{title}»',
       reply: '{actor} đã trả lời bình luận của bạn ở bài «{title}»',
       follow: '{actor} đã theo dõi bạn',
+      post_pending_review: '{actor} vừa đăng bài «{title}» — đang chờ duyệt',
+      post_resubmitted: '{actor} đã sửa bài «{title}» — cần duyệt lại',
     },
   },
   account: {

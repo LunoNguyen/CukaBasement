@@ -124,6 +124,34 @@ describe('Notifications page', () => {
     expect(w.get('[data-test="bell-badge"]').text()).toBe('1')
   })
 
+  it('renders staff review notifications (vi and en) linking to the pending post', async () => {
+    const items = [
+      note({ id: 'r1', type: 'post_pending_review', actor: { username: 'lan', displayName: 'Lan', avatarUrl: null }, post: { id: 'p7', title: 'Hoàng hôn' } }),
+      note({ id: 'r2', type: 'post_resubmitted', actor: { username: 'lan', displayName: 'Lan', avatarUrl: null }, post: { id: 'p8', title: 'Bình minh' } }),
+    ]
+    const { w } = await mountAt('/notifications', {
+      'GET /api/notifications/unread-count': ok({ count: 2 }),
+      'GET /api/notifications': ok({ items, nextCursor: null }),
+      'POST /api/notifications/read': { status: 204 },
+    })
+    const rows = w.findAll('[data-test="notification"]')
+    expect(rows[0]!.text()).toContain('Lan vừa đăng bài «Hoàng hôn» — đang chờ duyệt')
+    expect(rows[0]!.find('a').attributes('href')).toBe('/posts/p7')
+    expect(rows[1]!.text()).toContain('Lan đã sửa bài «Bình minh» — cần duyệt lại')
+    expect(rows[1]!.find('a').attributes('href')).toBe('/posts/p8')
+    expect(rows[0]!.classes()).toContain('is-unread')
+
+    i18n.global.locale.value = 'en'
+    try {
+      await flushPromises()
+      const en = w.findAll('[data-test="notification"]')
+      expect(en[0]!.text()).toContain('Lan posted «Hoàng hôn» — waiting for review')
+      expect(en[1]!.text()).toContain('Lan edited «Bình minh» — needs review again')
+    } finally {
+      i18n.global.locale.value = 'vi'
+    }
+  })
+
   it('mark all read posts {all:true} and clears badge', async () => {
     let unread = 5
     const { w } = await mountAt('/notifications', {
