@@ -13,6 +13,7 @@ export class FakeXhr {
   body: FormData | null = null
   status = 0
   done = false
+  aborted = false
   upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null }
   onload: (() => void) | null = null
   onerror: (() => void) | null = null
@@ -32,6 +33,7 @@ export class FakeXhr {
   abort() {
     if (this.done) return
     this.done = true
+    this.aborted = true
     this.onabort?.()
   }
 

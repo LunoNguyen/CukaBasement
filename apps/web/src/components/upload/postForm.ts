@@ -40,11 +40,16 @@ const MEDIA_KINDS = new Set(['image', 'video', 'audio'])
 /** Queue items that belong in the post: attached files and fresh uploads the server accepted. */
 export function attachable(q: QueueItem): boolean {
   if (!q.fileId) return false
-  return q.existing || q.status === 'ready' || q.status === 'processing'
+  return q.status === 'ready' || q.status === 'processing'
+}
+
+/** An attached file whose processing failed: the server refuses it, so it has to be removed first. */
+export function hasFailedExisting(queue: QueueItem[]): boolean {
+  return queue.some((q) => q.existing && q.status === 'failed')
 }
 
 export function hasMedia(queue: QueueItem[]): boolean {
-  return queue.some((q) => attachable(q) && MEDIA_KINDS.has(q.kind) && q.status !== 'failed')
+  return queue.some((q) => attachable(q) && MEDIA_KINDS.has(q.kind))
 }
 
 /** The cover: the one chosen if it is attached, else the first image/video/audio file, else the first file. */
@@ -76,8 +81,11 @@ export function queueOf(post: PostDto): QueueItem[] {
   }))
 }
 
+/** The post's files as stored (failed ones included), in the shape of a request. */
 function originalFiles(post: PostDto): PostFileInput[] {
-  return filesOf(queueOf(post))
+  const media = [...post.media].sort((a, b) => a.position - b.position)
+  const cover = (media.find((m) => m.isCover) ?? media[0])?.fileId
+  return media.map((m, i) => ({ fileId: m.fileId, position: i, isCover: m.fileId === cover }))
 }
 
 const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])

@@ -10,7 +10,7 @@ import CreditFields from './CreditFields.vue'
 import FileDropzone from './FileDropzone.vue'
 import FileQueueItem from './FileQueueItem.vue'
 import TagInput from './TagInput.vue'
-import { buildPatch, coverId, creditValid, fileSetChanged, filesOf, hasMedia, OWN_WORK, queueOf, toCredit, type CreditForm } from './postForm'
+import { buildPatch, coverId, creditValid, fileSetChanged, filesOf, hasFailedExisting, hasMedia, OWN_WORK, queueOf, toCredit, type CreditForm } from './postForm'
 
 /** `original` makes this the edit form: it starts from that post and only enables submit once something changed. */
 const props = defineProps<{ original?: PostDto | null; busy: boolean; submitLabel: string }>()
@@ -60,6 +60,7 @@ const canSubmit = computed(
     !r18TagError.value &&
     creditValid(credit.value) &&
     hasMedia(queue.value) &&
+    !hasFailedExisting(queue.value) &&
     // Files still uploading would be left out of the post.
     uploader.allDone.value,
 )

@@ -76,6 +76,8 @@ const en: typeof vi = {
     allowed: 'Supported: {types}. Up to {mb} MB per file',
     tooLarge: 'Up to {mb} MB',
     badType: 'This file type is not supported',
+    tooMany: 'Up to {n} files per post',
+    failedExisting: 'This file failed, please remove it',
     status: { invalid: 'Invalid', queued: 'Waiting', uploading: 'Uploading {n}%', processing: 'Processing', ready: 'Ready', failed: 'Failed' },
     existingFile: 'Posted file',
     cover: 'Cover',

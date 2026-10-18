@@ -9,7 +9,8 @@ const { t } = useI18n()
 const accept = ALLOWED_FILE_TYPES.map((f) => '.' + f.ext).join(',')
 const types = ALLOWED_FILE_TYPES.map((f) => f.ext).join(', ')
 const mb = Math.round(DEFAULT_SETTINGS.maxFileBytes / 1048576)
-const over = ref(false)
+/** dragenter/dragleave also fire for child elements: count them so the highlight does not flicker. */
+const depth = ref(0)
 const input = ref<HTMLInputElement | null>(null)
 
 function onChange(e: Event) {
@@ -20,7 +21,7 @@ function onChange(e: Event) {
 }
 
 function onDrop(e: DragEvent) {
-  over.value = false
+  depth.value = 0
   const files = [...(e.dataTransfer?.files ?? [])]
   if (files.length) emit('files', files)
 }
@@ -29,14 +30,15 @@ function onDrop(e: DragEvent) {
 <template>
   <div
     class="flex flex-col items-center gap-2 rounded border-2 border-dashed p-6 text-center text-sm"
-    :class="over ? 'border-[var(--c-accent)]' : 'border-[var(--c-border)]'"
-    @dragover.prevent="over = true"
-    @dragleave="over = false"
+    :class="depth > 0 ? 'border-[var(--c-accent)]' : 'border-[var(--c-border)]'"
+    @dragenter.prevent="depth++"
+    @dragover.prevent
+    @dragleave="depth = Math.max(0, depth - 1)"
     @drop.prevent="onDrop"
   >
     <p>{{ t('upload.drop') }}</p>
     <button type="button" class="font-semibold text-[var(--c-accent)]" @click="input?.click()">{{ t('upload.choose') }}</button>
-    <input ref="input" data-test="file-input" type="file" multiple class="sr-only" :accept="accept" @change="onChange" />
+    <input ref="input" data-test="file-input" type="file" multiple class="sr-only" tabindex="-1" aria-hidden="true" :accept="accept" @change="onChange" />
     <p class="text-xs text-[var(--c-muted)]">{{ t('upload.allowed', { types, mb }) }}</p>
   </div>
 </template>

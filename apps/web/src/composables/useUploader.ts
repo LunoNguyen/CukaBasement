@@ -1,4 +1,4 @@
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 import { ALLOWED_FILE_TYPES, DEFAULT_SETTINGS, type FileKind, kindForMime } from '@cuka/shared'
 import { ApiError } from '@/api/client'
 import { completeUpload, postToStorage, presignUpload } from '@/api/endpoints/uploads'
@@ -17,7 +17,7 @@ export interface QueueItem {
   progress: number
   status: QueueStatus
   fileId?: string
-  /** `too_large`, `type`, or an API error code. */
+  /** `too_large`, `type`, `too_many`, or an API error code. */
   error?: string
   isCover: boolean
   /** Already part of the post being edited. */
@@ -63,6 +63,8 @@ export function useUploader(initial: QueueItem[] = []): {
   const queue = ref<QueueItem[]>(initial)
   const controllers = new Map<string, AbortController>()
   let active = 0
+  /** Set when the owning component goes away: nothing new is sent after that. */
+  let disposed = false
 
   /** Updates the item if it is still queued (it may have been removed meanwhile). */
   function patch(id: string, p: Partial<QueueItem>) {
@@ -80,10 +82,10 @@ export function useUploader(initial: QueueItem[] = []): {
     try {
       // The declared size is the exact size: the storage policy rejects anything bigger.
       const p = await presignUpload({ name: file.name, size: file.size, mime: mimeOf(file) })
-      if (ac.signal.aborted) return
+      if (ac.signal.aborted || disposed) return
       patch(id, { fileId: p.fileId })
       await postToStorage(p.url, p.fields, file, (progress) => patch(id, { progress }), ac.signal)
-      if (ac.signal.aborted) return
+      if (ac.signal.aborted || disposed) return
       patch(id, { progress: 1 })
       const dto = await completeUpload(p.fileId)
       if (dto.status === 'failed') patch(id, { status: 'failed', error: 'INTERNAL' })
@@ -96,7 +98,7 @@ export function useUploader(initial: QueueItem[] = []): {
   }
 
   function pump() {
-    while (active < MAX_CONCURRENT) {
+    while (!disposed && active < MAX_CONCURRENT) {
       const next = queue.value.find((q) => q.status === 'queued')
       if (!next) return
       active++
@@ -109,16 +111,21 @@ export function useUploader(initial: QueueItem[] = []): {
   }
 
   function add(files: File[]) {
+    if (disposed) return
+    let count = queue.value.filter((q) => q.status !== 'invalid').length
     for (const file of files) {
       const v = validateFile(file)
+      // The server rejects a post with more files than this (TOO_MANY_FILES).
+      const error = !v.ok ? v.reason : count >= DEFAULT_SETTINGS.maxFilesPerPost ? 'too_many' : undefined
+      if (!error) count++
       queue.value.push({
         id: `up${++seq}`,
         file,
         name: file.name,
         kind: v.ok ? v.kind : 'archive',
         progress: 0,
-        status: v.ok ? 'queued' : 'invalid',
-        error: v.ok ? undefined : v.reason,
+        status: error ? 'invalid' : 'queued',
+        error,
         isCover: false,
       })
     }
@@ -141,6 +148,14 @@ export function useUploader(initial: QueueItem[] = []): {
 
   function setCover(id: string) {
     for (const q of queue.value) q.isCover = q.id === id
+  }
+
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      disposed = true
+      for (const ac of controllers.values()) ac.abort()
+      controllers.clear()
+    })
   }
 
   const allDone = computed(() => queue.value.every((q) => q.status !== 'queued' && q.status !== 'uploading'))

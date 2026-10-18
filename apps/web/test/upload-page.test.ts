@@ -245,4 +245,32 @@ describe('Edit post page', () => {
     await flushPromises()
     expect(fake.callsTo('PATCH /api/posts/p1')[0]!.body).toEqual({ title: 'Khác' })
   })
+
+  it('existing failed media blocks submit with "Tệp lỗi, hãy xóa" until removed', async () => {
+    installFakeXhr()
+    const original = postDto({
+      media: [media({ fileId: 'f1', position: 0, isCover: true }), media({ fileId: 'f2', position: 1, isCover: false, status: 'failed', thumbSmUrl: null })],
+    })
+    fake = installFakeFetch(
+      routes({
+        'GET /api/posts/p1': ok(original),
+        'GET /api/posts/p1/comments': ok({ items: [], nextCursor: null }),
+        'PATCH /api/posts/p1': ok(original),
+      }),
+    )
+    const { w } = await mountAt('/posts/p1/edit')
+    const items = w.findAll('[data-test="queue-item"]')
+    expect(items[1]!.text()).toContain('Tệp lỗi, hãy xóa')
+    await w.get('[data-test="title"]').setValue('Mèo mới')
+    await w.get('[data-test="ai-declaration"]').setValue(true)
+    expect(disabled(w)).toBe(true)
+
+    await items[1]!.get('[data-test="remove-file"]').trigger('click')
+    expect(w.text()).not.toContain('Tệp lỗi, hãy xóa')
+    expect(w.text()).toContain('Thay đổi tệp sẽ cần duyệt lại')
+    expect(disabled(w)).toBe(false)
+    await submitBtn(w).trigger('click')
+    await flushPromises()
+    expect(fake.callsTo('PATCH /api/posts/p1')[0]!.body).toEqual({ title: 'Mèo mới', files: [{ fileId: 'f1', position: 0, isCover: true }] })
+  })
 })

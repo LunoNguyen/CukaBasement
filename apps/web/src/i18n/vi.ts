@@ -112,6 +112,8 @@ export default {
     allowed: 'Hỗ trợ: {types}. Tối đa {mb} MB mỗi tệp',
     tooLarge: 'Tối đa {mb} MB',
     badType: 'Định dạng tệp không được hỗ trợ',
+    tooMany: 'Tối đa {n} tệp mỗi bài',
+    failedExisting: 'Tệp lỗi, hãy xóa',
     status: { invalid: 'Không hợp lệ', queued: 'Đang chờ', uploading: 'Đang tải lên {n}%', processing: 'Đang xử lý', ready: 'Sẵn sàng', failed: 'Thất bại' },
     existingFile: 'Tệp đã đăng',
     cover: 'Ảnh bìa',

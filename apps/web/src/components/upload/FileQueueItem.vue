@@ -15,6 +15,8 @@ const statusText = computed(() => {
   const { status, error, progress } = props.item
   if (error === 'too_large') return t('upload.tooLarge', { mb: Math.round(DEFAULT_SETTINGS.maxFileBytes / 1048576) })
   if (error === 'type') return t('upload.badType')
+  if (error === 'too_many') return t('upload.tooMany', { n: DEFAULT_SETTINGS.maxFilesPerPost })
+  if (status === 'failed' && props.item.existing) return t('upload.failedExisting')
   if (status === 'failed') return error ? t('errors.' + error) : t('upload.status.failed')
   if (status === 'uploading') return t('upload.status.uploading', { n: Math.round(progress * 100) })
   return t('upload.status.' + status)

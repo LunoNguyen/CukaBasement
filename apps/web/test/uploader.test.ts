@@ -5,7 +5,9 @@ import { createMemoryHistory } from 'vue-router'
 import { i18n } from '@/i18n'
 import { createAppRouter } from '@/router'
 import { useAuth } from '@/stores/auth'
-import { useUploader, validateFile } from '@/composables/useUploader'
+import { defineComponent, h } from 'vue'
+import { useUploader, validateFile, type QueueItem } from '@/composables/useUploader'
+import FileQueueItem from '@/components/upload/FileQueueItem.vue'
 import App from '@/App.vue'
 import { installFakeFetch, makeMe, type FakeFetch, type FakeRequest, type FakeRoute } from './fakeApi'
 import { FakeXhr, installFakeXhr } from './fakeXhr'
@@ -153,5 +155,55 @@ describe('useUploader', () => {
     expect(up.queue.value.map((q) => q.isCover)).toEqual([false, false, true])
     up.remove(c!)
     expect(up.queue.value.map((q) => q.id)).toEqual([a, b])
+  })
+})
+
+describe('useUploader lifecycle and limits', () => {
+  it('unmount mid-upload aborts XHRs and stops further presign/complete calls', async () => {
+    login()
+    installFakeXhr(false)
+    fake = installFakeFetch(uploadRoutes())
+    let up!: ReturnType<typeof useUploader>
+    const Host = defineComponent({
+      setup() {
+        up = useUploader()
+        return () => h('div')
+      },
+    })
+    wrapper = mount(Host)
+    up.add([1, 2, 3, 4].map((i) => file(`p${i}.png`, 'image/png')))
+    await flushPromises()
+    expect(FakeXhr.pending).toHaveLength(3)
+    expect(fake.callsTo('POST /api/uploads')).toHaveLength(3)
+
+    wrapper.unmount()
+    wrapper = undefined
+    await flushPromises()
+    expect(FakeXhr.instances.every((x) => x.aborted)).toBe(true)
+    expect(fake.callsTo('POST /api/uploads')).toHaveLength(3)
+    expect(fake.calls.filter((c) => c.path.endsWith('/complete'))).toHaveLength(0)
+    expect(FakeXhr.instances).toHaveLength(3)
+  })
+
+  it('caps the queue at maxFilesPerPost (50): extras are invalid with a message', async () => {
+    login()
+    installFakeXhr()
+    fake = installFakeFetch(uploadRoutes())
+    const existing: QueueItem[] = Array.from({ length: 49 }, (_, i) => ({
+      id: `m-${i}`, file: null, name: '', kind: 'image', progress: 1, status: 'ready', fileId: `e${i}`, isCover: i === 0, existing: true,
+    }))
+    const up = useUploader(existing)
+    up.add([file('a.png', 'image/png'), file('b.png', 'image/png'), file('bad.exe', 'application/x-msdownload')])
+    const added = up.queue.value.slice(49)
+    expect(added.map((q) => [q.status, q.error])).toEqual([
+      ['uploading', undefined],
+      ['invalid', 'too_many'],
+      ['invalid', 'type'],
+    ])
+    await flushPromises()
+    expect(fake.callsTo('POST /api/uploads')).toHaveLength(1)
+
+    wrapper = mount(FileQueueItem, { props: { item: added[1]!, cover: false, first: false, last: true }, global: { plugins: [i18n] } })
+    expect(wrapper.text()).toContain('Tối đa 50 tệp mỗi bài')
   })
 })
