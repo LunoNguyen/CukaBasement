@@ -1,5 +1,6 @@
 import type { ErrorCode } from '@cuka/shared'
 import { useAuth } from '@/stores/auth'
+import { useMaintenance } from '@/stores/maintenance'
 import type { SessionDto } from './types'
 
 const BASE = '/api'
@@ -82,7 +83,11 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     }
     return request<T>(path, { ...opts, retry: false })
   }
-  if (!res.ok) throw await errorOf(res)
+  if (!res.ok) {
+    const err = await errorOf(res)
+    if (err.code === 'MAINTENANCE') useMaintenance().enter()
+    throw err
+  }
   if (res.status === 204) return undefined as T
   const text = await res.text()
   return (text ? JSON.parse(text) : undefined) as T

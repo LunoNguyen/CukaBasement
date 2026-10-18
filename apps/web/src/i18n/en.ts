@@ -17,7 +17,7 @@ const en: typeof vi = {
   },
   admin: {
     title: 'Administration',
-    tabs: { users: 'Users', settings: 'Settings', logs: 'Logs' },
+    tabs: { users: 'Users', settings: 'Settings', logs: 'Logs', backups: 'Backups' },
     roles: { user: 'User', moderator: 'Moderator', admin: 'Admin' },
     statuses: { active: 'Active', suspended: 'Suspended', banned: 'Banned' },
     actions: {
@@ -25,6 +25,8 @@ const en: typeof vi = {
       suspend: 'Suspended account', ban: 'Banned account', unban: 'Reactivated account', change_role: 'Changed role',
       hide_comment: 'Hid comment', delete_comment: 'Deleted comment', update_setting: 'Changed setting',
       auto_hide: 'Auto-hidden', update_credit: 'Edited credit',
+      backup_create: 'Created a backup', backup_scheduled: 'Scheduled backup', backup_restore: 'Restored a backup',
+      backup_delete: 'Deleted a backup', backup_upload: 'Uploaded a backup', backup_download: 'Downloaded a backup',
     },
     users: {
       search: 'Search by email or username', allRoles: 'All roles', allStatuses: 'All statuses',
@@ -42,6 +44,33 @@ const en: typeof vi = {
     logs: {
       allActions: 'All', action: 'Action', actor: 'Actor', target: 'Target', note: 'Note', time: 'Time',
       system: 'System', empty: 'No logs yet',
+    },
+    backups: {
+      intro: 'A backup holds the whole database and every uploaded file, stored in the BACKUP_DIR folder on the server.',
+      create: 'Create backup', upload: 'Upload a backup', uploading: 'Uploading… {n}%',
+      uploadType: 'Only .tar.gz files are accepted', uploadTooLarge: 'The file is larger than the {max} limit', uploaded: 'Backup uploaded',
+      empty: 'No backups yet', scheduledBadge: 'Scheduled',
+      download: 'Download', restore: 'Restore', delete: 'Delete', deleted: 'Backup deleted',
+      deleteTitle: 'Delete backup', deleteConfirm: 'Permanently delete {name}? This cannot be undone.',
+      restoreTitle: 'Restore from backup',
+      restoreWarning: 'All current data and files will be REPLACED by the contents of the backup. While it runs the site is unavailable to everyone but admins. Afterwards everyone, you included, has to log in again.',
+      restoreType: 'Type “{word}” to confirm', restoreSubmit: 'Restore',
+      backupSucceeded: 'Backup created', backupFailed: 'Backup failed',
+      restoreSucceeded: 'Restore complete', restoreFailed: 'Restore failed',
+      restoreDoneBody: 'Restore complete. Every session has ended: log in again with an admin account from the backup.',
+      loginAgain: 'Log in again',
+      maintenanceHint: 'The site is in maintenance mode until the restore finishes.',
+      kind: { backup: 'Backup', restore: 'Restore' },
+      status: { running: 'Running', succeeded: 'Succeeded', failed: 'Failed' },
+      phase: { verify: 'Verifying', database: 'Database', files: 'Files', finalize: 'Finishing' },
+      schedule: {
+        title: 'Scheduled backups', enabled: 'Turn on scheduled backups', frequency: 'Frequency', daily: 'Daily', weekly: 'Weekly',
+        weekday: 'On', time: 'Time ({tz})', keep: 'Keep the latest scheduled backups',
+        keepHint: 'Only old scheduled backups are deleted; manual and uploaded ones are never removed.',
+        invalid: 'Enter a valid time and a number of backups to keep between 1 and {max}', save: 'Save schedule', saved: 'Backup schedule saved',
+        next: 'Next run', off: 'Off', last: 'Last run', never: 'Never run',
+        outcome: { succeeded: 'Succeeded', failed: 'Failed', skipped: 'Skipped (another backup or restore was running)' },
+      },
     },
   },
   mod: {
@@ -75,6 +104,10 @@ const en: typeof vi = {
     title: 'Page not found',
     body: 'The page you are looking for does not exist.',
     back: 'Back to home',
+  },
+  maintenance: {
+    title: 'Down for maintenance',
+    body: 'We are restoring data. This page comes back by itself when it is done; you will need to log in again.',
   },
   forbidden: {
     title: 'Access denied',
@@ -349,6 +382,11 @@ const en: typeof vi = {
     LAST_ADMIN: 'The last admin cannot be changed',
     CANNOT_CHANGE_OWN_ROLE: 'You cannot change your own role',
     CREDIT_REQUIRED: 'Please credit the original artist',
+    MAINTENANCE: 'The site is under maintenance, please come back later',
+    BACKUP_BUSY: 'Another backup or restore is running',
+    BACKUP_NOT_FOUND: 'Backup not found',
+    BACKUP_INVALID: 'The backup is invalid or damaged',
+    BACKUP_TOO_LARGE: 'The backup file is too large',
   },
 }
 

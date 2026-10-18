@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/stores/auth'
+import { useMaintenance } from '@/stores/maintenance'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import VerifyBanner from '@/components/layout/VerifyBanner.vue'
 import ToastHost from '@/components/layout/ToastHost.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
+import MaintenanceNotice from '@/components/layout/MaintenanceNotice.vue'
 
 const auth = useAuth()
 const route = useRoute()
 const router = useRouter()
+const maintenance = useMaintenance()
+// Admins keep using the site during a restore (the API lets them through); everyone else waits.
+const showMaintenance = computed(() => maintenance.active && !auth.isAdmin)
 
 // The session ended mid-use (refresh rejected, password changed elsewhere): leave auth-only pages.
 // `sync` so a navigation started right after (e.g. logout → home) supersedes this one.
@@ -28,7 +33,8 @@ watch(
   <VerifyBanner />
   <div class="flex min-h-[calc(100dvh-4rem)] flex-col">
     <main class="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-5">
-      <RouterView />
+      <MaintenanceNotice v-if="showMaintenance" />
+      <RouterView v-else />
     </main>
     <AppFooter />
   </div>

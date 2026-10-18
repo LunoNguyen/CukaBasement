@@ -3,6 +3,11 @@
  * the API package pulls in server-only dependencies.
  */
 import type {
+  BackupPhase,
+  BackupRunKind,
+  BackupRunStatus,
+  BackupSchedule,
+  BackupScheduleOutcome,
   Credit,
   FileKind,
   FileStatus,
@@ -222,4 +227,40 @@ export interface AdminLogDto {
 export interface SessionDto {
   accessToken: string
   user: MeDto
+}
+
+/** `GET /api/admin/backups` (BackupOverviewDto in apps/api/src/backup/backup.service.ts). */
+export interface BackupFileDto {
+  name: string
+  sizeBytes: number
+  createdAt: string
+  scheduled: boolean
+}
+
+export interface BackupRunDto {
+  id: string
+  kind: BackupRunKind
+  trigger: 'manual' | 'schedule' | 'cli' | 'upload'
+  status: BackupRunStatus
+  file: string
+  startedAt: string
+  finishedAt: string | null
+  error: string | null
+  progress: { phase: BackupPhase; done: number; total: number } | null
+}
+
+export interface BackupScheduleStateDto {
+  schedule: BackupSchedule
+  timeZone: string
+  nextRunAt: string | null
+  lastRun: { at: string; outcome: BackupScheduleOutcome; name: string | null; error: string | null } | null
+}
+
+export interface BackupOverviewDto {
+  items: BackupFileDto[]
+  run: BackupRunDto | null
+  busy: boolean
+  maintenance: boolean
+  schedule: BackupScheduleStateDto
+  maxUploadBytes: number
 }

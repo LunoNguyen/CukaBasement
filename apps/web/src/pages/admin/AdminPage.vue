@@ -6,8 +6,9 @@ import Tabs from '@/components/common/Tabs.vue'
 import AdminUsers from './AdminUsers.vue'
 import AdminSettings from './AdminSettings.vue'
 import AdminLogs from './AdminLogs.vue'
+import AdminBackups from './AdminBackups.vue'
 
-const KEYS = ['users', 'settings', 'logs'] as const
+const KEYS = ['users', 'settings', 'logs', 'backups'] as const
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -26,7 +27,8 @@ const tabs = computed(() => KEYS.map((key) => ({ key, label: t(`admin.tabs.${key
     <div class="pt-4">
       <AdminUsers v-if="tab === 'users'" />
       <AdminSettings v-else-if="tab === 'settings'" />
-      <AdminLogs v-else />
+      <AdminLogs v-else-if="tab === 'logs'" />
+      <AdminBackups v-else />
     </div>
   </section>
 </template>
