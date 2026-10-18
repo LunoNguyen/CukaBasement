@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import LangSwitch from './LangSwitch.vue'
 import ThemeToggle from './ThemeToggle.vue'
+import NotificationBell from './NotificationBell.vue'
 import AccountMenu from './AccountMenu.vue'
 import { useAuth } from '@/stores/auth'
 
@@ -25,6 +26,7 @@ const auth = useAuth()
         <slot name="right" />
         <template v-if="auth.isLoggedIn">
           <RouterLink to="/upload" class="rounded bg-[var(--c-primary)] px-3 py-1 text-sm font-semibold text-[var(--c-bg)]">{{ t('nav.upload') }}</RouterLink>
+          <NotificationBell />
           <AccountMenu />
         </template>
         <template v-else-if="auth.ready">

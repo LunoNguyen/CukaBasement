@@ -164,6 +164,23 @@ const en: typeof vi = {
     loginHint: 'Log in to comment',
     empty: 'No comments yet',
   },
+  notifications: {
+    title: 'Notifications',
+    bell: 'Notifications, {n} unread',
+    markAll: 'Mark all as read',
+    empty: 'No notifications yet',
+    deletedPost: '(deleted post)',
+    someone: 'Someone',
+    type: {
+      post_approved: 'Your post «{title}» was approved',
+      post_rejected: 'Your post «{title}» was rejected: {reason}',
+      post_hidden: 'Your post «{title}» was hidden',
+      like: '{actor} liked «{title}»',
+      comment: '{actor} commented on «{title}»',
+      reply: '{actor} replied to your comment on «{title}»',
+      follow: '{actor} followed you',
+    },
+  },
   account: {
     profile: 'Profile',
     settings: 'Settings',

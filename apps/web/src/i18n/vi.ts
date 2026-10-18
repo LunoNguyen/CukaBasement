@@ -200,6 +200,23 @@ export default {
     loginHint: 'Đăng nhập để bình luận',
     empty: 'Chưa có bình luận nào',
   },
+  notifications: {
+    title: 'Thông báo',
+    bell: 'Thông báo, {n} chưa đọc',
+    markAll: 'Đánh dấu tất cả đã đọc',
+    empty: 'Chưa có thông báo nào',
+    deletedPost: '(bài đã xóa)',
+    someone: 'Ai đó',
+    type: {
+      post_approved: 'Bài «{title}» đã được duyệt',
+      post_rejected: 'Bài «{title}» bị từ chối: {reason}',
+      post_hidden: 'Bài «{title}» đã bị ẩn',
+      like: '{actor} đã thích bài «{title}»',
+      comment: '{actor} đã bình luận bài «{title}»',
+      reply: '{actor} đã trả lời bình luận của bạn ở bài «{title}»',
+      follow: '{actor} đã theo dõi bạn',
+    },
+  },
   account: {
     profile: 'Trang cá nhân',
     settings: 'Cài đặt',

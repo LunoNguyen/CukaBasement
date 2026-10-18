@@ -9,6 +9,7 @@ import EditPostPage from '@/pages/EditPostPage.vue'
 import ForbiddenPage from '@/pages/ForbiddenPage.vue'
 import ProfilePage from '@/pages/ProfilePage.vue'
 import SettingsPage from '@/pages/SettingsPage.vue'
+import NotificationsPage from '@/pages/NotificationsPage.vue'
 import NotFoundPage from '@/pages/NotFoundPage.vue'
 import LoginPage from '@/pages/auth/LoginPage.vue'
 import RegisterPage from '@/pages/auth/RegisterPage.vue'
@@ -43,7 +44,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       { path: '/posts/:id/edit', component: EditPostPage, meta: { auth: true } },
       { path: '/u/:username', component: ProfilePage },
       { path: '/settings', component: SettingsPage, meta: { auth: true } },
-      { path: '/notifications', component: Stub, meta: { auth: true } },
+      { path: '/notifications', component: NotificationsPage, meta: { auth: true } },
       { path: '/mod', component: Stub, meta: { auth: true, roles: ['moderator', 'admin'] } },
       { path: '/admin', component: Stub, meta: { auth: true, roles: ['admin'] } },
       { path: '/tags/:tag', component: TagPage },
