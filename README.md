@@ -33,7 +33,7 @@ cp .env.example .env    # chỉnh giá trị cho phù hợp
 npm install
 npm run setup           # tạo index, bucket (chạy lại an toàn)
 npm run create-admin -- --email <email> --password <mật khẩu> --username <tên>
-npm run dev             # mở http://localhost:5173
+npm run dev             # build shared rồi chạy shared, api, worker, web; mở http://localhost:5173
 ```
 
 - **Code worker mới không tự nạp:** sau khi `git pull` hoặc sửa code job, dừng `npm run dev` rồi chạy lại.
