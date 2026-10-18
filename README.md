@@ -60,6 +60,8 @@ minio server D:\minio-data --console-address :9001
 
 Test của web (`npm -w @cuka/web test`, vitest + jsdom) dùng fetch giả, không cần api.
 
+**Ảnh thương hiệu:** `favicon.ico`, `apple-touch-icon.png` và `og-default.png` trong `apps/web/public` được tạo từ `favicon.svg` bằng `npm -w @cuka/web run brand-assets` (dùng sharp của api; lần đầu tải font Fraunces và Be Vietnam Pro từ GitHub về thư mục tạm). Đổi logo hay khẩu hiệu thì sửa `favicon.svg` / `apps/web/scripts/brand-assets.mjs`, nhớ sửa cả `BrandMark.vue`, rồi chạy lại lệnh.
+
 ### Test end-to-end (Playwright)
 
 Smoke test `apps/web/e2e/smoke.spec.ts` đi hết luồng: đăng ký → xác thực (đánh dấu trực tiếp trong MongoDB vì mail chỉ in ra console của api) → đăng nhập → upload một ảnh đăng lại có credit → moderator duyệt ở `/mod` → bài hiện ở trang chủ khi chưa đăng nhập và ảnh (đã đóng watermark credit bởi worker) tải được.

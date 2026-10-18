@@ -10,7 +10,8 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "brand-assets": "node scripts/brand-assets.mjs"
   },
   "dependencies": {
     "@cuka/shared": "^0.0.0",
