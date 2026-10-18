@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ROLES, USER_STATUSES, type Role, type UserStatus } from '@cuka/shared'
+import { LIMITS, ROLES, USER_STATUSES, type Role, type UserStatus } from '@cuka/shared'
 import * as api from '@/api/endpoints/admin'
 import type { AdminUserDto } from '@/api/types'
 import { useCursorList } from '@/composables/useCursorList'
@@ -13,7 +13,6 @@ import Modal from '@/components/common/Modal.vue'
 import ListFooter from '@/components/common/ListFooter.vue'
 
 /** `adminStatusSchema.note` max in @cuka/shared. */
-const NOTE_MAX = 500
 const DEBOUNCE_MS = 300
 
 type Pending = { user: AdminUserDto; kind: 'status'; value: UserStatus } | { user: AdminUserDto; kind: 'role'; value: Role }
@@ -129,7 +128,7 @@ async function confirm() {
         </p>
         <label v-if="pending.kind === 'status'" class="flex flex-col gap-1 text-sm">
           {{ t('admin.users.note') }}
-          <textarea v-model="note" :maxlength="NOTE_MAX" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
+          <textarea v-model="note" :maxlength="LIMITS.adminNoteMax" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
         </label>
         <div class="flex justify-end gap-2">
           <Btn variant="ghost" @click="open = false">{{ t('common.cancel') }}</Btn>

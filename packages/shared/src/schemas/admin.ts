@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { DEFAULT_SETTINGS } from '../limits'
+import { DEFAULT_SETTINGS, LIMITS } from '../limits'
 import { ROLES } from '../enums'
 
-export const rejectSchema = z.object({ reason: z.string().min(1).max(500) })
+export const rejectSchema = z.object({ reason: z.string().min(1).max(LIMITS.rejectReasonMax) })
 
 export const resolveReportsSchema = z.object({
   decision: z.enum(['keep', 'remove']),
@@ -11,7 +11,7 @@ export const resolveReportsSchema = z.object({
 
 export const adminStatusSchema = z.object({
   status: z.enum(['active', 'suspended', 'banned']),
-  note: z.string().max(500).optional(),
+  note: z.string().max(LIMITS.adminNoteMax).optional(),
 })
 
 export const adminRoleSchema = z.object({ role: z.enum(ROLES) })

@@ -81,7 +81,7 @@ const input = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-
       </label>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.displayName') }}
-        <input v-model="form.displayName" data-test="displayName" :class="input" />
+        <input v-model="form.displayName" data-test="displayName" :maxlength="LIMITS.displayNameMax" :class="input" />
         <span v-if="errors.displayName" class="text-red-600">{{ errors.displayName }}</span>
       </label>
       <label class="flex flex-col gap-1 text-sm">

@@ -9,6 +9,13 @@ export const LIMITS = {
   passwordMin: 8,
   pageSizeDefault: 30,
   pageSizeMax: 100,
+  rejectReasonMax: 500,
+  reportDetailMax: 1000,
+  adminNoteMax: 500,
+  creditArtistNameMax: 100,
+  creditArtistHandleMax: 100,
+  creditSourceUrlMax: 500,
+  creditPermissionNoteMax: 300,
 } as const
 
 export const DEFAULT_SETTINGS = {

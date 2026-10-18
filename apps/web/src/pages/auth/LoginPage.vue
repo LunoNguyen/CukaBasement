@@ -19,10 +19,10 @@ const password = ref('')
 const error = ref('')
 const busy = ref(false)
 
-/** Only same-site paths; `//host` and absolute URLs would be open redirects. */
+/** Only same-site paths; `//host`, absolute URLs and any backslash (`/\\host`) would be open redirects. */
 function nextPath(): string {
   const n = route.query.next
-  return typeof n === 'string' && n.startsWith('/') && !n.startsWith('//') ? n : '/'
+  return typeof n === 'string' && n.startsWith('/') && !n.startsWith('//') && !n.includes('\\') ? n : '/'
 }
 
 async function submit() {

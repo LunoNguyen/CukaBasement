@@ -57,6 +57,18 @@ describe('login', () => {
     expect(router.currentRoute.value.path).toBe('/')
   })
 
+  it('login ignores a ?next containing a backslash', async () => {
+    fake = installFakeFetch({
+      'POST /api/auth/login': { status: 200, body: { accessToken: 'tok', user: makeMe() } },
+    })
+    const { w, router } = await mountAt('/login?next=' + encodeURIComponent('/\\evil.example'))
+    await w.get('input[type="email"]').setValue('a@b.co')
+    await w.get('input[type="password"]').setValue('password123')
+    await w.get('form').trigger('submit')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/')
+  })
+
   it('login switches UI locale to the user locale', async () => {
     fake = installFakeFetch({
       'POST /api/auth/login': { status: 200, body: { accessToken: 'tok', user: makeMe({ locale: 'en' }) } },
@@ -87,6 +99,11 @@ describe('register', () => {
     const v = { email: 'n@example.com', username: 'newbie_1', displayName: 'New', password: 'longpassword', confirm: 'longpassword', ...over }
     for (const [k, val] of Object.entries(v)) await w.get(`[data-test="${k}"]`).setValue(val)
   }
+
+  it('register display name is capped at LIMITS.displayNameMax', async () => {
+    const { w } = await mountAt('/register')
+    expect(w.get('[data-test="displayName"]').attributes('maxlength')).toBe('50')
+  })
 
   it('register validates username pattern client-side before calling API', async () => {
     fake = installFakeFetch({ 'POST /api/auth/register': { status: 201, body: { userId: 'u9' } } })
@@ -143,7 +160,7 @@ describe('verify-email', () => {
     fake = installFakeFetch({ 'POST /api/auth/verify-email': { status: 204 } })
     const { w } = await mountAt('/verify-email?token=abc123')
     expect(fake.callsTo('POST /api/auth/verify-email')[0]!.body).toEqual({ token: 'abc123' })
-    expect(w.get('[data-test="verify-success"]').exists()).toBe(true)
+    expect(w.find('[data-test="verify-success"]').exists()).toBe(true)
   })
 
   it('verify-email TOKEN_INVALID shows the error', async () => {
@@ -209,6 +226,6 @@ describe('forgot / reset password', () => {
     await w.get('form').trigger('submit')
     await flushPromises()
     expect(fake.callsTo('POST /api/auth/reset-password')[0]!.body).toEqual({ token: 'tk1', password: 'newpassword1' })
-    expect(w.get('[data-test="reset-success"]').exists()).toBe(true)
+    expect(w.find('[data-test="reset-success"]').exists()).toBe(true)
   })
 })

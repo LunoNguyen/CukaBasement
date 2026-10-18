@@ -9,7 +9,6 @@ const en: typeof vi = {
     empty: 'Nothing here yet',
     retry: 'Retry',
     loadMore: 'Load more',
-    underConstruction: 'Under construction',
   },
   admin: {
     title: 'Administration',

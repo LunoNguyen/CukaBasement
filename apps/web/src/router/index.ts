@@ -4,20 +4,9 @@ import HomePage from '@/pages/HomePage.vue'
 import TagPage from '@/pages/TagPage.vue'
 import SearchPage from '@/pages/SearchPage.vue'
 import PostPage from '@/pages/PostPage.vue'
-import UploadPage from '@/pages/UploadPage.vue'
-import EditPostPage from '@/pages/EditPostPage.vue'
 import ForbiddenPage from '@/pages/ForbiddenPage.vue'
 import ProfilePage from '@/pages/ProfilePage.vue'
-import SettingsPage from '@/pages/SettingsPage.vue'
-import NotificationsPage from '@/pages/NotificationsPage.vue'
-import ModPage from '@/pages/mod/ModPage.vue'
-import AdminPage from '@/pages/admin/AdminPage.vue'
 import NotFoundPage from '@/pages/NotFoundPage.vue'
-import LoginPage from '@/pages/auth/LoginPage.vue'
-import RegisterPage from '@/pages/auth/RegisterPage.vue'
-import VerifyEmailPage from '@/pages/auth/VerifyEmailPage.vue'
-import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage.vue'
-import ResetPasswordPage from '@/pages/auth/ResetPasswordPage.vue'
 import { useAuth } from '@/stores/auth'
 
 declare module 'vue-router' {
@@ -27,7 +16,18 @@ declare module 'vue-router' {
   }
 }
 
-const Stub = () => import('@/pages/StubPage.vue')
+// Pages most visitors never open (and the heavy upload/edit forms) load as separate chunks.
+const UploadPage = () => import('@/pages/UploadPage.vue')
+const EditPostPage = () => import('@/pages/EditPostPage.vue')
+const SettingsPage = () => import('@/pages/SettingsPage.vue')
+const NotificationsPage = () => import('@/pages/NotificationsPage.vue')
+const ModPage = () => import('@/pages/mod/ModPage.vue')
+const AdminPage = () => import('@/pages/admin/AdminPage.vue')
+const LoginPage = () => import('@/pages/auth/LoginPage.vue')
+const RegisterPage = () => import('@/pages/auth/RegisterPage.vue')
+const VerifyEmailPage = () => import('@/pages/auth/VerifyEmailPage.vue')
+const ForgotPasswordPage = () => import('@/pages/auth/ForgotPasswordPage.vue')
+const ResetPasswordPage = () => import('@/pages/auth/ResetPasswordPage.vue')
 
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({
@@ -35,7 +35,6 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
     routes: [
       { path: '/', name: 'home', component: HomePage },
       { path: '/403', name: 'forbidden', component: ForbiddenPage },
-      // Stubs: later tasks replace these components.
       { path: '/login', component: LoginPage },
       { path: '/register', component: RegisterPage },
       { path: '/forgot-password', component: ForgotPasswordPage },

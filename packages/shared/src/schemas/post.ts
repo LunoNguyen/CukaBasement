@@ -16,11 +16,11 @@ const creditText = (max: number) => z.string().trim().max(max).refine(xmlSafe, '
 export const creditSchema = z
   .object({
     isOwnWork: z.boolean(),
-    artistName: creditText(100),
-    artistHandle: creditText(100),
+    artistName: creditText(LIMITS.creditArtistNameMax),
+    artistHandle: creditText(LIMITS.creditArtistHandleMax),
     platform: z.enum(CREDIT_PLATFORMS).optional(),
-    sourceUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ }).max(500).refine(xmlSafe, 'Contains control characters')]).default(''),
-    permissionNote: creditText(300),
+    sourceUrl: z.union([z.literal(''), z.url({ protocol: /^https?$/ }).max(LIMITS.creditSourceUrlMax).refine(xmlSafe, 'Contains control characters')]).default(''),
+    permissionNote: creditText(LIMITS.creditPermissionNoteMax),
   })
   .superRefine((c, ctx) => {
     if (c.isOwnWork) return

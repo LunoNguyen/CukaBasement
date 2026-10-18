@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Credit } from '@cuka/shared'
+import { LIMITS, type Credit } from '@cuka/shared'
 import * as api from '@/api/endpoints/mod'
 import type { PostCardDto } from '@/api/types'
 import { useToast } from '@/stores/toast'
@@ -14,7 +14,6 @@ import Btn from '@/components/common/Btn.vue'
 import Modal from '@/components/common/Modal.vue'
 
 /** `rejectSchema.reason` max in @cuka/shared. */
-const REASON_MAX = 500
 
 const props = defineProps<{ post: PostCardDto }>()
 const emit = defineEmits<{ removed: []; updated: [post: PostCardDto] }>()
@@ -97,7 +96,7 @@ async function submitCredit() {
       <form class="flex flex-col gap-3" @submit.prevent="submitReject">
         <label class="flex flex-col gap-1 text-sm">
           {{ t('mod.rejectReason') }} *
-          <textarea v-model="reason" :maxlength="REASON_MAX" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
+          <textarea v-model="reason" :maxlength="LIMITS.rejectReasonMax" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
         </label>
         <div class="flex justify-end gap-2">
           <Btn variant="ghost" @click="rejectOpen = false">{{ t('common.cancel') }}</Btn>

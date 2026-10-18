@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { REPORT_REASONS, type ReportReason } from '@cuka/shared'
+import { LIMITS, REPORT_REASONS, type ReportReason } from '@cuka/shared'
 import * as reportsApi from '@/api/endpoints/reports'
 import { ApiError } from '@/api/client'
 import { useToast } from '@/stores/toast'
 import Modal from '@/components/common/Modal.vue'
 import Btn from '@/components/common/Btn.vue'
 
-/** `createReportSchema.detail` max in @cuka/shared (not exported in LIMITS). */
-const DETAIL_MAX = 1000
 
 const props = defineProps<{ postId: string }>()
 const open = defineModel<boolean>('open', { default: false })
@@ -57,7 +55,7 @@ async function submit() {
       </fieldset>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('post.reportDetail') }}
-        <textarea v-model="detail" :maxlength="DETAIL_MAX" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
+        <textarea v-model="detail" :maxlength="LIMITS.reportDetailMax" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
       </label>
       <div class="flex justify-end gap-2">
         <Btn variant="ghost" @click="open = false">{{ t('common.cancel') }}</Btn>

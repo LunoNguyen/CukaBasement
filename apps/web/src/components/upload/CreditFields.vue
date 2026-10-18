@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { CREDIT_PLATFORMS, PLATFORM_LABELS } from '@cuka/shared'
+import { CREDIT_PLATFORMS, LIMITS, PLATFORM_LABELS } from '@cuka/shared'
 import { isHttpUrl, type CreditForm } from './postForm'
 
 const model = defineModel<CreditForm>({ required: true })
@@ -35,11 +35,11 @@ const input = 'w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] p
     <template v-if="!model.isOwnWork">
       <label class="flex flex-col gap-1">
         {{ t('upload.credit.artistName') }} *
-        <input data-test="artist-name" :class="input" maxlength="100" :value="model.artistName" @input="set('artistName', ($event.target as HTMLInputElement).value)" />
+        <input data-test="artist-name" :class="input" :maxlength="LIMITS.creditArtistNameMax" :value="model.artistName" @input="set('artistName', ($event.target as HTMLInputElement).value)" />
       </label>
       <label class="flex flex-col gap-1">
         {{ t('upload.credit.artistHandle') }}
-        <input data-test="artist-handle" :class="input" maxlength="100" :value="model.artistHandle" @input="set('artistHandle', ($event.target as HTMLInputElement).value)" />
+        <input data-test="artist-handle" :class="input" :maxlength="LIMITS.creditArtistHandleMax" :value="model.artistHandle" @input="set('artistHandle', ($event.target as HTMLInputElement).value)" />
       </label>
       <label class="flex flex-col gap-1">
         {{ t('upload.credit.platform') }} *
@@ -50,12 +50,12 @@ const input = 'w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] p
       </label>
       <label class="flex flex-col gap-1">
         {{ t('upload.credit.sourceUrl') }} *
-        <input data-test="source-url" type="url" :class="input" maxlength="500" :value="model.sourceUrl" @input="set('sourceUrl', ($event.target as HTMLInputElement).value)" />
+        <input data-test="source-url" type="url" :class="input" :maxlength="LIMITS.creditSourceUrlMax" :value="model.sourceUrl" @input="set('sourceUrl', ($event.target as HTMLInputElement).value)" />
         <span v-if="urlInvalid" class="text-red-600">{{ t('upload.credit.sourceUrlInvalid') }}</span>
       </label>
       <label class="flex flex-col gap-1">
         {{ t('upload.credit.permissionNote') }}
-        <textarea data-test="permission-note" :class="input" rows="2" maxlength="300" :value="model.permissionNote" @input="set('permissionNote', ($event.target as HTMLTextAreaElement).value)" />
+        <textarea data-test="permission-note" :class="input" rows="2" :maxlength="LIMITS.creditPermissionNoteMax" :value="model.permissionNote" @input="set('permissionNote', ($event.target as HTMLTextAreaElement).value)" />
         <span class="text-xs text-[var(--c-muted)]">{{ t('upload.credit.permissionHint') }}</span>
       </label>
     </template>

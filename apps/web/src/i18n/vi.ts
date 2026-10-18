@@ -45,7 +45,6 @@ export default {
     empty: 'Chưa có gì ở đây',
     retry: 'Thử lại',
     loadMore: 'Tải thêm',
-    underConstruction: 'Đang xây dựng',
   },
   admin: {
     title: 'Quản trị',

@@ -9,6 +9,10 @@ import { createAppRouter } from '@/router'
 import { createMemoryHistory } from 'vue-router'
 import { useToast } from '@/stores/toast'
 import App from '@/App.vue'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const css = readFileSync(resolve(__dirname, '../src/styles.css'), 'utf8')
 
 async function mountApp(path = '/') {
   const pinia = createPinia()
@@ -27,6 +31,21 @@ afterEach(() => {
 })
 
 describe('foundation', () => {
+  it('dark theme sets color-scheme: dark, light on :root', () => {
+    const block = (sel: string) => css.slice(css.indexOf(sel), css.indexOf('}', css.indexOf(sel)))
+    expect(block(':root {')).toContain('color-scheme: light')
+    expect(block("[data-theme='dark'] {")).toContain('color-scheme: dark')
+  })
+
+  it('heavy and rarely visited pages are lazy-loaded route chunks', () => {
+    const router = createAppRouter(createMemoryHistory())
+    const lazy = ['/upload', '/posts/:id/edit', '/settings', '/notifications', '/mod', '/admin', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email']
+    for (const path of lazy) {
+      const rec = router.getRoutes().find((r) => r.path === path)!
+      expect(typeof rec.components!.default, path).toBe('function')
+    }
+  })
+
   it('every shared ErrorCode has vi and en messages', () => {
     for (const c of ERROR_CODES) {
       expect(vi.errors[c]).toBeTruthy()

@@ -30,6 +30,19 @@ describe('PostCard', () => {
     expect(mountCard(card({ cover: null })).find('img').exists()).toBe(false)
   })
 
+  it('the placeholder says the media is still processing', () => {
+    expect(mountCard(card({ cover: media({ thumbSmUrl: null }) })).text()).toContain('Đang xử lý')
+    expect(mountCard(card()).text()).not.toContain('Đang xử lý')
+  })
+
+  it('shows a repost credit as plain text under the title (no link nested in the card link)', () => {
+    const credit = { isOwnWork: false, artistName: 'Funo', artistHandle: '@funo_yun', platform: 'x' as const, sourceUrl: 'https://x.com/funo_yun/status/1', permissionNote: '' }
+    const w = mountCard(card({ credit }))
+    expect(w.get('[data-test="card-credit"]').text()).toBe('Art by @funo_yun · X')
+    expect(w.findAll('a')).toHaveLength(1)
+    expect(mountCard(card()).find('[data-test="card-credit"]').exists()).toBe(false)
+  })
+
   it('shows R18 badge when cover.blurred', () => {
     expect(mountCard(card({ cover: media({ blurred: true }) })).text()).toContain('R18')
     expect(mountCard(card()).text()).not.toContain('R18')
