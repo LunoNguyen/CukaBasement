@@ -1,8 +1,12 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Logger } from '@nestjs/common'
 import { Types } from 'mongoose'
 import type { FileDoc } from '../../uploads/file.schema'
 import type { JobDeps } from './media'
-import { contextOfPost, moveFileVariants } from './variants'
+import { publishVariants, renderCleanVariants } from './process-file'
+import { contextOfPost, findContextForFile, moveFileVariants } from './variants'
 
 /** Moves every variant of the post's files into the bucket that matches the post's current rating (a new blurred is watermarked). */
 export async function relocateVariants(deps: JobDeps, data: { postId: string }): Promise<void> {
@@ -32,20 +36,31 @@ async function isPostlessProfileImage(deps: JobDeps, fileId: Types.ObjectId): Pr
 }
 
 /**
- * Publishes the variants of a file that just became a profile image (avatar or banner). Acts only on a ready file
- * that is in no post and is a profile image; a file in any post belongs to the post jobs (rewatermark/relocate),
- * which must not be pre-empted with clean renders. The file is re-read right before the move so a stale variant
- * list cannot drop a variant, and the check is repeated after it: a file that joined a post meanwhile is left to the
- * post's rewatermark job (enqueued by the post create), which redraws and re-places every variant.
+ * Publishes the variants of a file that just became a profile image (avatar or banner): re-renders them from the
+ * original, center-cropped for the role (avatar 1:1 ≤512px, banner 4:1 ≤1600px, animation kept), into the public
+ * bucket. Acts only on a ready file that is in no post and is a profile image; a file in any post belongs to the post
+ * jobs (rewatermark/relocate), which must not be pre-empted with clean renders. publishVariants re-checks the context
+ * after storing, so a file that joined a post meanwhile is redrawn for that post (watermarked, uncropped), and the
+ * post's own rewatermark job (enqueued by the post create) redraws it again.
  */
 export async function relocateFile(deps: JobDeps, data: { fileId: string }): Promise<void> {
   if (!Types.ObjectId.isValid(data.fileId)) return
   const _id = new Types.ObjectId(data.fileId)
-  // Fresh read of the variants, then the eligibility check, both immediately before the move.
   const file = await deps.conn.collection<FileDoc>('files').findOne({ _id })
   if (!file || file.status !== 'ready') return
   if (!(await isPostlessProfileImage(deps, _id))) return
-  await moveFileVariants(deps, file, 'all', null)
+  if (file.kind !== 'image') {
+    await moveFileVariants(deps, file, 'all', null)
+    return
+  }
+  const tmp = await mkdtemp(join(tmpdir(), 'cuka-media-'))
+  try {
+    const ctx = await findContextForFile(deps.conn, _id)
+    const { rendered } = await renderCleanVariants(deps, file, tmp, ctx.crop)
+    await publishVariants(deps, file, rendered, ctx, {}, async (crop) => (await renderCleanVariants(deps, file, tmp, crop)).rendered)
+  } finally {
+    await rm(tmp, { recursive: true, force: true })
+  }
   if (!(await isPostlessProfileImage(deps, _id))) {
     logger.warn(`File ${data.fileId} joined a post during relocate-file; leaving it to the post's rewatermark job`)
   }

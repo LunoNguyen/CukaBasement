@@ -11,7 +11,7 @@ import { type JobDeps, run } from '../src/jobs/handlers/media'
 import { processFile, processFileHooks } from '../src/jobs/handlers/process-file'
 import { relocateFile, relocateVariants } from '../src/jobs/handlers/relocate-variants'
 import { rewatermark } from '../src/jobs/handlers/rewatermark'
-import { renderBlurred } from '../src/jobs/handlers/variants'
+import { animationPlan, renderBlurred } from '../src/jobs/handlers/variants'
 import { watermarkHash, watermarkText } from '../src/jobs/handlers/watermark'
 import { StorageService } from '../src/storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../src/uploads/file.schema'
@@ -520,6 +520,167 @@ describe('process-file / relocate-variants', () => {
       expect(await load(pending)).toMatchObject({ status: 'processing', variants: [] })
       await rewatermark(deps, { postId: new Types.ObjectId().toString() })
       await rewatermark(deps, { postId: 'nope' })
+    })
+  })
+
+  describe('animated gif / webp', () => {
+    const COLORS = ['#cc3344', '#33cc55', '#3355cc', '#cccc33']
+
+    /** A `pages`-frame animation (one solid colour per frame) as gif or animated webp. */
+    async function animated(width: number, height: number, pages: number, format: 'gif' | 'webp' = 'gif'): Promise<Buffer> {
+      const frames = await Promise.all(
+        Array.from({ length: pages }, (_, i) => sharp({ create: { width, height, channels: 4, background: COLORS[i % COLORS.length]! } }).raw().toBuffer()),
+      )
+      const roll = sharp(Buffer.concat(frames), { raw: { width, height: height * pages, channels: 4, pageHeight: height } })
+      return format === 'gif' ? roll.gif({ delay: Array(pages).fill(100), loop: 0 }).toBuffer() : roll.webp({ delay: Array(pages).fill(100), loop: 0 }).toBuffer()
+    }
+    const metaOf = async (fileId: string, name: string) => {
+      const v = variant(await load(fileId), name)!
+      return sharp(await storage.getBuffer(v.bucket, v.objectKey), { animated: true }).metadata()
+    }
+    const frameOf = async (fileId: string, name: string, page: number) => {
+      const v = variant(await load(fileId), name)!
+      return sharp(await storage.getBuffer(v.bucket, v.objectKey), { page }).png().toBuffer()
+    }
+    /** Mean absolute per-channel difference of two same-size frames over a region given in fractions of the size. */
+    async function frameDiff(a: Buffer, b: Buffer, region: 'bottomRight' | 'topLeft'): Promise<number> {
+      const meta = await sharp(a).metadata()
+      const [w, ht] = [meta.width!, meta.height!]
+      const r = region === 'bottomRight'
+        ? { left: Math.floor(w * 0.6), top: Math.floor(ht * 0.9), width: w - Math.floor(w * 0.6), height: ht - Math.floor(ht * 0.9) }
+        : { left: 0, top: 0, width: Math.floor(w * 0.4), height: Math.floor(ht * 0.4) }
+      const raw = (buf: Buffer) => sharp(buf).removeAlpha().extract(r).raw().toBuffer()
+      const [x, y] = await Promise.all([raw(a), raw(b)])
+      let sum = 0
+      for (let i = 0; i < x.length; i++) sum += Math.abs(x[i]! - y[i]!)
+      return sum / x.length
+    }
+    const repost = { isOwnWork: false, artistName: 'Ruri', artistHandle: '@_rurisuisen', platform: 'x', sourceUrl: 'https://x.com/_rurisuisen/status/1', permissionNote: '' }
+
+    it('gif with 3 frames → thumb_sm and thumb_md are animated webp with 3 pages; stored sizes are one frame', async () => {
+      const fileId = await seedFile('image', 'image/gif', 'gif', await animated(800, 600, 3))
+      await processFile(deps, { fileId })
+      const f = await load(fileId)
+      expect(f).toMatchObject({ status: 'ready', width: 800, height: 600 })
+      expect(variant(f, 'thumb_md')).toMatchObject({ width: 800, height: 600 })
+      expect(variant(f, 'thumb_sm')).toMatchObject({ width: 360, height: 270 })
+      for (const name of ['thumb_md', 'thumb_sm']) {
+        const meta = await metaOf(fileId, name)
+        expect(meta, name).toMatchObject({ format: 'webp', pages: 3 })
+        expect(meta.pageHeight, name).toBe(name === 'thumb_md' ? 600 : 270)
+      }
+      // Frames keep their own content (frame 2 is green, frame 3 blue).
+      const px = async (page: number) => [...(await sharp(await frameOf(fileId, 'thumb_md', page)).extract({ left: 10, top: 10, width: 1, height: 1 }).removeAlpha().raw().toBuffer())]
+      expect((await px(1))[1]).toBeGreaterThan(150)
+      expect((await px(2))[2]).toBeGreaterThan(150)
+    })
+
+    it('animated webp input stays animated', async () => {
+      const fileId = await seedFile('image', 'image/webp', 'webp', await animated(400, 300, 4, 'webp'))
+      await processFile(deps, { fileId })
+      expect(await load(fileId)).toMatchObject({ status: 'ready', width: 400, height: 300 })
+      expect(await metaOf(fileId, 'thumb_md')).toMatchObject({ format: 'webp', pages: 4, pageHeight: 300 })
+    })
+
+    it('watermark is burned into every frame (frame 2 differs from the clean render bottom-right only)', async () => {
+      const src = await animated(800, 600, 3)
+      const plain = await seedFile('image', 'image/gif', 'gif', src)
+      const marked = await seedFile('image', 'image/gif', 'gif', src)
+      const { insertedId: authorId } = await h.db.collection('users').insertOne({ profile: { username: 'du_ca' } })
+      await h.db.collection('posts').insertOne({ authorId, rating: 'all', credit: repost, files: [{ fileId: new Types.ObjectId(marked), position: 0, isCover: true }], deletedAt: null })
+      await processFile(deps, { fileId: plain })
+      await processFile(deps, { fileId: marked })
+      expect(await metaOf(marked, 'thumb_md')).toMatchObject({ format: 'webp', pages: 3 })
+      for (const name of ['thumb_md', 'thumb_sm']) {
+        for (const page of [0, 1, 2]) {
+          const [a, b] = [await frameOf(plain, name, page), await frameOf(marked, name, page)]
+          expect(await frameDiff(a, b, 'bottomRight'), `${name} frame ${page}`).toBeGreaterThan(5)
+          expect(await frameDiff(a, b, 'topLeft'), `${name} frame ${page}`).toBeLessThan(1)
+        }
+      }
+    })
+
+    it('r18: blurred is a single static frame', async () => {
+      const fileId = await seedFile('image', 'image/gif', 'gif', await animated(400, 300, 3))
+      await h.db.collection('posts').insertOne({ rating: 'r18', files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
+      await processFile(deps, { fileId })
+      expect((await metaOf(fileId, 'thumb_md')).pages).toBe(3)
+      const blurred = await metaOf(fileId, 'blurred')
+      expect(blurred.format).toBe('webp')
+      expect(blurred.pages ?? 1).toBe(1)
+    })
+
+    it('more than 300 frames falls back to the first frame (static)', async () => {
+      const fileId = await seedFile('image', 'image/gif', 'gif', await animated(16, 12, 301))
+      await processFile(deps, { fileId })
+      const f = await load(fileId)
+      expect(f).toMatchObject({ status: 'ready', width: 16, height: 12 })
+      for (const name of ['thumb_md', 'thumb_sm']) expect((await metaOf(fileId, name)).pages ?? 1, name).toBe(1)
+      expect(variant(f, 'thumb_md')).toMatchObject({ width: 16, height: 12 })
+    })
+
+    it('animationPlan: animated only for gif/webp with 2..300 pages within the pixel budget', () => {
+      expect(animationPlan({ format: 'gif', width: 800, height: 600, pages: 3 })).toBe(true)
+      expect(animationPlan({ format: 'webp', width: 400, height: 300, pages: 300 })).toBe(true)
+      expect(animationPlan({ format: 'gif', width: 800, height: 600, pages: 301 })).toBe(false)
+      expect(animationPlan({ format: 'gif', width: 800, height: 600, pages: 1 })).toBe(false)
+      expect(animationPlan({ format: 'gif', width: 800, height: 600 })).toBe(false)
+      // 2000 × 2000 × 30 = 120 M pixels > the 100 M limitInputPixels budget.
+      expect(animationPlan({ format: 'gif', width: 2000, height: 2000, pages: 30 })).toBe(false)
+      expect(animationPlan({ format: 'png', width: 80, height: 60, pages: 3 })).toBe(false)
+    })
+
+    describe('profile images are center-cropped', () => {
+      it('animated avatar set after processing: relocate-file renders a 1:1 512px animated thumb_md in the public bucket', async () => {
+        const fileId = await seedFile('image', 'image/gif', 'gif', await animated(1000, 700, 3))
+        await processFile(deps, { fileId })
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 1000, height: 700, bucket: bucketOriginals })
+        await h.db.collection('users').insertOne({ email: 'ga@example.com', profile: { username: 'ga', avatarFileId: new Types.ObjectId(fileId) } })
+        await relocateFile(deps, { fileId })
+        const f = await load(fileId)
+        expect(variant(f, 'thumb_md')).toMatchObject({ width: 512, height: 512, bucket: bucketPublic })
+        for (const v of f.variants) {
+          expect(v.bucket).toBe(bucketPublic)
+          expect(await exists(bucketOriginals, v.objectKey)).toBe(false)
+        }
+        expect(await metaOf(fileId, 'thumb_md')).toMatchObject({ format: 'webp', pages: 3, width: 512, pageHeight: 512 })
+        // The original frame size is still what the file records.
+        expect(f).toMatchObject({ width: 1000, height: 700 })
+      })
+
+      it('banner: 4:1 crop, at most 1600 wide, animated', async () => {
+        const fileId = await seedFile('image', 'image/gif', 'gif', await animated(2000, 1000, 3))
+        await processFile(deps, { fileId })
+        await h.db.collection('users').insertOne({ email: 'gb@example.com', profile: { username: 'gb', bannerFileId: new Types.ObjectId(fileId) } })
+        await relocateFile(deps, { fileId })
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 1600, height: 400, bucket: bucketPublic })
+        expect(await metaOf(fileId, 'thumb_md')).toMatchObject({ pages: 3, pageHeight: 400 })
+      })
+
+      it('static avatar already set when processed: thumb_md is 512×512, public', async () => {
+        const fileId = await seedFile('image', 'image/png', 'png', await sharp({ create: { width: 1600, height: 1200, channels: 3, background: '#88aacc' } }).png().toBuffer())
+        const f0 = await load(fileId)
+        await h.db.collection('users').insertOne({ _id: f0.ownerId, email: 'sa@example.com', profile: { username: 'sa', avatarFileId: new Types.ObjectId(fileId) } })
+        await processFile(deps, { fileId })
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 512, height: 512, bucket: bucketPublic })
+      })
+
+      it('a small banner is cropped to 4:1 without enlargement', async () => {
+        const fileId = await seedFile('image', 'image/gif', 'gif', await animated(400, 300, 2))
+        await h.db.collection('users').insertOne({ email: 'sb@example.com', profile: { username: 'sb', bannerFileId: new Types.ObjectId(fileId) } })
+        await processFile(deps, { fileId })
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 400, height: 100 })
+      })
+
+      it('a profile file that is attached to a post is rendered uncropped by rewatermark', async () => {
+        const fileId = await seedFile('image', 'image/gif', 'gif', await animated(800, 600, 3))
+        await h.db.collection('users').insertOne({ email: 'gp@example.com', profile: { username: 'gp', avatarFileId: new Types.ObjectId(fileId) } })
+        await processFile(deps, { fileId })
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 512, height: 512 })
+        const { insertedId } = await h.db.collection('posts').insertOne({ rating: 'all', credit: repost, files: [{ fileId: new Types.ObjectId(fileId) }], deletedAt: null })
+        await rewatermark(deps, { postId: insertedId.toString() })
+        expect(variant(await load(fileId), 'thumb_md')).toMatchObject({ width: 800, height: 600 })
+      })
     })
   })
 

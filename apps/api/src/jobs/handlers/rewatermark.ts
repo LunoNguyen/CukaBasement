@@ -25,7 +25,7 @@ export async function rewatermark(deps: JobDeps, data: { postId: string }): Prom
     const tmp = await mkdtemp(join(tmpdir(), 'cuka-media-'))
     try {
       const { rendered } = await renderCleanVariants(deps, file, tmp)
-      await publishVariants(deps, file, rendered, ctx, {})
+      await publishVariants(deps, file, rendered, ctx, {}, async (crop) => (await renderCleanVariants(deps, file, tmp, crop)).rendered)
     } finally {
       await rm(tmp, { recursive: true, force: true })
     }
