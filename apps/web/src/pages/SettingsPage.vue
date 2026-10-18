@@ -173,16 +173,16 @@ function saveR18() {
 const avatarUrl = computed(() => auth.user?.avatarUrl ?? null)
 const bannerUrl = computed(() => auth.user?.bannerUrl ?? null)
 
-const field = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5'
-const section = 'flex flex-col gap-3 rounded border border-[var(--c-border)] bg-[var(--c-surface)] p-4'
+const field = 'field'
+const section = 'flex flex-col gap-3 card p-4'
 </script>
 
 <template>
   <div class="mx-auto flex max-w-2xl flex-col gap-4">
-    <h1 class="text-xl font-bold">{{ t('settings.title') }}</h1>
+    <h1 class="font-display text-3xl font-semibold tracking-tight">{{ t('settings.title') }}</h1>
 
     <form :class="section" data-test="profile-form" @submit.prevent="saveProfile">
-      <h2 class="font-semibold">{{ t('settings.profile') }}</h2>
+      <h2 class="font-display text-lg font-semibold">{{ t('settings.profile') }}</h2>
       <ImageField :label="t('settings.avatar')" test-id="avatar" shape="avatar" :current-url="avatarUrl" :save="(id) => saveImage({ avatarFileId: id })" />
       <ImageField :label="t('settings.banner')" test-id="banner" shape="banner" :current-url="bannerUrl" :save="(id) => saveImage({ bannerFileId: id })" />
       <label class="flex flex-col gap-1 text-sm">
@@ -195,11 +195,11 @@ const section = 'flex flex-col gap-3 rounded border border-[var(--c-border)] bg-
         <span data-test="bio-count" class="self-end text-xs text-[var(--c-muted)]">{{ bio.length }}/{{ LIMITS.bioMax }}</span>
       </label>
       <SocialLinksField v-model="links" />
-      <Btn type="submit" data-test="save-profile" :loading="busy.profile" :disabled="!profileValid">{{ t('settings.save') }}</Btn>
+      <Btn type="submit" data-test="save-profile" class="self-start" :loading="busy.profile" :disabled="!profileValid">{{ t('settings.save') }}</Btn>
     </form>
 
     <form :class="section" @submit.prevent="savePassword">
-      <h2 class="font-semibold">{{ t('settings.password') }}</h2>
+      <h2 class="font-display text-lg font-semibold">{{ t('settings.password') }}</h2>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('settings.currentPassword') }}
         <input v-model="currentPassword" data-test="current-password" type="password" autocomplete="current-password" :class="field" />
@@ -209,24 +209,24 @@ const section = 'flex flex-col gap-3 rounded border border-[var(--c-border)] bg-
         <input v-model="newPassword" data-test="new-password" type="password" autocomplete="new-password" :minlength="LIMITS.passwordMin" :class="field" />
         <span class="text-xs text-[var(--c-muted)]">{{ t('settings.passwordHint', { n: LIMITS.passwordMin }) }}</span>
       </label>
-      <Btn type="submit" data-test="save-password" :loading="busy.password" :disabled="!passwordValid">{{ t('settings.changePassword') }}</Btn>
+      <Btn type="submit" data-test="save-password" class="self-start" :loading="busy.password" :disabled="!passwordValid">{{ t('settings.changePassword') }}</Btn>
     </form>
 
     <fieldset :key="localeRev" :class="section" :disabled="busy.locale">
       <legend class="sr-only">{{ t('settings.language') }}</legend>
-      <h2 class="font-semibold">{{ t('settings.language') }}</h2>
-      <div class="flex gap-4 text-sm">
-        <label class="flex items-center gap-2">
-          <input type="radio" name="locale" data-test="locale-vi" :checked="locale === 'vi'" @change="pickLocale('vi')" /> Tiếng Việt
+      <h2 class="font-display text-lg font-semibold">{{ t('settings.language') }}</h2>
+      <div class="flex flex-wrap gap-2">
+        <label class="chip">
+          <input type="radio" class="sr-only" name="locale" data-test="locale-vi" :checked="locale === 'vi'" @change="pickLocale('vi')" /> Tiếng Việt
         </label>
-        <label class="flex items-center gap-2">
-          <input type="radio" name="locale" data-test="locale-en" :checked="locale === 'en'" @change="pickLocale('en')" /> English
+        <label class="chip">
+          <input type="radio" class="sr-only" name="locale" data-test="locale-en" :checked="locale === 'en'" @change="pickLocale('en')" /> English
         </label>
       </div>
     </fieldset>
 
     <form :class="section" @submit.prevent="saveR18">
-      <h2 class="font-semibold">{{ t('settings.r18') }}</h2>
+      <h2 class="font-display text-lg font-semibold">{{ t('settings.r18') }}</h2>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('settings.birthDate') }}
         <input v-model="birthDate" data-test="birthdate" type="date" :class="field" />
@@ -234,7 +234,7 @@ const section = 'flex flex-col gap-3 rounded border border-[var(--c-border)] bg-
       <label class="flex items-center gap-2 text-sm">
         <input v-model="showR18" data-test="show-r18" type="checkbox" /> {{ t('settings.showR18') }}
       </label>
-      <Btn type="submit" data-test="save-r18" :loading="busy.r18">{{ t('settings.save') }}</Btn>
+      <Btn type="submit" data-test="save-r18" class="self-start" :loading="busy.r18">{{ t('settings.save') }}</Btn>
     </form>
   </div>
 </template>

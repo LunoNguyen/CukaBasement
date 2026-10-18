@@ -74,11 +74,11 @@ async function submitCredit() {
 </script>
 
 <template>
-  <li data-test="queue-item" class="flex flex-col gap-3 rounded border border-[var(--c-border)] bg-[var(--c-surface)] p-3 sm:flex-row">
+  <li data-test="queue-item" class="flex flex-col gap-3 card p-3 sm:flex-row">
     <RouterLink :to="`/posts/${post.id}`" class="relative block aspect-[4/5] w-full shrink-0 overflow-hidden rounded sm:w-40">
       <img v-if="src" :src="src" :alt="post.title" loading="lazy" class="h-full w-full object-cover" />
       <MediaPlaceholder v-else />
-      <span v-if="post.rating === 'r18'" data-test="r18" class="absolute top-1 left-1 rounded bg-[var(--c-accent)] px-1.5 text-xs font-bold text-white">R18</span>
+      <span v-if="post.rating === 'r18'" data-test="r18" class="absolute top-1 left-1 badge badge-accent">R18</span>
     </RouterLink>
     <div class="flex min-w-0 flex-1 flex-col gap-1 text-sm">
       <RouterLink :to="`/posts/${post.id}`" class="truncate font-semibold">{{ post.title }}</RouterLink>
@@ -96,7 +96,7 @@ async function submitCredit() {
       <form class="flex flex-col gap-3" @submit.prevent="submitReject">
         <label class="flex flex-col gap-1 text-sm">
           {{ t('mod.rejectReason') }} *
-          <textarea v-model="reason" :maxlength="LIMITS.rejectReasonMax" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
+          <textarea v-model="reason" :maxlength="LIMITS.rejectReasonMax" rows="3" class="field" />
         </label>
         <div class="flex justify-end gap-2">
           <Btn variant="ghost" @click="rejectOpen = false">{{ t('common.cancel') }}</Btn>

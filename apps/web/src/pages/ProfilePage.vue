@@ -88,7 +88,7 @@ function onFollow(s: { following: boolean; followerCount: number }) {
     <Btn variant="ghost" @click="load()">{{ t('common.retry') }}</Btn>
   </div>
   <div v-else-if="user" class="flex flex-col gap-4">
-    <div class="h-32 w-full overflow-hidden rounded bg-[var(--c-border)] sm:h-48">
+    <div class="h-32 w-full overflow-hidden rounded-2xl bg-[var(--c-soft)] sm:h-48">
       <img v-if="user.bannerUrl" :src="user.bannerUrl" alt="" class="h-full w-full object-cover" data-test="banner" />
     </div>
     <div class="-mt-12 flex flex-wrap items-end gap-3 px-2 sm:-mt-16">
@@ -107,7 +107,7 @@ function onFollow(s: { following: boolean; followerCount: number }) {
         >{{ (user.displayName || user.username).charAt(0).toUpperCase() }}</span
       >
       <div class="min-w-0 flex-1">
-        <h1 class="truncate text-xl font-bold">{{ user.displayName || user.username }}</h1>
+        <h1 class="truncate font-display text-3xl font-semibold tracking-tight">{{ user.displayName || user.username }}</h1>
         <p class="truncate text-sm text-[var(--c-muted)]">@{{ user.username }}</p>
       </div>
       <FollowButton v-if="!isSelf" :username="user.username" :following="user.isFollowing" @change="onFollow" />

@@ -55,7 +55,7 @@ async function submit() {
       </fieldset>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('post.reportDetail') }}
-        <textarea v-model="detail" :maxlength="LIMITS.reportDetailMax" rows="3" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2" />
+        <textarea v-model="detail" :maxlength="LIMITS.reportDetailMax" rows="3" class="field" />
       </label>
       <div class="flex justify-end gap-2">
         <Btn variant="ghost" @click="open = false">{{ t('common.cancel') }}</Btn>

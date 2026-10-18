@@ -17,18 +17,18 @@ function setOwnWork(own: boolean) {
 }
 
 const urlInvalid = computed(() => !!model.value.sourceUrl.trim() && !isHttpUrl(model.value.sourceUrl))
-const input = 'w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5'
+const input = 'w-full field'
 </script>
 
 <template>
   <fieldset class="flex flex-col gap-3 text-sm">
-    <div class="flex flex-wrap gap-4">
-      <label class="flex items-center gap-2">
-        <input data-test="credit-own" type="radio" name="credit-kind" :checked="model.isOwnWork" @change="setOwnWork(true)" />
+    <div class="flex flex-wrap gap-2">
+      <label class="chip">
+        <input data-test="credit-own" type="radio" class="sr-only" name="credit-kind" :checked="model.isOwnWork" @change="setOwnWork(true)" />
         {{ t('upload.credit.ownWork') }}
       </label>
-      <label class="flex items-center gap-2">
-        <input data-test="credit-repost" type="radio" name="credit-kind" :checked="!model.isOwnWork" @change="setOwnWork(false)" />
+      <label class="chip">
+        <input data-test="credit-repost" type="radio" class="sr-only" name="credit-kind" :checked="!model.isOwnWork" @change="setOwnWork(false)" />
         {{ t('upload.credit.repost') }}
       </label>
     </div>
@@ -51,7 +51,7 @@ const input = 'w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] p
       <label class="flex flex-col gap-1">
         {{ t('upload.credit.sourceUrl') }} *
         <input data-test="source-url" type="url" :class="input" :maxlength="LIMITS.creditSourceUrlMax" :value="model.sourceUrl" @input="set('sourceUrl', ($event.target as HTMLInputElement).value)" />
-        <span v-if="urlInvalid" class="text-red-600">{{ t('upload.credit.sourceUrlInvalid') }}</span>
+        <span v-if="urlInvalid" class="text-[var(--c-danger)]">{{ t('upload.credit.sourceUrlInvalid') }}</span>
       </label>
       <label class="flex flex-col gap-1">
         {{ t('upload.credit.permissionNote') }}

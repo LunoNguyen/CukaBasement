@@ -75,9 +75,9 @@ async function save() {
         :data-test="`set-${k}`"
         type="number"
         step="any"
-        class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2"
+        class="field"
       />
-      <span v-if="errors[k]" role="alert" class="text-xs text-red-600">{{ errors[k] }}</span>
+      <span v-if="errors[k]" role="alert" class="text-xs text-[var(--c-danger)]">{{ errors[k] }}</span>
     </label>
     <div><Btn type="submit" :loading="saving">{{ t('admin.settings.save') }}</Btn></div>
   </form>

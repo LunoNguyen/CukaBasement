@@ -60,7 +60,7 @@ async function resolve(g: ReportGroupDto, decision: 'keep' | 'remove') {
       <Btn variant="ghost" :loading="loading" @click="load">{{ t('mod.reload') }}</Btn>
     </div>
     <ul class="flex flex-col gap-3">
-      <li v-for="g in groups" :key="g.post.id" data-test="report-group" class="flex flex-col gap-3 rounded border border-[var(--c-border)] bg-[var(--c-surface)] p-3 sm:flex-row">
+      <li v-for="g in groups" :key="g.post.id" data-test="report-group" class="flex flex-col gap-3 card p-3 sm:flex-row">
         <RouterLink :to="`/posts/${g.post.id}`" class="block aspect-[4/5] w-full shrink-0 overflow-hidden rounded sm:w-32">
           <img v-if="g.post.cover?.thumbSmUrl" :src="g.post.cover.thumbSmUrl" :alt="g.post.title" loading="lazy" class="h-full w-full object-cover" />
           <MediaPlaceholder v-else />
@@ -69,7 +69,7 @@ async function resolve(g: ReportGroupDto, decision: 'keep' | 'remove') {
           <RouterLink :to="`/posts/${g.post.id}`" class="truncate font-semibold">{{ g.post.title }}</RouterLink>
           <div class="flex flex-wrap gap-2">
             <span class="text-xs text-[var(--c-muted)]">{{ t('mod.totalReports', { n: g.total }) }}</span>
-            <span v-for="r in reasonCounts(g)" :key="r.reason" data-test="reason-count" class="rounded bg-[var(--c-border)] px-1.5 text-xs">{{ t(`post.reasons.${r.reason}`) }}: {{ r.n }}</span>
+            <span v-for="r in reasonCounts(g)" :key="r.reason" data-test="reason-count" class="badge">{{ t(`post.reasons.${r.reason}`) }}: {{ r.n }}</span>
           </div>
           <ul class="flex flex-col gap-1 text-xs">
             <li v-for="(l, i) in g.latest.slice(0, 5)" :key="i" data-test="report-latest">

@@ -18,7 +18,7 @@ function onFollow(s: { following: boolean; followerCount: number }) {
 </script>
 
 <template>
-  <div data-test="user-card" class="flex items-center gap-3 rounded border border-[var(--c-border)] bg-[var(--c-surface)] p-3">
+  <div data-test="user-card" class="flex items-center gap-3 card p-3">
     <RouterLink :to="`/u/${user.username}`" class="flex min-w-0 flex-1 items-center gap-3">
       <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" class="h-12 w-12 shrink-0 rounded-full object-cover" />
       <span v-else class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--c-border)] font-bold" aria-hidden="true">{{

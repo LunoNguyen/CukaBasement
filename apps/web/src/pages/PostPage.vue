@@ -312,59 +312,96 @@ async function confirmDelete() {
       <MediaViewer :post="post" />
 
       <div class="flex min-w-0 flex-col gap-4">
-        <div class="flex flex-col gap-1">
-          <p v-if="reviewBadge" data-test="review-badge" class="self-start rounded bg-[var(--c-accent)] px-2 py-0.5 text-xs font-semibold text-white">
-            {{ reviewBadge }}
-          </p>
-          <p v-if="hiddenBadge" data-test="visibility-badge" class="self-start rounded bg-[var(--c-muted)] px-2 py-0.5 text-xs font-semibold text-white">
-            {{ t('post.hiddenBadge') }}
-          </p>
-          <h1 class="text-xl font-bold break-words">{{ post.title }}</h1>
-          <div data-test="credit" class="flex flex-col gap-0.5 text-sm text-[var(--c-muted)]">
-            <CreditLine :credit="post.credit" :author="post.author" />
-            <p v-if="post.credit.permissionNote">{{ t('post.permissionNote', { note: post.credit.permissionNote }) }}</p>
-            <a
-              v-if="!post.credit.isOwnWork && post.credit.sourceUrl"
-              data-test="source-link"
-              :href="post.credit.sourceUrl"
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-              class="self-start underline"
-              >{{ t('post.viewSource') }}</a
-            >
+        <div class="flex flex-col gap-3">
+          <div v-if="reviewBadge || hiddenBadge" class="flex flex-wrap gap-2">
+            <p v-if="reviewBadge" data-test="review-badge" class="badge badge-accent">
+              {{ reviewBadge }}
+            </p>
+            <p v-if="hiddenBadge" data-test="visibility-badge" class="badge">
+              {{ t('post.hiddenBadge') }}
+            </p>
+          </div>
+          <h1 class="font-display text-3xl leading-tight font-semibold tracking-tight break-words">{{ post.title }}</h1>
+          <!-- The credit "tag" from the brand board: who made it, where it came from. -->
+          <div data-test="credit" class="card flex flex-col gap-2 bg-[var(--c-soft)] p-4 text-sm">
+            <span class="eyebrow">{{ t('post.creditLabel') }}</span>
+            <span class="font-semibold"><CreditLine :credit="post.credit" :author="post.author" /></span>
+            <p v-if="post.credit.permissionNote" class="text-[var(--c-muted)]">{{ t('post.permissionNote', { note: post.credit.permissionNote }) }}</p>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span class="badge bg-[var(--c-surface)]">{{ post.credit.isOwnWork ? t('post.originalWork') : t('post.creditedRepost') }}</span>
+              <a
+                v-if="!post.credit.isOwnWork && post.credit.sourceUrl"
+                data-test="source-link"
+                :href="post.credit.sourceUrl"
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                class="inline-flex items-center gap-1 text-xs font-semibold text-[var(--c-primary)] underline-offset-2 hover:underline"
+                >{{ t('post.viewSource')
+                }}<svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg
+              ></a>
+            </div>
           </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
           <Btn data-test="like" variant="ghost" :aria-pressed="post.viewerState.liked" :aria-label="`${t('post.like')} (${post.counts.likes})`" @click="toggleLike">
-            <span :class="{ 'text-[var(--c-accent)]': post.viewerState.liked }">♥</span> {{ post.counts.likes }}
+            <svg
+              viewBox="0 0 24 24"
+              class="h-4 w-4"
+              :class="{ 'text-[var(--c-accent)]': post.viewerState.liked }"
+              :fill="post.viewerState.liked ? 'currentColor' : 'none'"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
+            </svg>
+            {{ post.counts.likes }}
           </Btn>
-          <div ref="bookmarkWrap" class="relative flex">
+          <div ref="bookmarkWrap" class="relative flex items-center">
             <Btn data-test="bookmark" variant="ghost" :aria-pressed="post.viewerState.bookmarked" :aria-label="`${t('post.bookmark')} (${post.counts.bookmarks})`" @click="toggleBookmark()">
-              <span :class="{ 'text-[var(--c-accent)]': post.viewerState.bookmarked }">★</span> {{ post.counts.bookmarks }}
+              <svg
+                viewBox="0 0 24 24"
+                class="h-4 w-4"
+                :class="{ 'text-[var(--c-accent)]': post.viewerState.bookmarked }"
+                :fill="post.viewerState.bookmarked ? 'currentColor' : 'none'"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M7 4h10v16l-5-3.5L7 20z" />
+              </svg>
+              {{ post.counts.bookmarks }}
             </Btn>
             <button
               v-if="!post.viewerState.bookmarked"
               type="button"
               data-test="bookmark-menu"
-              class="px-1 text-sm"
+              class="icon-btn h-10 w-8"
               :aria-label="t('post.bookmarkMenu')"
               aria-haspopup="menu"
               :aria-expanded="bookmarkMenu"
               @click="bookmarkMenu = !bookmarkMenu"
             >
-              ▾
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
             </button>
-            <div v-if="bookmarkMenu" role="menu" class="absolute top-full left-0 z-10 mt-1 rounded border border-[var(--c-border)] bg-[var(--c-surface)] shadow">
-              <button type="button" role="menuitem" data-test="bookmark-private" class="px-3 py-2 text-sm whitespace-nowrap" @click="toggleBookmark(true)">
+            <div v-if="bookmarkMenu" role="menu" class="menu absolute top-full left-0 z-10 mt-1">
+              <button type="button" role="menuitem" data-test="bookmark-private" class="menu-item" @click="toggleBookmark(true)">
                 {{ t('post.bookmarkPrivate') }}
               </button>
             </div>
           </div>
-          <Btn data-test="share" variant="ghost" @click="share">{{ t('post.share') }}</Btn>
+          <Btn data-test="share" variant="ghost" @click="share">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12M8 7l4-4 4 4M5 13v6h14v-6" />
+            </svg>
+            {{ t('post.share') }}
+          </Btn>
           <Btn v-if="!isOwner" data-test="report" variant="ghost" @click="openReport">{{ t('post.report') }}</Btn>
           <template v-if="isOwner">
-            <RouterLink data-test="edit-post" :to="`/posts/${post.id}/edit`" class="rounded border border-[var(--c-border)] px-3 py-1.5 text-sm font-semibold">{{
+            <RouterLink data-test="edit-post" :to="`/posts/${post.id}/edit`" class="inline-flex min-h-10 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-surface)] px-4 text-sm font-semibold hover:border-[var(--c-latte)]">{{
               t('post.edit')
             }}</RouterLink>
             <Btn data-test="delete-post" variant="danger" @click="deleteOpen = true">{{ t('post.delete') }}</Btn>
@@ -375,9 +412,9 @@ async function confirmDelete() {
           </template>
         </div>
 
-        <p v-if="post.description" class="text-sm break-words whitespace-pre-line">{{ post.description }}</p>
+        <p v-if="post.description" class="text-sm leading-relaxed break-words whitespace-pre-line">{{ post.description }}</p>
         <div v-if="post.tags.length" class="flex flex-wrap gap-2">
-          <RouterLink v-for="tag in post.tags" :key="tag" :to="`/tags/${encodeURIComponent(tag)}`" class="text-sm text-[var(--c-accent)]">#{{ tag }}</RouterLink>
+          <RouterLink v-for="tag in post.tags" :key="tag" :to="`/tags/${encodeURIComponent(tag)}`" class="chip"><span class="text-[var(--c-accent)]">#</span>{{ tag }}</RouterLink>
         </div>
 
         <UserCard v-if="author" :user="author" @change="author = $event" />
@@ -387,7 +424,7 @@ async function confirmDelete() {
     </div>
 
     <section v-if="more.length" data-test="more-by-author" class="flex flex-col gap-3">
-      <h2 class="text-lg font-semibold">{{ t('post.moreByAuthor') }}</h2>
+      <h2 class="font-display text-xl font-semibold">{{ t('post.moreByAuthor') }}</h2>
       <PostGrid :items="more" />
     </section>
 
@@ -395,7 +432,7 @@ async function confirmDelete() {
     <Modal v-model:open="loginPrompt" :title="t('post.reportTitle')">
       <div data-test="login-prompt" class="flex flex-col gap-3 text-sm">
         <p>{{ t('post.reportLogin') }}</p>
-        <RouterLink :to="loginNext" class="self-start rounded bg-[var(--c-primary)] px-3 py-1.5 font-semibold text-[var(--c-bg)]">{{ t('auth.login') }}</RouterLink>
+        <RouterLink :to="loginNext" class="self-start inline-flex min-h-10 items-center rounded-full bg-[var(--c-primary)] px-4 font-semibold text-[var(--c-bg)]">{{ t('auth.login') }}</RouterLink>
       </div>
     </Modal>
     <Modal v-model:open="deleteOpen" :title="t('post.deleteTitle')">

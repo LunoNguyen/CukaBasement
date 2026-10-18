@@ -29,14 +29,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-3">
+  <div class="flex flex-col gap-4">
     <div v-if="tags.length" class="flex flex-wrap gap-2">
       <RouterLink
         v-for="tag in tags"
         :key="tag.name"
         :to="`/tags/${encodeURIComponent(tag.name)}`"
         data-test="featured-tag"
-        class="rounded-full border border-[var(--c-border)] px-3 py-1 text-sm"
+        class="chip"
         >{{ tag.display }}</RouterLink
       >
     </div>

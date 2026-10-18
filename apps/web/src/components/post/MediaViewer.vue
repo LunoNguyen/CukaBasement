@@ -118,10 +118,10 @@ function onPlaying(m: PostMediaDto) {
         <RouterLink
           v-if="!auth.isLoggedIn"
           :to="{ path: '/login', query: { next: route.fullPath } }"
-          class="rounded bg-[var(--c-accent)] px-3 py-1.5 text-sm font-semibold"
+          class="inline-flex min-h-10 items-center rounded-full bg-[var(--c-accent)] px-4 text-sm font-semibold text-[#17110e]"
           >{{ t('post.r18Login') }}</RouterLink
         >
-        <RouterLink v-else to="/settings" class="rounded bg-[var(--c-accent)] px-3 py-1.5 text-sm font-semibold">{{ t('post.r18Settings') }}</RouterLink>
+        <RouterLink v-else to="/settings" class="inline-flex min-h-10 items-center rounded-full bg-[var(--c-accent)] px-4 text-sm font-semibold text-[#17110e]">{{ t('post.r18Settings') }}</RouterLink>
       </div>
     </div>
 
@@ -160,7 +160,7 @@ function onPlaying(m: PostMediaDto) {
             :key="m.fileId"
             type="button"
             data-test="gallery-thumb"
-            class="h-16 w-16 shrink-0 overflow-hidden rounded border-2"
+            class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2"
             :class="i === selected ? 'border-[var(--c-accent)]' : 'border-transparent'"
             :aria-label="t('post.pageAlt', { title: post.title, n: i + 1 })"
             @click="selected = i"
@@ -206,7 +206,7 @@ function onPlaying(m: PostMediaDto) {
           :key="m.fileId"
           type="button"
           data-test="download"
-          class="rounded border border-[var(--c-border)] px-3 py-1.5 text-sm"
+          class="inline-flex min-h-10 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-surface)] px-4 text-sm hover:border-[var(--c-latte)]"
           @click="openFile(m)"
         >
           ⬇ {{ t('post.download') }}

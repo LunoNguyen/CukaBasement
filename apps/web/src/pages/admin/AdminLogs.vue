@@ -21,13 +21,13 @@ watch(action, () => {
   <div>
     <label class="mb-3 flex items-center gap-2 text-sm">
       {{ t('admin.logs.action') }}
-      <select v-model="action" data-test="log-action" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-1.5">
+      <select v-model="action" data-test="log-action" class="field">
         <option value="">{{ t('admin.logs.allActions') }}</option>
         <option v-for="a in MOD_ACTIONS" :key="a" :value="a">{{ t(`admin.actions.${a}`) }}</option>
       </select>
     </label>
     <ul class="flex flex-col gap-2">
-      <li v-for="l in list.items.value" :key="l.id" data-test="log-row" class="rounded border border-[var(--c-border)] bg-[var(--c-surface)] p-3 text-sm">
+      <li v-for="l in list.items.value" :key="l.id" data-test="log-row" class="card p-3 text-sm">
         <p class="break-words">
           <span class="font-semibold">{{ l.actor === 'system' ? t('admin.logs.system') : '@' + l.actor.username }}</span>
           · {{ t(`admin.actions.${l.action}`) }} ·

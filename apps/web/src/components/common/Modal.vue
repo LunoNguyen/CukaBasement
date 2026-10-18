@@ -67,7 +67,7 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-3"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-[#17110e]/60 p-3 backdrop-blur-sm"
       @click.self="open = false"
     >
       <div
@@ -76,12 +76,12 @@ onBeforeUnmount(() => {
         aria-modal="true"
         tabindex="-1"
         :aria-labelledby="titleId"
-        class="w-full rounded bg-[var(--c-surface)] p-4 text-[var(--c-text)] shadow-lg"
+        class="max-h-[calc(100vh-1.5rem)] w-full overflow-y-auto rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] p-5 text-[var(--c-text)] shadow-2xl"
         :class="wide ? 'max-w-2xl' : 'max-w-md'"
       >
-        <div class="mb-3 flex items-center justify-between">
-          <h2 :id="titleId" class="text-lg font-semibold">{{ title }}</h2>
-          <button type="button" :aria-label="t('common.close')" @click="open = false">✕</button>
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h2 :id="titleId" class="font-display text-xl font-semibold">{{ title }}</h2>
+          <button type="button" class="icon-btn -mr-2" :aria-label="t('common.close')" @click="open = false"><svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
         </div>
         <slot />
       </div>

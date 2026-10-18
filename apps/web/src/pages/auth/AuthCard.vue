@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import BrandMark from '@/components/layout/BrandMark.vue'
+
 defineProps<{ title: string }>()
 </script>
 
 <template>
-  <section class="mx-auto mt-6 w-full max-w-sm rounded border border-[var(--c-border)] bg-[var(--c-surface)] p-4">
-    <h1 class="mb-4 text-xl font-bold text-[var(--c-primary)]">{{ title }}</h1>
+  <section class="card mx-auto mt-8 w-full max-w-sm p-6 shadow-[0_12px_40px_rgb(23_17_14/0.08)] sm:p-8">
+    <BrandMark class="mb-5 size-11" />
+    <h1 class="mb-6 font-display text-3xl font-semibold tracking-tight text-[var(--c-primary)]">{{ title }}</h1>
     <slot />
   </section>
 </template>

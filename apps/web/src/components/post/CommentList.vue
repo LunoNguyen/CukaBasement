@@ -114,7 +114,7 @@ async function confirmPending() {
 
 <template>
   <section class="flex flex-col gap-3">
-    <h2 class="text-lg font-semibold">{{ t('comments.title') }}</h2>
+    <h2 class="font-display text-xl font-semibold">{{ t('comments.title') }}</h2>
 
     <form v-if="canWrite" data-test="comment-form" class="flex flex-col gap-2" @submit.prevent="submitTop">
       <textarea
@@ -123,7 +123,7 @@ async function confirmPending() {
         rows="3"
         :placeholder="t('comments.placeholder')"
         :aria-label="t('comments.placeholder')"
-        class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2 text-sm"
+        class="field text-sm"
       />
       <div class="flex justify-end"><Btn type="submit" :loading="busy" :disabled="busy || !body.trim()">{{ t('comments.submit') }}</Btn></div>
     </form>
@@ -154,7 +154,7 @@ async function confirmPending() {
             rows="2"
             :placeholder="t('comments.placeholder')"
             :aria-label="t('comments.placeholder')"
-            class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] p-2 text-sm"
+            class="field text-sm"
           />
           <div class="flex justify-end gap-2">
             <Btn variant="ghost" @click="replyTo = null">{{ t('common.cancel') }}</Btn>

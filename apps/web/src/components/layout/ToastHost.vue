@@ -11,7 +11,7 @@ const color = { error: 'var(--c-accent)', success: '#2f9e6b', info: 'var(--c-pri
       v-for="t in toast.toasts"
       :key="t.id"
       role="status"
-      class="cursor-pointer rounded border-l-4 bg-[var(--c-surface)] px-3 py-2 text-sm shadow"
+      class="cursor-pointer rounded-xl border border-l-4 border-[var(--c-border)] bg-[var(--c-surface)] px-4 py-3 text-sm shadow-lg"
       :style="{ borderLeftColor: color[t.kind] }"
       @click="toast.dismiss(t.id)"
     >

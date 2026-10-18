@@ -146,7 +146,7 @@ function cancel() {
 }
 
 const title = computed(() => t(props.shape === 'avatar' ? 'cropper.titleAvatar' : 'cropper.titleBanner'))
-const control = 'rounded border border-[var(--c-border)] px-2 py-1 text-sm hover:bg-[var(--c-border)]'
+const control = 'inline-flex min-h-9 items-center rounded-full border border-[var(--c-border)] px-3 text-sm hover:bg-[var(--c-soft)]'
 </script>
 
 <template>
@@ -157,7 +157,7 @@ const control = 'rounded border border-[var(--c-border)] px-2 py-1 text-sm hover
         tabindex="0"
         role="group"
         :aria-label="t('cropper.stage')"
-        class="h-[min(60vh,24rem)] w-full overflow-hidden rounded bg-[var(--c-border)] focus:outline-2 focus:outline-[var(--c-primary)]"
+        class="h-[min(60vh,24rem)] w-full overflow-hidden rounded-xl bg-[var(--c-soft)] focus:outline-2 focus:outline-[var(--c-primary)]"
         :class="{ 'crop-round': shape === 'avatar' }"
         @keydown="onStageKey"
       >
@@ -180,8 +180,8 @@ const control = 'rounded border border-[var(--c-border)] px-2 py-1 text-sm hover
           {{ t('cropper.reset') }}
         </button>
       </div>
-      <p v-if="unreadable" role="alert" data-test="cropper-unreadable" class="text-sm text-red-600">{{ t('cropper.unreadable') }}</p>
-      <p v-else-if="failed" role="alert" class="text-sm text-red-600">{{ t('cropper.failed') }}</p>
+      <p v-if="unreadable" role="alert" data-test="cropper-unreadable" class="text-sm text-[var(--c-danger)]">{{ t('cropper.unreadable') }}</p>
+      <p v-else-if="failed" role="alert" class="text-sm text-[var(--c-danger)]">{{ t('cropper.failed') }}</p>
       <div class="flex justify-end gap-2">
         <Btn variant="ghost" data-test="cropper-cancel" @click="cancel">{{ t('cropper.cancel') }}</Btn>
         <Btn data-test="cropper-confirm" :loading="exporting" @click="confirm">{{ t('cropper.confirm') }}</Btn>

@@ -32,7 +32,7 @@ const toggleType = (x: PostType) => go({ q: q.value, type: type.value === x ? un
 </script>
 
 <template>
-  <div class="flex flex-col gap-3">
+  <div class="flex flex-col gap-4">
     <form class="flex gap-2" @submit.prevent="submit">
       <input
         v-model="input"
@@ -40,7 +40,7 @@ const toggleType = (x: PostType) => go({ q: q.value, type: type.value === x ? un
         :placeholder="t('search.placeholder')"
         :aria-label="t('nav.search')"
         maxlength="100"
-        class="min-w-0 flex-1 rounded border border-[var(--c-border)] bg-[var(--c-surface)] px-3 py-1.5"
+        class="field min-w-0 flex-1 rounded-full px-4"
       />
       <Btn type="submit">{{ t('nav.search') }}</Btn>
     </form>
@@ -51,8 +51,7 @@ const toggleType = (x: PostType) => go({ q: q.value, type: type.value === x ? un
         type="button"
         :data-test="`type-${x}`"
         :aria-pressed="type === x"
-        class="rounded-full border px-3 py-1 text-sm"
-        :class="type === x ? 'border-[var(--c-accent)] font-semibold' : 'border-[var(--c-border)]'"
+        class="chip"
         @click="toggleType(x)"
       >
         {{ t(`post.type.${x}`) }}

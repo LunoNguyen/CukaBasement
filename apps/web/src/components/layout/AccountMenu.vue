@@ -41,7 +41,7 @@ async function logout() {
   await router.push('/')
 }
 
-const item = 'block w-full px-3 py-1.5 text-left text-sm hover:bg-[var(--c-border)]'
+const item = 'menu-item'
 </script>
 
 <template>
@@ -50,7 +50,7 @@ const item = 'block w-full px-3 py-1.5 text-left text-sm hover:bg-[var(--c-borde
       type="button"
       ref="button"
       data-test="account-menu-button"
-      class="flex items-center gap-2 rounded px-2 py-1 text-sm font-semibold"
+      class="flex min-h-9 items-center gap-2 rounded-full py-1 pr-3 pl-1 text-sm font-semibold hover:bg-[var(--c-soft)]"
       :aria-expanded="open"
       :aria-label="t('account.menu')"
       @click="open = !open"
@@ -60,13 +60,13 @@ const item = 'block w-full px-3 py-1.5 text-left text-sm hover:bg-[var(--c-borde
         :src="auth.user.avatarUrl"
         alt=""
         data-test="account-avatar"
-        class="h-6 w-6 shrink-0 rounded-full bg-[var(--c-border)] object-cover"
+        class="h-7 w-7 shrink-0 rounded-full bg-[var(--c-border)] object-cover"
         @error="brokenAvatar = auth.user.avatarUrl"
       />
       <span
         v-else
         data-test="account-initial"
-        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--c-primary)] text-xs text-[var(--c-bg)]"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--c-primary)] text-xs text-[var(--c-bg)]"
         aria-hidden="true"
       >
         {{ auth.user.profile.displayName.charAt(0).toUpperCase() }}
@@ -76,7 +76,7 @@ const item = 'block w-full px-3 py-1.5 text-left text-sm hover:bg-[var(--c-borde
     <ul
       v-if="open"
       data-test="account-menu"
-      class="absolute right-0 z-40 mt-1 min-w-40 rounded border border-[var(--c-border)] bg-[var(--c-surface)] py-1 shadow"
+      class="menu absolute right-0 z-40 mt-2 min-w-48"
     >
       <li><RouterLink :to="'/u/' + auth.user.profile.username" :class="item" @click="open = false">{{ t('account.profile') }}</RouterLink></li>
       <li><RouterLink to="/settings" :class="item" @click="open = false">{{ t('account.settings') }}</RouterLink></li>

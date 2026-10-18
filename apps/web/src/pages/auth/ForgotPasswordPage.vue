@@ -30,7 +30,7 @@ async function submit() {
     <form v-else class="flex flex-col gap-3" @submit.prevent="submit">
       <label class="flex flex-col gap-1 text-sm">
         {{ t('auth.email') }}
-        <input v-model="email" type="email" required autocomplete="email" class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5" />
+        <input v-model="email" type="email" required autocomplete="email" class="field" />
       </label>
       <Btn type="submit" :loading="busy">{{ t('auth.forgotSend') }}</Btn>
     </form>

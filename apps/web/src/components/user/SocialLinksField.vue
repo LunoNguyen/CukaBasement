@@ -25,8 +25,8 @@ function move(i: number, by: -1 | 1) {
   rows.value = next
 }
 
-const field = 'rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5'
-const iconBtn = 'rounded border border-[var(--c-border)] px-2 py-1.5 disabled:opacity-40'
+const field = 'field'
+const iconBtn = 'inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--c-border)] disabled:opacity-40'
 </script>
 
 <template>
@@ -65,14 +65,14 @@ const iconBtn = 'rounded border border-[var(--c-border)] px-2 py-1.5 disabled:op
           <button type="button" data-test="link-remove" :class="iconBtn" :aria-label="t('settings.removeLink')" @click="remove(i)">✕</button>
         </div>
       </div>
-      <span v-if="errors[i]?.label" role="alert" class="text-xs text-red-600">{{ t(errors[i]!.label!, { n: LIMITS.socialLinkLabelMax }) }}</span>
-      <span v-if="errors[i]?.url" role="alert" class="text-xs text-red-600">{{ t(errors[i]!.url!, { n: LIMITS.socialLinkUrlMax }) }}</span>
+      <span v-if="errors[i]?.label" role="alert" class="text-xs text-[var(--c-danger)]">{{ t(errors[i]!.label!, { n: LIMITS.socialLinkLabelMax }) }}</span>
+      <span v-if="errors[i]?.url" role="alert" class="text-xs text-[var(--c-danger)]">{{ t(errors[i]!.url!, { n: LIMITS.socialLinkUrlMax }) }}</span>
     </div>
     <div class="flex items-center gap-3">
       <button
         type="button"
         data-test="add-link"
-        class="self-start rounded border border-[var(--c-border)] px-3 py-1.5 font-semibold disabled:opacity-60"
+        class="self-start inline-flex min-h-10 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-surface)] px-4 font-semibold hover:border-[var(--c-latte)] disabled:opacity-60"
         :disabled="full"
         @click="add"
       >

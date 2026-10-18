@@ -5,7 +5,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="py-10 text-center text-[var(--c-muted)]">
+  <div class="py-12 text-center text-sm text-[var(--c-muted)]">
     <slot>{{ t('common.empty') }}</slot>
   </div>
 </template>

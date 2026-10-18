@@ -29,7 +29,7 @@ async function submit(body: CreatePostBody) {
 
 <template>
   <div class="mx-auto max-w-2xl">
-    <h1 class="mb-4 text-xl font-bold">{{ t('upload.title') }}</h1>
+    <h1 class="mb-5 font-display text-3xl font-semibold tracking-tight">{{ t('upload.title') }}</h1>
     <PostForm :busy="busy" :submit-label="t('upload.submit')" @submit="submit" />
   </div>
 </template>
