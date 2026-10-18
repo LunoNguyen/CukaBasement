@@ -2,7 +2,7 @@
 
 ## Cài đặt
 
-**Yêu cầu:** Node.js (theo `engines` trong `package.json`), MongoDB đang chạy với database `CukaDB`, MinIO đang chạy local, và ffmpeg có trong `PATH`.
+**Yêu cầu:** Node.js (theo `engines` trong `package.json`), MongoDB đang chạy với database `CukaDB`, MinIO đang chạy local, và ffmpeg có trong `PATH`. Redis là tuỳ chọn (xem [Redis](#redis-cache-không-bắt-buộc)).
 
 **CORS cho MinIO:** cho phép origin của `APP_URL` (mặc định `http://localhost:5173`) thực hiện POST, để trình duyệt upload trực tiếp lên MinIO.
 
@@ -19,6 +19,23 @@ API, worker và các script `setup` / `create-admin` đều đọc file `.env` �
 **Lưu ý khi dev worker:** worker chạy code job từ bản build của `apps/api` (`apps/api/dist`). `npm run dev` của api build lại `dist` khi bạn sửa `apps/api/src`, nhưng worker không tự khởi động lại — sau khi sửa job handler (`apps/api/src/jobs/...`) hay code mà worker dùng, hãy khởi động lại worker (dừng `npm run dev` rồi chạy lại, hoặc chạy riêng `npm -w @cuka/worker run dev`).
 
 Các lệnh khác: `npm run build`, `npm test`, `npm run type-check`.
+
+**Liên kết hồ sơ:** hồ sơ giờ lưu danh sách liên kết có thứ tự (tối đa 10). Hồ sơ cũ (các ô X/Facebook/YouTube/pixiv cố định) vẫn hiển thị bình thường; `npm run setup` chuyển chúng sang danh sách mới (chạy lại an toàn), hoặc chúng được chuyển khi người dùng lưu liên kết lần đầu.
+
+## Redis (cache, không bắt buộc)
+
+API cache trang chủ, kết quả tìm kiếm và trang tag (chỉ phần công khai, khoảng 45 giây) trong Redis. Redis tắt hoặc không kết nối được thì API vẫn chạy và đọc thẳng MongoDB (log cảnh báo tối đa mỗi phút một lần). Duyệt/ẩn/xoá bài, đổi rating, báo cáo tự ẩn, khoá tài khoản... làm mới cache ngay.
+
+Trong `.env`:
+
+```sh
+REDIS_URL=redis://localhost:6379          # mặc định; có mật khẩu: redis://:<mật khẩu>@<host>:6379/0
+# REDIS_DISABLED=true                     # tắt hẳn cache
+```
+
+**Windows:** không cần cài Memurai, Redis trên WSL hay Docker — nếu bạn đã có Redis chạy và mở cổng (vd. `192.168.1.10:6379`), chỉ cần đặt `REDIS_URL=redis://192.168.1.10:6379` (thêm mật khẩu nếu Redis có đặt). Worker dùng cùng `REDIS_URL` để làm mới cache khi xử lý ảnh xong.
+
+Test (`npm test`) không cần Redis. Riêng `apps/api/test/feed-cache.e2e.test.ts` chạy thêm các test với Redis thật nếu có Redis ở `REDIS_URL_TEST` (mặc định `redis://127.0.0.1:6379/15` — **database 15 bị xoá sạch** khi test), không có thì bỏ qua.
 
 ## Frontend (apps/web)
 
