@@ -107,7 +107,7 @@ export function makeMe(overrides: Partial<MeDto> = {}): MeDto {
       bio: '',
       avatarFileId: null,
       bannerFileId: null,
-      socialLinks: { x: '', facebook: '', youtube: '', pixiv: '' },
+      links: [],
     },
     ...overrides,
   }

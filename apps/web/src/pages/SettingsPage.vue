@@ -5,13 +5,14 @@ import { useRouter } from 'vue-router'
 import { LIMITS } from '@cuka/shared'
 import { ApiError } from '@/api/client'
 import { changePassword, getMe, updateProfile, updateSettings, type UpdateProfileInput, type UpdateSettingsInput } from '@/api/endpoints/me'
-import type { SocialLinks } from '@/api/types'
 import type { Locale } from '@/i18n'
 import { useChangeLocale } from '@/composables/useChangeLocale'
 import { useAuth } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
 import Btn from '@/components/common/Btn.vue'
 import ImageField from '@/components/user/ImageField.vue'
+import SocialLinksField from '@/components/user/SocialLinksField.vue'
+import { rowErrors, toLinks, toRows } from '@/components/user/socialLinks'
 import { useErrorText } from '@/composables/useErrorText'
 
 const { t, locale } = useI18n()
@@ -21,13 +22,6 @@ const router = useRouter()
 const errorText = useErrorText()
 
 const me = auth.user!
-
-const LINKS = [
-  { key: 'x', label: 'X' },
-  { key: 'facebook', label: 'Facebook' },
-  { key: 'youtube', label: 'YouTube' },
-  { key: 'pixiv', label: 'pixiv' },
-] as const
 
 /** Signals `run` that the failure was already reported. */
 class Relogin extends Error {}
@@ -54,19 +48,12 @@ async function run(section: Section, fn: () => Promise<void>, overrides: Partial
 // --- profile
 const displayName = ref(me.profile.displayName)
 const bio = ref(me.profile.bio)
-const links = ref<SocialLinks>({ ...me.profile.socialLinks })
-
-function validLink(v: string): boolean {
-  if (v === '') return true
-  try {
-    return ['http:', 'https:'].includes(new URL(v).protocol)
-  } catch {
-    return false
-  }
-}
-const linkErrors = computed(() => Object.fromEntries(LINKS.map((l) => [l.key, !validLink(links.value[l.key].trim())])))
+const links = ref(toRows(me.profile.links))
 const profileValid = computed(
-  () => displayName.value.trim().length > 0 && bio.value.length <= LIMITS.bioMax && !Object.values(linkErrors.value).some(Boolean),
+  () =>
+    displayName.value.trim().length > 0 &&
+    bio.value.length <= LIMITS.bioMax &&
+    links.value.every((r) => Object.keys(rowErrors(r)).length === 0),
 )
 
 function saveProfile() {
@@ -74,9 +61,14 @@ function saveProfile() {
   const body: UpdateProfileInput = {
     displayName: displayName.value.trim(),
     bio: bio.value,
-    socialLinks: Object.fromEntries(LINKS.map((l) => [l.key, links.value[l.key].trim()])),
+    links: toLinks(links.value),
   }
-  return run('profile', async () => auth.setUser(await updateProfile(body)))
+  return run('profile', async () => {
+    const u = await updateProfile(body)
+    auth.setUser(u)
+    // Blank rows are gone and values trimmed: show the list as saved.
+    links.value = toRows(u.profile.links)
+  })
 }
 
 // --- avatar/banner: the public URL appears only once the worker has published the new image, so /me is polled
@@ -202,11 +194,7 @@ const section = 'flex flex-col gap-3 rounded border border-[var(--c-border)] bg-
         <textarea v-model="bio" data-test="bio" rows="4" :maxlength="LIMITS.bioMax" :class="field" />
         <span data-test="bio-count" class="self-end text-xs text-[var(--c-muted)]">{{ bio.length }}/{{ LIMITS.bioMax }}</span>
       </label>
-      <label v-for="l in LINKS" :key="l.key" class="flex flex-col gap-1 text-sm">
-        {{ l.label }}
-        <input v-model="links[l.key]" :data-test="'link-' + l.key" type="text" inputmode="url" placeholder="https://" :class="field" :aria-invalid="linkErrors[l.key]" />
-        <span v-if="linkErrors[l.key]" role="alert" class="text-xs text-red-600">{{ t('settings.linkInvalid') }}</span>
-      </label>
+      <SocialLinksField v-model="links" />
       <Btn type="submit" data-test="save-profile" :loading="busy.profile" :disabled="!profileValid">{{ t('settings.save') }}</Btn>
     </form>
 

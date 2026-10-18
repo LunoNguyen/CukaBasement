@@ -72,7 +72,7 @@ export async function assertApiUsesDb(request: APIRequestContext): Promise<() =>
       birthDate: null,
       showR18: false,
       locale: 'vi',
-      profile: { username: u.username, displayName: u.displayName, bio: '', avatarFileId: null, bannerFileId: null, socialLinks: { x: '', facebook: '', youtube: '', pixiv: '' } },
+      profile: { username: u.username, displayName: u.displayName, bio: '', avatarFileId: null, bannerFileId: null, links: [] },
       stats: { followerCount: 0, followingCount: 0, postCount: 0 },
       createdAt: new Date(),
       lastLoginAt: null,

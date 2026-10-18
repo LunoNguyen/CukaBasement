@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { SOCIAL_PLATFORM_LABELS } from '@cuka/shared'
 import { ApiError } from '@/api/client'
 import { useErrorText } from '@/composables/useErrorText'
 import { getUser, getUserBookmarks, getUserPosts } from '@/api/endpoints/users'
@@ -56,14 +57,21 @@ const tabs = computed(() => [
   { key: 'bookmarks', label: t('profile.bookmarks') },
 ])
 
-const SOCIAL = [
-  { key: 'x', label: 'X' },
-  { key: 'facebook', label: 'Facebook' },
-  { key: 'youtube', label: 'YouTube' },
-  { key: 'pixiv', label: 'pixiv' },
-] as const
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
+  }
+}
+/** In the saved order; `other` (or a platform this build does not know) shows its label with a generic link icon. */
 const socials = computed(() =>
-  SOCIAL.map((s) => ({ ...s, url: user.value?.socialLinks[s.key] ?? '' })).filter((s) => /^https?:\/\//i.test(s.url)),
+  (user.value?.links ?? [])
+    .filter((l) => /^https?:\/\//i.test(l.url))
+    .map((l, i) => {
+      const name = (SOCIAL_PLATFORM_LABELS as Record<string, string | undefined>)[l.platform]
+      return { key: i, url: l.url, label: name || l.label || hostOf(l.url), generic: !name }
+    }),
 )
 
 function onFollow(s: { following: boolean; followerCount: number }) {
@@ -108,7 +116,13 @@ function onFollow(s: { following: boolean; followerCount: number }) {
     <p v-if="user.bio" class="px-2 whitespace-pre-line">{{ user.bio }}</p>
     <ul v-if="socials.length" class="flex flex-wrap gap-3 px-2 text-sm">
       <li v-for="s in socials" :key="s.key">
-        <a :href="s.url" data-test="social-link" target="_blank" rel="noopener noreferrer nofollow" class="text-[var(--c-accent)]">{{ s.label }}</a>
+        <a :href="s.url" data-test="social-link" target="_blank" rel="noopener noreferrer nofollow" class="inline-flex items-center gap-1 text-[var(--c-accent)]">
+          <svg v-if="s.generic" data-test="link-icon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+            <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+          </svg>
+          {{ s.label }}
+        </a>
       </li>
     </ul>
     <dl class="flex gap-6 px-2 text-sm">

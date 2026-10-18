@@ -42,7 +42,13 @@ const base = (extra: Record<string, FakeRoute> = {}): Record<string, FakeRoute> 
       username: 'mai',
       displayName: 'Mai',
       bio: 'Xin chào',
-      socialLinks: { x: 'https://x.com/mai', facebook: '', youtube: '', pixiv: 'https://pixiv.net/u/1' },
+      links: [
+        { platform: 'pixiv', url: 'https://pixiv.net/u/1' },
+        { platform: 'x', url: 'https://x.com/mai' },
+        { platform: 'other', label: 'Cửa hàng', url: 'https://shop.example/mai' },
+        { platform: 'myspace' as never, url: 'https://myspace.example/mai' },
+        { platform: 'kofi', url: 'javascript:alert(1)' },
+      ],
       stats: { followerCount: 12, followingCount: 4, postCount: 9 },
     }),
   ),
@@ -62,10 +68,15 @@ describe('Profile page', () => {
     expect(w.get('[data-test="stat-following"]').text()).toContain('4')
     expect(w.get('[data-test="stat-posts"]').text()).toContain('9')
     expect(w.text()).toContain('Bài của Mai')
+    // In the saved order; other/unknown platforms get a generic icon, non-http(s) links are dropped.
     const links = w.findAll('[data-test="social-link"]')
-    expect(links.map((l) => l.text())).toEqual(['X', 'pixiv'])
-    expect(links[0]!.attributes('href')).toBe('https://x.com/mai')
-    expect(links[0]!.attributes('rel')).toContain('noopener')
+    expect(links.map((l) => l.text())).toEqual(['pixiv', 'X', 'Cửa hàng', 'myspace.example'])
+    expect(links[1]!.attributes('href')).toBe('https://x.com/mai')
+    expect(links.map((l) => l.find('[data-test="link-icon"]').exists())).toEqual([false, false, true, true])
+    for (const l of links) {
+      expect(l.attributes('rel')).toBe('noopener noreferrer nofollow')
+      expect(l.attributes('target')).toBe('_blank')
+    }
     expect(w.find('[data-test="follow"]').exists()).toBe(true)
     // fallback initial letter, no broken img
     expect(w.get('[data-test="avatar"]').text()).toBe('M')

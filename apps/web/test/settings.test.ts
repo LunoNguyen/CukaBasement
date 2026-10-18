@@ -83,15 +83,108 @@ describe('Settings page', () => {
     const w = await mountSettings()
     await w.get('[data-test="bio"]').setValue('hello')
     expect(w.get('[data-test="bio-count"]').text()).toContain('5/500')
-    await w.get('[data-test="link-x"]').setValue('javascript:alert(1)')
+    await w.get('[data-test="add-link"]').trigger('click')
+    await w.get('[data-test="link-url"]').setValue('javascript:alert(1)')
+    expect(w.text()).toContain('Liên kết phải bắt đầu bằng http:// hoặc https://')
     expect((w.get('[data-test="save-profile"]').element as HTMLButtonElement).disabled).toBe(true)
-    await w.get('[data-test="link-x"]').setValue('https://x.com/cuka')
+    await w.get('[data-test="link-url"]').setValue(' https://x.com/cuka ')
     await w.get('[data-test="save-profile"]').trigger('click')
     await flushPromises()
     expect(fake.callsTo('PATCH /api/me')[0]!.body).toEqual({
       displayName: 'Cuka',
       bio: 'hello',
-      socialLinks: { x: 'https://x.com/cuka', facebook: '', youtube: '', pixiv: '' },
+      links: [{ platform: 'x', url: 'https://x.com/cuka' }],
+    })
+  })
+
+  describe('links', () => {
+    const rows = (w: VueWrapper) =>
+      w.findAll('[data-test="link-row"]').map((r) => ({
+        platform: (r.get('[data-test="link-platform"]').element as HTMLSelectElement).value,
+        url: (r.get('[data-test="link-url"]').element as HTMLInputElement).value,
+      }))
+    const saved = [
+      { platform: 'x' as const, url: 'https://x.com/a' },
+      { platform: 'pixiv' as const, url: 'https://pixiv.net/u/1' },
+      { platform: 'other' as const, label: 'Shop', url: 'https://shop.example' },
+    ]
+    const withLinks = () => makeMe({ profile: { ...makeMe().profile, links: saved } })
+
+    it('shows the saved list in order; up/down reorder, remove drops a row, the save sends the new order', async () => {
+      fake = installFakeFetch({ 'PATCH /api/me': ok(withLinks()) })
+      const w = await mountSettings(withLinks())
+      expect(rows(w).map((r) => r.platform)).toEqual(['x', 'pixiv', 'other'])
+      expect((w.get('[data-test="link-label"]').element as HTMLInputElement).value).toBe('Shop')
+      const up = w.findAll('[data-test="link-up"]')
+      expect((up[0]!.element as HTMLButtonElement).disabled).toBe(true)
+      expect((w.findAll('[data-test="link-down"]')[2]!.element as HTMLButtonElement).disabled).toBe(true)
+      await up[2]!.trigger('click')
+      expect(rows(w).map((r) => r.platform)).toEqual(['x', 'other', 'pixiv'])
+      await w.findAll('[data-test="link-down"]')[0]!.trigger('click')
+      expect(rows(w).map((r) => r.platform)).toEqual(['other', 'x', 'pixiv'])
+      await w.findAll('[data-test="link-remove"]')[2]!.trigger('click')
+      expect(rows(w).map((r) => r.platform)).toEqual(['other', 'x'])
+      await w.get('[data-test="save-profile"]').trigger('click')
+      await flushPromises()
+      expect(fake.callsTo('PATCH /api/me')[0]!.body).toMatchObject({ links: [saved[2], saved[0]] })
+    })
+
+    it('other needs a label; the label input shows only for other', async () => {
+      fake = installFakeFetch({ 'PATCH /api/me': ok(makeMe()) })
+      const w = await mountSettings()
+      await w.get('[data-test="add-link"]').trigger('click')
+      expect(w.find('[data-test="link-label"]').exists()).toBe(false)
+      await w.get('[data-test="link-platform"]').setValue('other')
+      await w.get('[data-test="link-url"]').setValue('https://shop.example')
+      expect(w.text()).toContain('Nhập tên cho liên kết (tối đa 40 ký tự)')
+      expect((w.get('[data-test="save-profile"]').element as HTMLButtonElement).disabled).toBe(true)
+      expect(w.get('[data-test="link-label"]').attributes('maxlength')).toBe('40')
+      await w.get('[data-test="link-label"]').setValue('  Shop ')
+      await w.get('[data-test="save-profile"]').trigger('click')
+      await flushPromises()
+      expect(fake.callsTo('PATCH /api/me')[0]!.body).toMatchObject({ links: [{ platform: 'other', label: 'Shop', url: 'https://shop.example' }] })
+    })
+
+    it('a label typed for other is not sent once the platform changes; blank rows are dropped', async () => {
+      fake = installFakeFetch({ 'PATCH /api/me': ok(makeMe()) })
+      const w = await mountSettings()
+      await w.get('[data-test="add-link"]').trigger('click')
+      await w.get('[data-test="link-platform"]').setValue('other')
+      await w.get('[data-test="link-label"]').setValue('Shop')
+      await w.get('[data-test="link-url"]').setValue('https://bsky.app/a')
+      await w.get('[data-test="link-platform"]').setValue('bluesky')
+      await w.get('[data-test="add-link"]').trigger('click')
+      expect(w.findAll('[role="alert"]')).toHaveLength(0)
+      await w.get('[data-test="save-profile"]').trigger('click')
+      await flushPromises()
+      expect(fake.callsTo('PATCH /api/me')[0]!.body).toMatchObject({ links: [{ platform: 'bluesky', url: 'https://bsky.app/a' }] })
+    })
+
+    it('add is disabled at 10 links', async () => {
+      fake = installFakeFetch({})
+      const nine = Array.from({ length: 9 }, (_, i) => ({ platform: 'x' as const, url: `https://x.com/${i}` }))
+      const w = await mountSettings(makeMe({ profile: { ...makeMe().profile, links: nine } }))
+      const add = w.get('[data-test="add-link"]')
+      expect((add.element as HTMLButtonElement).disabled).toBe(false)
+      expect(add.text()).toBe('+ Thêm liên kết')
+      await add.trigger('click')
+      expect(w.findAll('[data-test="link-row"]')).toHaveLength(10)
+      expect((add.element as HTMLButtonElement).disabled).toBe(true)
+      expect(w.get('[data-test="links-max"]').text()).toBe('Tối đa 10 liên kết')
+      await add.trigger('click')
+      expect(w.findAll('[data-test="link-row"]')).toHaveLength(10)
+    })
+
+    it('lists every platform with its name and English messages', async () => {
+      fake = installFakeFetch({})
+      setLocale('en')
+      const w = await mountSettings()
+      await w.get('[data-test="add-link"]').trigger('click')
+      const options = w.findAll('[data-test="link-platform"] option').map((o) => o.text())
+      expect(options).toEqual(['X', 'Facebook', 'YouTube', 'pixiv', 'TikTok', 'Threads', 'VGen', 'Instagram', 'Bluesky', 'Twitch', 'Ko-fi', 'DeviantArt', 'Other'])
+      await w.get('[data-test="link-url"]').setValue('ftp://a')
+      expect(w.text()).toContain('The link must start with http:// or https://')
+      expect(w.text()).toContain('+ Add link')
     })
   })
 
