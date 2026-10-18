@@ -1,3 +1,4 @@
+import { isAbsolute, resolve } from 'node:path'
 import { z } from 'zod'
 
 export const CONFIG = Symbol('CONFIG')
@@ -26,7 +27,24 @@ const envSchema = z.object({
   THROTTLE_DISABLED: bool.default(false),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
   REDIS_DISABLED: bool.default(false),
+  BACKUP_DIR: z.string().min(1).default('backups'),
+  BACKUP_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(50 * 1024 ** 3),
+  BACKUP_TZ: z
+    .string()
+    .min(1)
+    .default('Asia/Ho_Chi_Minh')
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: tz })
+        return true
+      } catch {
+        return false
+      }
+    }, 'Unknown time zone'),
 })
+
+/** The repository root; this file sits at the same depth in `src/` and `dist/`. */
+export const REPO_ROOT = resolve(__dirname, '../../../..')
 
 export interface Config {
   nodeEnv: 'development' | 'production' | 'test'
@@ -52,6 +70,14 @@ export interface Config {
   throttleDisabled: boolean
   /** Public list cache (see FeedCache); everything works without it. */
   redis: { url: string; disabled: boolean }
+  backup: {
+    /** Absolute; a relative BACKUP_DIR is resolved against the repository root, not the working directory. */
+    dir: string
+    /** Largest archive the admin page accepts as an upload. */
+    maxUploadBytes: number
+    /** IANA time zone the backup schedule's time of day is read in. */
+    tz: string
+  }
 }
 
 /** Derives the ffprobe path from the ffmpeg path by replacing the last `ffmpeg` in the file name. */
@@ -86,5 +112,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     ffprobePath: e.FFPROBE_PATH ?? deriveFfprobe(e.FFMPEG_PATH),
     throttleDisabled: e.THROTTLE_DISABLED,
     redis: { url: e.REDIS_URL, disabled: e.REDIS_DISABLED },
+    backup: {
+      dir: isAbsolute(e.BACKUP_DIR) ? e.BACKUP_DIR : resolve(REPO_ROOT, e.BACKUP_DIR),
+      maxUploadBytes: e.BACKUP_MAX_UPLOAD_BYTES,
+      tz: e.BACKUP_TZ,
+    },
   }
 }

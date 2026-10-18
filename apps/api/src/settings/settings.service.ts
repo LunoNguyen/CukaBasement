@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { getConnectionToken } from '@nestjs/mongoose'
-import { DEFAULT_SETTINGS, type GlobalSettings } from '@cuka/shared'
+import { type BackupSchedule, DEFAULT_SETTINGS, type GlobalSettings } from '@cuka/shared'
 import type { Connection } from 'mongoose'
+import { readSchedule, type ScheduleState, writeSchedule } from '../backup/backup-schedule'
+import { CONFIG, type Config } from '../config/config'
 
 const CACHE_MS = 30_000
 
@@ -9,7 +11,10 @@ const CACHE_MS = 30_000
 export class SettingsService {
   private cache?: { value: GlobalSettings; at: number }
 
-  constructor(@Inject(getConnectionToken()) private readonly conn: Connection) {}
+  constructor(
+    @Inject(getConnectionToken()) private readonly conn: Connection,
+    @Inject(CONFIG) private readonly config: Config,
+  ) {}
 
   private col() {
     // `_id` is the string 'global', so the default ObjectId-typed collection does not fit.
@@ -39,5 +44,15 @@ export class SettingsService {
     }
     this.cache = undefined
     return this.get()
+  }
+
+  /** The backup schedule: a separate `backupSchedule` document in the same collection (read by the worker each minute). */
+  backupSchedule(): Promise<ScheduleState> {
+    return readSchedule(this.conn.db!, this.config.backup.tz)
+  }
+
+  async updateBackupSchedule(s: BackupSchedule): Promise<ScheduleState> {
+    await writeSchedule(this.conn.db!, s)
+    return this.backupSchedule()
   }
 }

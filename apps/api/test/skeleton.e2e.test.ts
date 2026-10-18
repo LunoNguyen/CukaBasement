@@ -11,7 +11,7 @@ describe('skeleton', () => {
   })
 
   it('health', async () => {
-    await h.http().get('/api/health').expect(200, { ok: true })
+    await h.http().get('/api/health').expect(200, { ok: true, maintenance: false })
   })
 
   it('unknown route uses error envelope', async () => {

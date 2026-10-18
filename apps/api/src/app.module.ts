@@ -5,6 +5,8 @@ import { APP_FILTER } from '@nestjs/core'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { AdminModule } from './admin/admin.module'
 import { AuthModule } from './auth/auth.module'
+import { BackupModule } from './backup/backup.module'
+import { MaintenanceModule, MaintenanceService } from './backup/maintenance.service'
 import { CacheModule } from './cache/cache.module'
 import { GlobalErrorFilter } from './common/error.filter'
 import { CONFIG, type Config, loadConfig } from './config/config'
@@ -35,9 +37,12 @@ export class ConfigModule {}
 
 @Controller('health')
 export class HealthController {
+  constructor(private readonly maintenance: MaintenanceService) {}
+
+  /** `maintenance` is true while a restore runs; the web polls this to know when the site is back. */
   @Get()
-  health() {
-    return { ok: true }
+  async health() {
+    return { ok: true, maintenance: await this.maintenance.active() }
   }
 }
 
@@ -45,6 +50,7 @@ export class HealthController {
   imports: [
     ConfigModule,
     DatabaseModule,
+    MaintenanceModule,
     MailModule,
     JobsModule,
     SettingsModule,
@@ -68,6 +74,7 @@ export class HealthController {
     ReportsModule,
     ModerationModule,
     AdminModule,
+    BackupModule,
     OgModule,
   ],
   controllers: [HealthController],

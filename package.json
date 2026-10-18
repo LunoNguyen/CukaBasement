@@ -13,7 +13,9 @@
     "test": "npm test --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present",
     "setup": "npm -w @cuka/api run setup",
-    "create-admin": "npm -w @cuka/api run create-admin --"
+    "create-admin": "npm -w @cuka/api run create-admin --",
+    "backup": "npm -w @cuka/api run backup",
+    "restore": "npm -w @cuka/api run restore --"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"
