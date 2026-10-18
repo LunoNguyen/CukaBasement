@@ -3,6 +3,7 @@ import type { Role } from '@cuka/shared'
 import HomePage from '@/pages/HomePage.vue'
 import TagPage from '@/pages/TagPage.vue'
 import SearchPage from '@/pages/SearchPage.vue'
+import PostPage from '@/pages/PostPage.vue'
 import ForbiddenPage from '@/pages/ForbiddenPage.vue'
 import NotFoundPage from '@/pages/NotFoundPage.vue'
 import LoginPage from '@/pages/auth/LoginPage.vue'
@@ -34,7 +35,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       { path: '/reset-password', component: ResetPasswordPage },
       { path: '/verify-email', component: VerifyEmailPage },
       { path: '/upload', component: Stub, meta: { auth: true } },
-      { path: '/posts/:id', component: Stub },
+      { path: '/posts/:id', component: PostPage },
       { path: '/u/:username', component: Stub },
       { path: '/settings', component: Stub, meta: { auth: true } },
       { path: '/notifications', component: Stub, meta: { auth: true } },
