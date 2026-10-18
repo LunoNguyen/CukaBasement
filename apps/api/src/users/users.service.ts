@@ -26,6 +26,9 @@ export interface MeDto {
   showR18: boolean
   /** `YYYY-MM-DD` */
   birthDate: string | null
+  /** Public URL of the avatar's `thumb_md`; null until the worker has published it (see publicAvatarUrl). */
+  avatarUrl: string | null
+  bannerUrl: string | null
   profile: {
     username: string
     displayName: string
@@ -185,8 +188,12 @@ export class UsersService {
     return variant && variant.bucket === this.config.minio.bucketPublic ? this.storage.publicUrl(variant.objectKey) : null
   }
 
-  toMe(user: User): MeDto {
+  async toMe(user: User): Promise<MeDto> {
     const p = user.profile
+    const [avatarUrl, bannerUrl] = await Promise.all([
+      p.avatarFileId ? this.publicAvatarUrl(p.avatarFileId.toString()) : null,
+      p.bannerFileId ? this.publicAvatarUrl(p.bannerFileId.toString()) : null,
+    ])
     const s = p.socialLinks
     return {
       id: user._id.toString(),
@@ -197,6 +204,8 @@ export class UsersService {
       locale: user.locale,
       showR18: user.showR18,
       birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : null,
+      avatarUrl,
+      bannerUrl,
       profile: {
         username: p.username,
         displayName: p.displayName,

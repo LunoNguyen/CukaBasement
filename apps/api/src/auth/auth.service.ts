@@ -80,7 +80,7 @@ export class AuthService {
     user.lastLoginAt = new Date()
     await user.save()
     const refreshToken = await this.issueRefresh(user._id, randomUUID())
-    return { accessToken: this.tokensService.signAccess(user), refreshToken, user: this.usersService.toMe(user) }
+    return { accessToken: this.tokensService.signAccess(user), refreshToken, user: await this.usersService.toMe(user) }
   }
 
   /** Rotates a refresh token; presenting an already-rotated one revokes every session of its user. */
@@ -104,7 +104,7 @@ export class AuthService {
       throw invalidToken()
     }
     const refreshToken = await this.issueRefresh(user._id, claimed.familyId ?? randomUUID())
-    return { accessToken: this.tokensService.signAccess(user), refreshToken, user: this.usersService.toMe(user) }
+    return { accessToken: this.tokensService.signAccess(user), refreshToken, user: await this.usersService.toMe(user) }
   }
 
   async logout(raw: string | undefined): Promise<void> {

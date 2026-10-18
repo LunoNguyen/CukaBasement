@@ -57,6 +57,8 @@ describe('auth', () => {
         locale: 'vi',
         showR18: false,
         birthDate: null,
+        avatarUrl: null,
+        bannerUrl: null,
         profile: {
           username: 'user_1',
           displayName: 'User 1',

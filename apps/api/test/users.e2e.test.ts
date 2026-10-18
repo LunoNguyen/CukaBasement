@@ -1,7 +1,10 @@
 import { Types } from 'mongoose'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { CONFIG, type Config } from '../src/config/config'
-import { createTestHarness, createUser, type Harness } from './harness'
+import { processFile } from '../src/jobs/handlers/process-file'
+import { relocateFile } from '../src/jobs/handlers/relocate-variants'
+import { StorageService } from '../src/storage/storage.service'
+import { createTestHarness, createUser, type Harness, jobDeps, uploadFixture } from './harness'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
 
@@ -121,5 +124,38 @@ describe('me and user endpoints', () => {
     expect(await avatarUrl()).toEqual(expect.stringContaining(`${pub}/thumb_md.webp`))
     await seedAvatar(config.minio.bucketOriginals)
     expect(await avatarUrl()).toBeNull()
+  })
+
+  it('MeDto carries avatarUrl/bannerUrl: null before publishing, the public thumb_md URL after relocate-file (me, PATCH, settings, login, refresh)', async () => {
+    const storage = h.app.get(StorageService)
+    const u = await createUser(h, { password: 'pw-123456789' })
+    const before = await h.http().get('/api/me').set(auth(u.token))
+    expect(before.body).toMatchObject({ avatarUrl: null, bannerUrl: null })
+
+    const avatar = await uploadFixture(h, u, 'tiny.png')
+    const banner = await uploadFixture(h, u, 'tiny.jpg')
+    await processFile(jobDeps(h), { fileId: avatar })
+    await processFile(jobDeps(h), { fileId: banner })
+    const patched = await h.http().patch('/api/me').set(auth(u.token)).send({ avatarFileId: avatar, bannerFileId: banner })
+    expect(patched.status).toBe(200)
+    // Variants are still private until relocate-file runs in the worker.
+    expect(patched.body).toMatchObject({ avatarUrl: null, bannerUrl: null })
+    await relocateFile(jobDeps(h), { fileId: avatar })
+    await relocateFile(jobDeps(h), { fileId: banner })
+
+    const want = {
+      avatarUrl: storage.publicUrl(`${u.id}/${avatar}/thumb_md.webp`),
+      bannerUrl: storage.publicUrl(`${u.id}/${banner}/thumb_md.webp`),
+    }
+    expect((await h.http().get('/api/me').set(auth(u.token))).body).toMatchObject(want)
+    expect((await h.http().patch('/api/me').set(auth(u.token)).send({ bio: 'x' })).body).toMatchObject(want)
+    expect((await h.http().patch('/api/me/settings').set(auth(u.token)).send({ locale: 'en' })).body).toMatchObject(want)
+    const li = await h.http().post('/api/auth/login').send({ email: u.email, password: 'pw-123456789' })
+    expect(li.status).toBe(200)
+    expect(li.body.user).toMatchObject(want)
+    const rt = (li.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('cuka_rt='))!.split(';')[0]!
+    const rf = await h.http().post('/api/auth/refresh').set('Cookie', rt)
+    expect(rf.status).toBe(200)
+    expect(rf.body.user).toMatchObject(want)
   })
 })
