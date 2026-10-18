@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
 import type { Role } from '@cuka/shared'
 import HomePage from '@/pages/HomePage.vue'
+import TagPage from '@/pages/TagPage.vue'
+import SearchPage from '@/pages/SearchPage.vue'
 import ForbiddenPage from '@/pages/ForbiddenPage.vue'
 import NotFoundPage from '@/pages/NotFoundPage.vue'
 import LoginPage from '@/pages/auth/LoginPage.vue'
@@ -38,8 +40,8 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       { path: '/notifications', component: Stub, meta: { auth: true } },
       { path: '/mod', component: Stub, meta: { auth: true, roles: ['moderator', 'admin'] } },
       { path: '/admin', component: Stub, meta: { auth: true, roles: ['admin'] } },
-      { path: '/tags/:tag', component: Stub },
-      { path: '/search', component: Stub },
+      { path: '/tags/:tag', component: TagPage },
+      { path: '/search', component: SearchPage },
       { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage },
     ],
   })

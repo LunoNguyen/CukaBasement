@@ -7,6 +7,8 @@ const en: typeof vi = {
     cancel: 'Cancel',
     close: 'Close',
     empty: 'Nothing here yet',
+    retry: 'Retry',
+    loadMore: 'Load more',
     underConstruction: 'Under construction',
   },
   nav: {
@@ -25,7 +27,13 @@ const en: typeof vi = {
     title: 'Access denied',
     body: 'You do not have permission to view this page.',
   },
-  home: { title: 'CukaBasement' },
+  home: { title: 'CukaBasement', latest: 'Latest', following: 'Following', empty: 'No posts yet', emptyFollowing: 'You are not following anyone yet, or they have not posted.' },
+  tag: { empty: 'No posts with this tag' },
+  search: { placeholder: 'Search posts...', empty: 'No results found' },
+  post: {
+    artBy: 'Art by',
+    type: { illustration: 'Illustration', manga: 'Manga', video: 'Video', audio: 'Audio', other: 'Other' },
+  },
   account: {
     profile: 'Profile',
     settings: 'Settings',

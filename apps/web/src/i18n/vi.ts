@@ -43,6 +43,8 @@ export default {
     cancel: 'Hủy',
     close: 'Đóng',
     empty: 'Chưa có gì ở đây',
+    retry: 'Thử lại',
+    loadMore: 'Tải thêm',
     underConstruction: 'Đang xây dựng',
   },
   nav: {
@@ -61,7 +63,13 @@ export default {
     title: 'Không có quyền truy cập',
     body: 'Bạn không có quyền xem trang này.',
   },
-  home: { title: 'CukaBasement' },
+  home: { title: 'CukaBasement', latest: 'Mới nhất', following: 'Đang theo dõi', empty: 'Chưa có bài đăng nào', emptyFollowing: 'Bạn chưa theo dõi ai, hoặc họ chưa đăng bài.' },
+  tag: { empty: 'Chưa có bài đăng với thẻ này' },
+  search: { placeholder: 'Tìm bài đăng...', empty: 'Không tìm thấy kết quả' },
+  post: {
+    artBy: 'Art by',
+    type: { illustration: 'Tranh', manga: 'Truyện tranh', video: 'Video', audio: 'Âm thanh', other: 'Khác' },
+  },
   account: {
     profile: 'Trang cá nhân',
     settings: 'Cài đặt',
