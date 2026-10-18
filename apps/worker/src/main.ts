@@ -5,6 +5,8 @@ import { getConnectionToken } from '@nestjs/mongoose'
 import type { Job } from 'agenda'
 import { type Connection, Types } from 'mongoose'
 import { AppModule } from '@cuka/api/app.module'
+import { scheduleTick } from '@cuka/api/backup/backup-schedule'
+import { maintenanceActive } from '@cuka/api/backup/backup-state'
 import { FeedCache } from '@cuka/api/cache/feed-cache.service'
 import { CONFIG, type Config } from '@cuka/api/config/config'
 import { loadEnvFile } from '@cuka/api/config/env-file'
@@ -17,10 +19,14 @@ import { reconcileCounters } from '@cuka/api/jobs/handlers/reconcile-counters'
 import { relocateFile, relocateVariants } from '@cuka/api/jobs/handlers/relocate-variants'
 import { rewatermark } from '@cuka/api/jobs/handlers/rewatermark'
 import { JOBS } from '@cuka/api/jobs/jobs.port'
+import { ModerationLogService } from '@cuka/api/moderation/moderation-log.service'
 import { StorageService } from '@cuka/api/storage/storage.service'
 
 const MAX_FAILS = 3
 const logger = new Logger('Worker')
+
+/** Thrown by a job that starts while a restore runs: retried later without counting as a failure. */
+const PAUSED = 'paused: site is in maintenance (restore in progress)'
 
 async function bootstrap(): Promise<void> {
   loadEnvFile()
@@ -36,16 +42,44 @@ async function bootstrap(): Promise<void> {
   const jobs = app.get<AgendaJobs>(JOBS)
   const { agenda } = jobs
 
-  agenda.define<{ fileId: string }>('process-file', (job) => processFile(deps, job.attrs.data), { concurrency: 2 })
-  agenda.define<{ postId: string }>('relocate-variants', (job) => relocateVariants(deps, job.attrs.data), { concurrency: 2 })
-  agenda.define<{ fileId: string }>('relocate-file', (job) => relocateFile(deps, job.attrs.data), { concurrency: 2 })
-  agenda.define<{ postId: string }>('rewatermark', (job) => rewatermark(deps, job.attrs.data), { concurrency: 2 })
-  agenda.define('cleanup-uploads', async () => void (await cleanupUploads({ ...deps, jobs })), { concurrency: 1 })
-  agenda.define('purge-deleted-posts', async () => void (await purgeDeletedPosts(deps)), { concurrency: 1 })
-  agenda.define('reconcile-counters', async () => void (await reconcileCounters(deps)), { concurrency: 1 })
+  // No job touches data while a restore swaps it out from under them.
+  const unlessRestoring =
+    <T>(fn: (job: Job<T>) => Promise<unknown>) =>
+    async (job: Job<T>) => {
+      if (await maintenanceActive(deps.conn.db!)) throw new Error(PAUSED)
+      await fn(job)
+    }
+  agenda.define<{ fileId: string }>('process-file', unlessRestoring((job) => processFile(deps, job.attrs.data)), { concurrency: 2 })
+  agenda.define<{ postId: string }>('relocate-variants', unlessRestoring((job) => relocateVariants(deps, job.attrs.data)), { concurrency: 2 })
+  agenda.define<{ fileId: string }>('relocate-file', unlessRestoring((job) => relocateFile(deps, job.attrs.data)), { concurrency: 2 })
+  agenda.define<{ postId: string }>('rewatermark', unlessRestoring((job) => rewatermark(deps, job.attrs.data)), { concurrency: 2 })
+  agenda.define('cleanup-uploads', unlessRestoring(async () => void (await cleanupUploads({ ...deps, jobs }))), { concurrency: 1 })
+  agenda.define('purge-deleted-posts', unlessRestoring(async () => void (await purgeDeletedPosts(deps))), { concurrency: 1 })
+  agenda.define('reconcile-counters', unlessRestoring(async () => void (await reconcileCounters(deps))), { concurrency: 1 })
+
+  // Scheduled backups: the tick only decides whether a slot is due (cheap) and starts the backup without
+  // waiting for it, so a long backup never holds the Agenda job past its lock lifetime. The slot claim and the
+  // global backup lock in MongoDB keep several workers from running it twice.
+  const modLog = app.get(ModerationLogService)
+  agenda.define(
+    'backup-schedule-tick',
+    async () => {
+      void scheduleTick(deps, new Date(), async (r) => {
+        const note = [r.outcome, r.error, r.pruned?.length ? `pruned ${r.pruned.length}` : ''].filter(Boolean).join(': ')
+        if (r.outcome === 'failed') logger.error(`scheduled backup failed: ${r.error}`)
+        await modLog.log('system', 'backup_scheduled', 'backup', r.name ?? '-', note.slice(0, 500))
+      }).catch((e: Error) => logger.error(`backup schedule tick failed: ${e.message}`))
+    },
+    { concurrency: 1 },
+  )
 
   // Runs synchronously before Agenda persists the job state, so the new nextRunAt is saved with it.
   agenda.on('fail', (err: Error, job: Job) => {
+    if (err.message === PAUSED) {
+      job.attrs.failCount = Math.max(0, (job.attrs.failCount ?? 1) - 1)
+      job.schedule('in 1 minute')
+      return
+    }
     const fails = job.attrs.failCount ?? 0
     logger.warn(`${job.attrs.name} failed (${fails}/${MAX_FAILS}): ${err.message}`)
     if (fails < MAX_FAILS) {
@@ -75,6 +109,7 @@ async function bootstrap(): Promise<void> {
   await agenda.every('1 hour', 'cleanup-uploads')
   await agenda.every('0 3 * * *', 'purge-deleted-posts')
   await agenda.every('30 3 * * *', 'reconcile-counters')
+  await agenda.every('1 minute', 'backup-schedule-tick')
   logger.log('worker ready')
 }
 
