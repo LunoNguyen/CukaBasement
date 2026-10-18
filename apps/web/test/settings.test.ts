@@ -6,7 +6,7 @@ import { i18n, setLocale } from '@/i18n'
 import { createAppRouter } from '@/router'
 import { useAuth } from '@/stores/auth'
 import App from '@/App.vue'
-import { installFakeFetch, makeMe, type FakeFetch, type FakeRequest, type FakeRoute } from './fakeApi'
+import { installFakeFetch, makeMe, type FakeFetch, type FakeRequest, type FakeResponse, type FakeRoute } from './fakeApi'
 import { FakeCropper } from './cropperMock'
 import { FakeXhr, installFakeXhr } from './fakeXhr'
 
@@ -421,7 +421,7 @@ describe('Settings page', () => {
       expect(w.get('[data-test="avatar-preview"]').attributes('src')).toBe('http://cdn/a.webp?v=1')
     })
 
-    it('after an avatar save the header updates from the response and /me is polled every 3 s (≤10 times) until the URL appears', async () => {
+    it('after an avatar save the header updates from the response and /me is polled every 3 s until the URL appears', async () => {
       vi.useFakeTimers()
       try {
         installFakeXhr()
@@ -454,24 +454,115 @@ describe('Settings page', () => {
       }
     })
 
-    it('polling /me gives up after 10 tries', async () => {
+    /** Picks `name` in the `testId` image field; the upload is accepted as `processing` with id `fileId`. */
+    async function pickImage(w: VueWrapper, testId: 'avatar' | 'banner', name = 'a.gif') {
+      const input = w.get(`[data-test="${testId}-input"]`)
+      Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], name, { type: 'image/gif' })], configurable: true })
+      await input.trigger('change')
+      await flushPromises()
+    }
+    const uploadRoutes = (fileId: string): Record<string, FakeResponse> => ({
+      'POST /api/uploads': ok({ fileId, url: 'http://minio.local/o', fields: { key: 'k' }, maxBytes: 8 }),
+      [`POST /api/uploads/${fileId}/complete`]: ok({ id: fileId, kind: 'image', mimeType: 'image/gif', sizeBytes: 8, status: 'processing', originalName: 'a.gif' }),
+    })
+
+    it('polling /me gives up after about 3 minutes (10 tries 3 s apart, then 15 tries 10 s apart)', async () => {
       vi.useFakeTimers()
       try {
         installFakeXhr()
         const pending = makeMe({ profile: { ...makeMe().profile, bannerFileId: 'F1' } })
+        fake = installFakeFetch({ ...uploadRoutes('F1'), 'PATCH /api/me': ok(pending), 'GET /api/me': ok(pending) })
+        const w = await mountSettings()
+        await pickImage(w, 'banner', 'b.gif')
+        await vi.advanceTimersByTimeAsync(30_000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(10)
+        await vi.advanceTimersByTimeAsync(150_000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(25)
+        await vi.advanceTimersByTimeAsync(600_000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(25)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    // Regression: the poll lived in the settings page, so leaving the page (or a worker slower than 30 s) left the
+    // header on the initial until a full reload.
+    it('keeps polling after leaving the settings page, so the header still picks up the published avatar', async () => {
+      vi.useFakeTimers()
+      try {
+        installFakeXhr()
+        const withAvatar = makeMe({ avatarUrl: 'http://cdn/F1/thumb_md.webp?v=1', profile: { ...makeMe().profile, avatarFileId: 'F1' } })
+        const pending = makeMe({ profile: { ...makeMe().profile, avatarFileId: 'F1' } })
+        // Published only after 40 s: past the old 30 s budget.
+        const replies: FakeResponse[] = [...Array<FakeResponse>(11).fill(ok(pending)), ok(withAvatar)]
+        fake = installFakeFetch({ ...uploadRoutes('F1'), 'PATCH /api/me': ok(pending), 'GET /api/me': replies })
+        const w = await mountSettings()
+        await pickImage(w, 'avatar')
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(1)
+        await w.vm.$router.push('/')
+        await flushPromises()
+        expect(w.find('[data-test="profile-form"]').exists()).toBe(false)
+        await vi.advanceTimersByTimeAsync(27_000)
+        expect(w.find('[data-test="account-avatar"]').exists()).toBe(false)
+        await vi.advanceTimersByTimeAsync(20_000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(12)
+        expect(auth.user!.avatarUrl).toBe('http://cdn/F1/thumb_md.webp?v=1')
+        expect(w.get('[data-test="account-avatar"]').attributes('src')).toBe('http://cdn/F1/thumb_md.webp?v=1')
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(12)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('an avatar and a banner saved together share one poll that runs until both are published', async () => {
+      vi.useFakeTimers()
+      try {
+        installFakeXhr()
+        const base = makeMe().profile
+        const both = { ...base, avatarFileId: 'F1', bannerFileId: 'F2' }
         fake = installFakeFetch({
-          'POST /api/uploads': ok({ fileId: 'F1', url: 'http://minio.local/o', fields: { key: 'k' }, maxBytes: 8 }),
-          'POST /api/uploads/F1/complete': ok({ id: 'F1', kind: 'image', mimeType: 'image/gif', sizeBytes: 8, status: 'processing', originalName: 'b.gif' }),
-          'PATCH /api/me': ok(pending),
-          'GET /api/me': ok(pending),
+          ...uploadRoutes('F1'),
+          ...uploadRoutes('F2'),
+          'POST /api/uploads': [uploadRoutes('F1')['POST /api/uploads']!, uploadRoutes('F2')['POST /api/uploads']!],
+          'PATCH /api/me': [ok(makeMe({ profile: { ...base, avatarFileId: 'F1' } })), ok(makeMe({ profile: both }))],
+          'GET /api/me': [
+            ok(makeMe({ avatarUrl: 'http://cdn/a.webp', profile: both })),
+            ok(makeMe({ avatarUrl: 'http://cdn/a.webp', profile: both })),
+            ok(makeMe({ avatarUrl: 'http://cdn/a.webp', bannerUrl: 'http://cdn/b.webp', profile: both })),
+          ],
         })
         const w = await mountSettings()
-        const input = w.get('[data-test="banner-input"]')
-        Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array(8)], 'b.gif', { type: 'image/gif' })], configurable: true })
-        await input.trigger('change')
-        await flushPromises()
+        await pickImage(w, 'avatar')
+        await pickImage(w, 'banner', 'b.gif')
+        expect(fake.callsTo('PATCH /api/me')).toHaveLength(2)
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(1)
+        expect(w.get('[data-test="account-avatar"]').attributes('src')).toBe('http://cdn/a.webp')
+        await vi.advanceTimersByTimeAsync(6000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(3)
+        expect(auth.user!.bannerUrl).toBe('http://cdn/b.webp')
         await vi.advanceTimersByTimeAsync(60_000)
-        expect(fake.callsTo('GET /api/me')).toHaveLength(10)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(3)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('logging out stops the poll', async () => {
+      vi.useFakeTimers()
+      try {
+        installFakeXhr()
+        const pending = makeMe({ profile: { ...makeMe().profile, avatarFileId: 'F1' } })
+        fake = installFakeFetch({ ...uploadRoutes('F1'), 'PATCH /api/me': ok(pending), 'GET /api/me': ok(pending) })
+        const w = await mountSettings()
+        await pickImage(w, 'avatar')
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(1)
+        auth.clear()
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(fake.callsTo('GET /api/me')).toHaveLength(1)
       } finally {
         vi.useRealTimers()
       }
