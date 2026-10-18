@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   CREDIT_PLATFORMS,
   creditSchema,
+  LIMITS,
+  legacySocialLinks,
+  SOCIAL_PLATFORM_LABELS,
+  SOCIAL_PLATFORMS,
+  socialLinkSchema,
   ERROR_CODES,
   MOD_ACTIONS,
   PLATFORM_LABELS,
@@ -88,8 +93,23 @@ describe('schemas', () => {
     expect(creditSchema.safeParse({ ...repostCredit, permissionNote: 'line one\nline\ttwo' }).success).toBe(true)
   })
   it('exports credit platforms, labels, error code and mod action', () => {
-    expect(CREDIT_PLATFORMS).toEqual(['x', 'facebook', 'pixiv', 'deviantart', 'instagram', 'youtube', 'other'])
-    expect(PLATFORM_LABELS).toEqual({ x: 'X', facebook: 'Facebook', pixiv: 'pixiv', deviantart: 'DeviantArt', instagram: 'Instagram', youtube: 'YouTube', other: '' })
+    // Additive only: the original seven stay valid, `other` stays last.
+    expect(CREDIT_PLATFORMS).toEqual(['x', 'facebook', 'pixiv', 'deviantart', 'instagram', 'youtube', 'tiktok', 'threads', 'vgen', 'bluesky', 'twitch', 'kofi', 'other'])
+    expect(PLATFORM_LABELS).toEqual({
+      x: 'X',
+      facebook: 'Facebook',
+      pixiv: 'pixiv',
+      deviantart: 'DeviantArt',
+      instagram: 'Instagram',
+      youtube: 'YouTube',
+      tiktok: 'TikTok',
+      threads: 'Threads',
+      vgen: 'VGen',
+      bluesky: 'Bluesky',
+      twitch: 'Twitch',
+      kofi: 'Ko-fi',
+      other: '',
+    })
     expect(ERROR_CODES).toContain('CREDIT_REQUIRED')
     expect(MOD_ACTIONS).toContain('update_credit')
   })
@@ -119,10 +139,40 @@ describe('schemas', () => {
     expect(updateSettingsSchema.safeParse({ birthDate: '2000-02-30' }).success).toBe(false)
     expect(updateSettingsSchema.safeParse({ birthDate: '2000-01-31' }).success).toBe(true)
   })
-  it('social links accept url or empty', () => {
-    expect(updateProfileSchema.safeParse({ socialLinks: { x: '' } }).success).toBe(true)
-    expect(updateProfileSchema.safeParse({ socialLinks: { x: 'https://x.com/a' } }).success).toBe(true)
-    expect(updateProfileSchema.safeParse({ socialLinks: { x: 'nope' } }).success).toBe(false)
+  it('profile links: http(s) urls, a label only for other, at most 10', () => {
+    const ok = (links: unknown) => updateProfileSchema.safeParse({ links }).success
+    expect(ok([])).toBe(true)
+    expect(ok([{ platform: 'x', url: 'https://x.com/a' }, { platform: 'vgen', url: 'http://vgen.co/a' }])).toBe(true)
+    expect(ok([{ platform: 'x', url: 'nope' }])).toBe(false)
+    expect(ok([{ platform: 'x', url: '' }])).toBe(false)
+    expect(ok([{ platform: 'x', url: 'javascript:alert(1)' }])).toBe(false)
+    expect(ok([{ platform: 'x', url: 'ftp://x.com/a' }])).toBe(false)
+    expect(ok([{ platform: 'tumblr', url: 'https://t.com/a' }])).toBe(false)
+    expect(ok([{ platform: 'x', url: 'https://x.com/' + 'a'.repeat(LIMITS.socialLinkUrlMax - 14) }])).toBe(true)
+    expect(ok([{ platform: 'x', url: 'https://x.com/' + 'a'.repeat(LIMITS.socialLinkUrlMax - 13) }])).toBe(false)
+    expect(ok(Array.from({ length: LIMITS.socialLinksMax }, () => ({ platform: 'x', url: 'https://x.com/a' })))).toBe(true)
+    expect(ok(Array.from({ length: LIMITS.socialLinksMax + 1 }, () => ({ platform: 'x', url: 'https://x.com/a' })))).toBe(false)
+  })
+  it('profile links: other needs a 1..40 char label (LABEL_REQUIRED); other platforms drop theirs', () => {
+    const missing = socialLinkSchema.safeParse({ platform: 'other', url: 'https://a.b', label: '   ' })
+    expect(missing.success).toBe(false)
+    expect(missing.error!.issues[0]).toMatchObject({ path: ['label'], params: { code: 'LABEL_REQUIRED' } })
+    expect(socialLinkSchema.safeParse({ platform: 'other', url: 'https://a.b' }).success).toBe(false)
+    expect(socialLinkSchema.safeParse({ platform: 'other', url: 'https://a.b', label: 'a'.repeat(LIMITS.socialLinkLabelMax + 1) }).success).toBe(false)
+    expect(socialLinkSchema.parse({ platform: 'other', url: 'https://a.b', label: ' Shop ' })).toEqual({ platform: 'other', url: 'https://a.b', label: 'Shop' })
+    expect(socialLinkSchema.parse({ platform: 'x', url: 'https://x.com/a', label: 'ignored' })).toEqual({ platform: 'x', url: 'https://x.com/a' })
+  })
+  it('legacy fixed links convert in their old order, skipping empty and non-http(s) values', () => {
+    expect(legacySocialLinks(undefined)).toEqual([])
+    expect(legacySocialLinks({ pixiv: 'https://pixiv.net/u/1', x: ' https://x.com/a ', facebook: '', youtube: 'javascript:alert(1)' })).toEqual([
+      { platform: 'x', url: 'https://x.com/a' },
+      { platform: 'pixiv', url: 'https://pixiv.net/u/1' },
+    ])
+  })
+  it('social platforms and labels', () => {
+    expect(SOCIAL_PLATFORMS).toEqual(['x', 'facebook', 'youtube', 'pixiv', 'tiktok', 'threads', 'vgen', 'instagram', 'bluesky', 'twitch', 'kofi', 'deviantart', 'other'])
+    expect(SOCIAL_PLATFORM_LABELS.kofi).toBe('Ko-fi')
+    expect(SOCIAL_PLATFORM_LABELS.other).toBe('')
   })
   it('cursor query coerces limit with default', () => {
     expect(cursorQuerySchema.parse({}).limit).toBe(30)

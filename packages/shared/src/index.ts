@@ -1,5 +1,6 @@
 export * from './enums'
 export * from './credit'
+export * from './social'
 export * from './limits'
 export * from './mime'
 export * from './tags'

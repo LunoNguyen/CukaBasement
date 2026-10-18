@@ -16,6 +16,9 @@ export const LIMITS = {
   creditArtistHandleMax: 100,
   creditSourceUrlMax: 500,
   creditPermissionNoteMax: 300,
+  socialLinksMax: 10,
+  socialLinkLabelMax: 40,
+  socialLinkUrlMax: 500,
 } as const
 
 export const DEFAULT_SETTINGS = {

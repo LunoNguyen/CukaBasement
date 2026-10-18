@@ -1,16 +1,27 @@
-export const CREDIT_PLATFORMS = ['x', 'facebook', 'pixiv', 'deviantart', 'instagram', 'youtube', 'other'] as const
+import { SOCIAL_PLATFORM_LABELS } from './social'
+
+/** Values are only ever added (stored credits keep validating); `other` stays last for the select. */
+export const CREDIT_PLATFORMS = [
+  'x',
+  'facebook',
+  'pixiv',
+  'deviantart',
+  'instagram',
+  'youtube',
+  'tiktok',
+  'threads',
+  'vgen',
+  'bluesky',
+  'twitch',
+  'kofi',
+  'other',
+] as const
 export type CreditPlatform = (typeof CREDIT_PLATFORMS)[number]
 
 /** Display names for the watermark and OG text; `other` has no label. */
-export const PLATFORM_LABELS: Record<CreditPlatform, string> = {
-  x: 'X',
-  facebook: 'Facebook',
-  pixiv: 'pixiv',
-  deviantart: 'DeviantArt',
-  instagram: 'Instagram',
-  youtube: 'YouTube',
-  other: '',
-}
+export const PLATFORM_LABELS: Record<CreditPlatform, string> = Object.fromEntries(
+  CREDIT_PLATFORMS.map((p) => [p, SOCIAL_PLATFORM_LABELS[p]]),
+) as Record<CreditPlatform, string>
 
 export interface CreditInfo {
   isOwnWork: boolean
