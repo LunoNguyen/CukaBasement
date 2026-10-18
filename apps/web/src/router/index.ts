@@ -4,6 +4,8 @@ import HomePage from '@/pages/HomePage.vue'
 import TagPage from '@/pages/TagPage.vue'
 import SearchPage from '@/pages/SearchPage.vue'
 import PostPage from '@/pages/PostPage.vue'
+import UploadPage from '@/pages/UploadPage.vue'
+import EditPostPage from '@/pages/EditPostPage.vue'
 import ForbiddenPage from '@/pages/ForbiddenPage.vue'
 import NotFoundPage from '@/pages/NotFoundPage.vue'
 import LoginPage from '@/pages/auth/LoginPage.vue'
@@ -34,8 +36,9 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       { path: '/forgot-password', component: ForgotPasswordPage },
       { path: '/reset-password', component: ResetPasswordPage },
       { path: '/verify-email', component: VerifyEmailPage },
-      { path: '/upload', component: Stub, meta: { auth: true } },
+      { path: '/upload', component: UploadPage, meta: { auth: true } },
       { path: '/posts/:id', component: PostPage },
+      { path: '/posts/:id/edit', component: EditPostPage, meta: { auth: true } },
       { path: '/u/:username', component: Stub },
       { path: '/settings', component: Stub, meta: { auth: true } },
       { path: '/notifications', component: Stub, meta: { auth: true } },

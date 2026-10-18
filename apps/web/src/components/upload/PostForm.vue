@@ -1,0 +1,138 @@
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { LIMITS, POST_TYPES, R18_REQUIRED_TAGS, type PostType, type Rating } from '@cuka/shared'
+import type { CreatePostBody } from '@/api/endpoints/posts'
+import type { PostDto } from '@/api/types'
+import { useUploader } from '@/composables/useUploader'
+import Btn from '@/components/common/Btn.vue'
+import CreditFields from './CreditFields.vue'
+import FileDropzone from './FileDropzone.vue'
+import FileQueueItem from './FileQueueItem.vue'
+import TagInput from './TagInput.vue'
+import { buildPatch, coverId, creditValid, fileSetChanged, filesOf, hasMedia, OWN_WORK, queueOf, toCredit, type CreditForm } from './postForm'
+
+/** `original` makes this the edit form: it starts from that post and only enables submit once something changed. */
+const props = defineProps<{ original?: PostDto | null; busy: boolean; submitLabel: string }>()
+const emit = defineEmits<{ submit: [CreatePostBody] }>()
+const { t } = useI18n()
+
+const o = props.original ?? null
+const uploader = useUploader(o ? queueOf(o) : [])
+const { queue } = uploader
+
+const form = reactive({
+  type: (o?.type ?? 'illustration') as PostType,
+  title: o?.title ?? '',
+  description: o?.description ?? '',
+  rating: (o?.rating ?? 'all') as Rating,
+  tags: [...(o?.tags ?? [])],
+  ai: false,
+})
+const credit = ref<CreditForm>({ ...(o?.credit ?? OWN_WORK) })
+const titleTouched = ref(false)
+
+const titleMissing = computed(() => !form.title.trim())
+const r18TagError = computed(() => form.rating === 'all' && form.tags.some((tag) => R18_REQUIRED_TAGS.includes(tag)))
+const cover = computed(() => coverId(queue.value))
+
+const payload = computed(
+  (): CreatePostBody => ({
+    type: form.type,
+    title: form.title.trim(),
+    description: form.description,
+    rating: form.rating,
+    tags: [...form.tags],
+    credit: toCredit(credit.value),
+    aiDeclaration: true,
+    files: filesOf(queue.value),
+  }),
+)
+const filesChanged = computed(() => !!o && fileSetChanged(o, payload.value.files))
+const dirty = computed(() => !o || Object.keys(buildPatch(o, payload.value)).length > 0)
+
+const canSubmit = computed(
+  () =>
+    !props.busy &&
+    dirty.value &&
+    form.ai &&
+    !titleMissing.value &&
+    !r18TagError.value &&
+    creditValid(credit.value) &&
+    hasMedia(queue.value) &&
+    // Files still uploading would be left out of the post.
+    uploader.allDone.value,
+)
+
+function submit() {
+  if (canSubmit.value) emit('submit', payload.value)
+}
+
+const input = 'w-full rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-2 py-1.5'
+</script>
+
+<template>
+  <form class="flex flex-col gap-5" novalidate @submit.prevent="submit">
+    <section class="flex flex-col gap-2">
+      <FileDropzone @files="uploader.add" />
+      <ul v-if="queue.length" class="flex flex-col gap-2">
+        <FileQueueItem
+          v-for="(item, i) in queue"
+          :key="item.id"
+          :item="item"
+          :cover="item.id === cover"
+          :first="i === 0"
+          :last="i === queue.length - 1"
+          @remove="uploader.remove(item.id)"
+          @up="uploader.move(item.id, -1)"
+          @down="uploader.move(item.id, 1)"
+          @cover="uploader.setCover(item.id)"
+        />
+      </ul>
+      <p v-if="filesChanged" data-test="files-changed" class="text-sm text-amber-600">{{ t('upload.filesChanged') }}</p>
+    </section>
+
+    <label class="flex flex-col gap-1 text-sm">
+      {{ t('upload.type') }}
+      <select v-model="form.type" data-test="type" :class="input">
+        <option v-for="p in POST_TYPES" :key="p" :value="p">{{ t('post.type.' + p) }}</option>
+      </select>
+    </label>
+
+    <label class="flex flex-col gap-1 text-sm">
+      {{ t('upload.postTitle') }} *
+      <input v-model="form.title" data-test="title" :class="input" :maxlength="LIMITS.titleMax" @blur="titleTouched = true" />
+      <span v-if="titleTouched && titleMissing" class="text-red-600">{{ t('upload.titleRequired') }}</span>
+    </label>
+
+    <label class="flex flex-col gap-1 text-sm">
+      {{ t('upload.description') }}
+      <textarea v-model="form.description" data-test="description" :class="input" rows="4" :maxlength="LIMITS.descriptionMax" />
+      <span class="self-end text-xs text-[var(--c-muted)]">{{ form.description.length }}/{{ LIMITS.descriptionMax }}</span>
+    </label>
+
+    <div class="flex flex-col gap-1 text-sm">
+      {{ t('upload.tags') }}
+      <TagInput v-model="form.tags" />
+    </div>
+
+    <fieldset class="flex flex-col gap-1 text-sm">
+      <legend>{{ t('upload.rating') }}</legend>
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2"><input v-model="form.rating" data-test="rating-all" type="radio" value="all" />{{ t('upload.ratingAll') }}</label>
+        <label class="flex items-center gap-2"><input v-model="form.rating" data-test="rating-r18" type="radio" value="r18" />{{ t('upload.ratingR18') }}</label>
+      </div>
+      <span v-if="r18TagError" data-test="r18-tag-error" class="text-red-600">{{ t('upload.r18TagRequired') }}</span>
+    </fieldset>
+
+    <CreditFields v-model="credit" />
+
+    <label class="flex items-start gap-2 text-sm">
+      <input v-model="form.ai" data-test="ai-declaration" type="checkbox" class="mt-1" />
+      {{ t('upload.aiDeclaration') }}
+    </label>
+
+    <p v-if="!hasMedia(queue)" class="text-xs text-[var(--c-muted)]">{{ t('upload.needMedia') }}</p>
+    <Btn data-test="submit" type="submit" class="self-start" :loading="busy" :disabled="!canSubmit">{{ submitLabel }}</Btn>
+  </form>
+</template>

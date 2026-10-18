@@ -7,3 +7,5 @@ export interface TagDto {
 }
 
 export const featuredTags = () => request<TagDto[]>('/tags/featured')
+
+export const suggestTags = (q: string) => request<TagDto[]>('/tags/suggest', { query: { q } })
