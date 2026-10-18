@@ -88,7 +88,8 @@ function onFollow(s: { following: boolean; followerCount: number }) {
     <Btn variant="ghost" @click="load()">{{ t('common.retry') }}</Btn>
   </div>
   <div v-else-if="user" class="flex flex-col gap-4">
-    <div class="h-32 w-full overflow-hidden rounded-2xl bg-[var(--c-soft)] sm:h-48">
+    <!-- 4:1 like the worker's banner render (1600×400), so the whole crop shows at every width. -->
+    <div data-test="banner-box" class="aspect-[4/1] w-full overflow-hidden rounded-2xl bg-[var(--c-soft)]">
       <img v-if="user.bannerUrl" :src="user.bannerUrl" alt="" class="h-full w-full object-cover" data-test="banner" />
     </div>
     <div class="-mt-12 flex flex-wrap items-end gap-3 px-2 sm:-mt-16">

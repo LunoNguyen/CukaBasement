@@ -58,6 +58,17 @@ const base = (extra: Record<string, FakeRoute> = {}): Record<string, FakeRoute> 
 })
 
 describe('Profile page', () => {
+  // Regression: a fixed-height box with object-cover cut the 4:1 banner to about 8:1 on wide screens.
+  it('the banner box is 4:1 like the render (whole banner at every width), no fixed height', async () => {
+    fake = installFakeFetch({ ...base(), 'GET /api/users/mai': ok(publicUser({ username: 'mai', bannerUrl: 'http://cdn/b.webp?v=3' })) })
+    const w = await mountAt('/u/mai', false)
+    const box = w.get('[data-test="banner-box"]')
+    expect(box.classes()).toContain('aspect-[4/1]')
+    expect(box.classes()).toContain('w-full')
+    expect(box.classes().some((c) => /^(sm:)?h-\d/.test(c))).toBe(false)
+    expect(w.get('[data-test="banner"]').attributes('src')).toBe('http://cdn/b.webp?v=3')
+  })
+
   it('renders stats and follow button (hidden on own profile)', async () => {
     fake = installFakeFetch(base({ 'GET /api/users/cuka': ok(publicUser()), 'GET /api/users/cuka/posts': page([]) }))
     const w = await mountAt('/u/mai', true)
