@@ -4,6 +4,7 @@ import LangSwitch from './LangSwitch.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import NotificationBell from './NotificationBell.vue'
 import AccountMenu from './AccountMenu.vue'
+import BrandMark from './BrandMark.vue'
 import { useAuth } from '@/stores/auth'
 
 const { t } = useI18n()
@@ -13,8 +14,9 @@ const auth = useAuth()
 <template>
   <header class="border-b border-[var(--c-border)] bg-[var(--c-surface)]">
     <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2">
-      <RouterLink to="/" class="text-lg font-bold text-[var(--c-primary)]">
-        {{ t('common.siteName') }}
+      <RouterLink to="/" data-test="brand" class="flex items-center gap-2 font-display text-lg font-semibold tracking-tight text-[var(--c-primary)]">
+        <BrandMark class="size-7 shrink-0" />
+        <span>{{ t('common.siteName') }}</span>
       </RouterLink>
       <nav class="flex gap-3 text-sm">
         <RouterLink to="/">{{ t('nav.home') }}</RouterLink>
