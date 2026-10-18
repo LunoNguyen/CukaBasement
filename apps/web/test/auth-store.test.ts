@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuth } from '@/stores/auth'
+import { i18n, setLocale } from '@/i18n'
 import { installFakeFetch, makeMe, type FakeFetch } from './fakeApi'
 
 let fake: FakeFetch | undefined
@@ -47,6 +48,14 @@ describe('auth store', () => {
     expect(b.user).toBeNull()
     expect(b.token).toBeNull()
     expect(b.isLoggedIn).toBe(false)
+  })
+
+  it('init(): a restored user with another locale switches the UI language', async () => {
+    fake = installFakeFetch({ 'POST /api/auth/refresh': session(makeMe({ locale: 'en' })) })
+    setLocale('vi')
+    await useAuth().init()
+    expect(i18n.global.locale.value).toBe('en')
+    setLocale('vi')
   })
 
   it('register posts the input and does not log in', async () => {

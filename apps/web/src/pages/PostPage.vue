@@ -120,6 +120,16 @@ watch(
   { immediate: true },
 )
 
+// Logging in or out while here changes what the API returns (owner/staff fields, viewerState).
+// Changes during the start-up refresh are ignored: requests already wait for it.
+watch(
+  () => auth.user?.id,
+  () => {
+    const id = route.params.id
+    if (auth.ready && typeof id === 'string') void load(id)
+  },
+)
+
 onBeforeUnmount(() => {
   gen++
   stopPolling()

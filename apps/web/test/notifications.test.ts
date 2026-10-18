@@ -161,6 +161,7 @@ describe('Notification store races', () => {
       'POST /api/notifications/read': { status: 204 },
     })
     setActivePinia(createPinia())
+    useAuth().ready = true
     const store = useNotifications()
     store.start()
     await flushPromises()

@@ -102,6 +102,37 @@ describe('Settings page', () => {
     expect(fake.callsTo('POST /api/me/password')[0]!.body).toEqual({ currentPassword: 'oldpassword', newPassword: 'newpassword1' })
   })
 
+  it('password change logs in again with the new password (the change revokes every refresh token)', async () => {
+    fake = installFakeFetch({
+      'POST /api/me/password': { status: 204 },
+      'POST /api/auth/login': ok({ accessToken: 'after-change', user: makeMe() }),
+    })
+    const w = await mountSettings()
+    await w.get('[data-test="current-password"]').setValue('oldpassword')
+    await w.get('[data-test="new-password"]').setValue('newpassword1')
+    await w.get('[data-test="save-password"]').trigger('click')
+    await flushPromises()
+    expect(fake.callsTo('POST /api/auth/login')[0]!.body).toEqual({ email: 'cuka@example.com', password: 'newpassword1' })
+    expect(auth.token).toBe('after-change')
+    expect(w.text()).toContain('Đã lưu')
+  })
+
+  it('password change: a failed re-login clears the session and goes to /login with a toast', async () => {
+    fake = installFakeFetch({
+      'POST /api/me/password': { status: 204 },
+      'POST /api/auth/login': err(500, 'INTERNAL'),
+    })
+    const w = await mountSettings()
+    const router = (w.vm as unknown as { $router: import('vue-router').Router }).$router
+    await w.get('[data-test="current-password"]').setValue('oldpassword')
+    await w.get('[data-test="new-password"]').setValue('newpassword1')
+    await w.get('[data-test="save-password"]').trigger('click')
+    await flushPromises()
+    expect(auth.isLoggedIn).toBe(false)
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(w.text()).toContain('Đã đổi mật khẩu. Vui lòng đăng nhập lại.')
+  })
+
   describe('avatar', () => {
     const routes = (patch: FakeRoute): Record<string, FakeRoute> => ({
       'POST /api/uploads': (req: FakeRequest) => {

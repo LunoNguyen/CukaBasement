@@ -6,7 +6,10 @@ import { installFakeFetch, makeMe, type FakeFetch } from './fakeApi'
 
 let fake: FakeFetch | undefined
 
-beforeEach(() => setActivePinia(createPinia()))
+beforeEach(() => {
+  setActivePinia(createPinia())
+  useAuth().ready = true
+})
 afterEach(() => {
   fake?.restore()
   fake = undefined
@@ -17,6 +20,32 @@ const ok = (body: unknown = { ok: true }) => ({ status: 200, body })
 const unauth = { status: 401, body: { error: { code: 'UNAUTHENTICATED', message: 'expired' } } }
 
 describe('api client', () => {
+  it('cold load: an authenticated request waits for the start-up refresh, then sends the token', async () => {
+    const auth = useAuth()
+    auth.ready = false
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    fake = installFakeFetch({
+      'POST /api/auth/refresh': async () => {
+        await gate
+        return ok({ accessToken: 'fresh', user: makeMe() })
+      },
+      'GET /api/posts/p1': ok({ id: 'p1' }),
+      'GET /api/public': ok({ n: 1 }),
+    })
+    const init = auth.init()
+    const post = request('/posts/p1')
+    const pub = request('/public', { auth: false })
+    await vi.waitFor(() => expect(fake!.callsTo('POST /api/auth/refresh')).toHaveLength(1))
+    await pub
+    expect(fake.callsTo('GET /api/posts/p1')).toHaveLength(0)
+    release()
+    await Promise.all([init, post])
+    const sent = fake.callsTo('GET /api/posts/p1')
+    expect(sent).toHaveLength(1)
+    expect(sent[0]!.headers.authorization).toBe('Bearer fresh')
+  })
+
   it('serializes refresh: 3 parallel 401s → 1 refresh call, 3 retried successes', async () => {
     const auth = useAuth()
     auth.token = 'old'

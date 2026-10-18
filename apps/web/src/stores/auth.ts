@@ -4,6 +4,7 @@ import { refreshOnce } from '@/api/client'
 import * as authApi from '@/api/endpoints/auth'
 import type { RegisterInput } from '@/api/endpoints/auth'
 import type { MeDto, SessionDto } from '@/api/types'
+import { i18n, setLocale } from '@/i18n'
 
 /** At least 18 full years since `YYYY-MM-DD`, on the local calendar date. */
 function isAdult(birthDate: string | null, now = new Date()): boolean {
@@ -44,6 +45,9 @@ export const useAuth = defineStore('auth', () => {
   async function init() {
     try {
       await refreshOnce()
+      // The account's saved language wins over this browser's stored one.
+      const l = user.value?.locale
+      if (l && l !== i18n.global.locale.value) setLocale(l)
     } finally {
       ready.value = true
     }

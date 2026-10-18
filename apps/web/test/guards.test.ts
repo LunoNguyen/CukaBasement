@@ -59,6 +59,49 @@ describe('route guards', () => {
   })
 })
 
+describe('session lost mid-use', () => {
+  it('a cleared session on an auth-only page redirects to /login?next=', async () => {
+    fake = installFakeFetch({})
+    const { pinia, auth, router } = setup('user')
+    auth.ready = true
+    await router.push('/notifications')
+    const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
+    await flushPromises()
+    auth.clear()
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(router.currentRoute.value.query.next).toBe('/notifications')
+    w.unmount()
+  })
+
+  it('a cleared session on a public page stays put', async () => {
+    fake = installFakeFetch({})
+    const { pinia, auth, router } = setup('user')
+    auth.ready = true
+    await router.push('/search')
+    const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
+    await flushPromises()
+    auth.clear()
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/search')
+    w.unmount()
+  })
+
+  it('logout from the menu on an auth-only page goes home', async () => {
+    fake = installFakeFetch({ 'POST /api/auth/logout': { status: 204 } })
+    const { pinia, auth, router } = setup('user')
+    auth.ready = true
+    await router.push('/notifications')
+    const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
+    await flushPromises()
+    await w.get('[data-test="account-menu-button"]').trigger('click')
+    await w.get('[data-test="menu-logout"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/')
+    w.unmount()
+  })
+})
+
 describe('account menu and banner', () => {
   it('unverified user sees resend banner; click calls resend once', async () => {
     fake = installFakeFetch({ 'POST /api/auth/resend-verification': { status: 204 } })

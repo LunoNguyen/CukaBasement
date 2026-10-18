@@ -195,6 +195,7 @@ const en: typeof vi = {
     newPassword: 'New password',
     passwordHint: 'At least {n} characters',
     changePassword: 'Change password',
+    reloginNeeded: 'Password changed. Please log in again.',
     language: 'Language',
     r18: 'R18 content',
     birthDate: 'Date of birth',

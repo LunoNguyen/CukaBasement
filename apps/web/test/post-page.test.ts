@@ -279,6 +279,29 @@ describe('Post page — credit and owner tools', () => {
     expect(w.find('[data-test="delete-post"]').exists()).toBe(false)
   })
 
+  it('reloads when the session changes: logout drops owner data, login brings it back', async () => {
+    const pending = postDto({ review: { status: 'pending' }, viewerState: { liked: true, bookmarked: false } })
+    fake = installFakeFetch(
+      routes((req) =>
+        req.headers.authorization ? ok(pending) : { status: 404, body: { error: { code: 'POST_NOT_FOUND', message: 'x' } } },
+      ),
+    )
+    const { w } = await mountPost(makeMe())
+    expect(w.text()).toContain('Đang chờ duyệt')
+    const auth = useAuth()
+    auth.clear()
+    await flushPromises()
+    expect(fake.callsTo('GET /api/posts/p1')).toHaveLength(2)
+    expect(fake.callsTo('GET /api/posts/p1')[1]!.headers.authorization).toBeUndefined()
+    expect(w.text()).not.toContain('Đang chờ duyệt')
+    expect(w.text()).toContain('Không tìm thấy bài đăng')
+
+    auth.setSession({ accessToken: 't2', user: makeMe() })
+    await flushPromises()
+    expect(fake.callsTo('GET /api/posts/p1')).toHaveLength(3)
+    expect(w.text()).toContain('Đang chờ duyệt')
+  })
+
   it('owner sees the rejection reason', async () => {
     fake = installFakeFetch(routes(postDto({ review: { status: 'rejected', reason: 'Thiếu nguồn' } })))
     const { w } = await mountPost(makeMe())

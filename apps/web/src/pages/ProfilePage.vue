@@ -40,6 +40,13 @@ async function load() {
   }
 }
 watch(username, load, { immediate: true })
+// Own profile shows private bookmarks and pending posts: reload when the viewer logs in or out.
+watch(
+  () => auth.user?.id,
+  () => {
+    if (auth.ready) void load()
+  },
+)
 
 const isSelf = computed(() => !!user.value && auth.user?.id === user.value.id)
 const tabs = computed(() => [

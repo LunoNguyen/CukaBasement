@@ -231,6 +231,7 @@ export default {
     newPassword: 'Mật khẩu mới',
     passwordHint: 'Tối thiểu {n} ký tự',
     changePassword: 'Đổi mật khẩu',
+    reloginNeeded: 'Đã đổi mật khẩu. Vui lòng đăng nhập lại.',
     language: 'Ngôn ngữ',
     r18: 'Nội dung R18',
     birthDate: 'Ngày sinh',

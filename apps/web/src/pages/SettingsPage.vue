@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { LIMITS } from '@cuka/shared'
 import { ApiError } from '@/api/client'
 import { changePassword, updateProfile, updateSettings, type UpdateProfileInput, type UpdateSettingsInput } from '@/api/endpoints/me'
@@ -18,6 +19,7 @@ import { useErrorText } from './auth/errorText'
 const { t, locale } = useI18n()
 const auth = useAuth()
 const toast = useToast()
+const router = useRouter()
 const errorText = useErrorText()
 
 const me = auth.user!
@@ -28,6 +30,9 @@ const LINKS = [
   { key: 'youtube', label: 'YouTube' },
   { key: 'pixiv', label: 'pixiv' },
 ] as const
+
+/** Signals `run` that the failure was already reported. */
+class Relogin extends Error {}
 
 type Section = 'profile' | 'password' | 'locale' | 'r18'
 const busy = ref<Record<Section, boolean>>({ profile: false, password: false, locale: false, r18: false })
@@ -40,6 +45,7 @@ async function run(section: Section, fn: () => Promise<void>, overrides: Partial
     await fn()
     toast.push({ kind: 'success', text: t('settings.saved') })
   } catch (e) {
+    if (e instanceof Relogin) return
     const key = e instanceof ApiError ? overrides[e.code] : undefined
     toast.push({ kind: 'error', text: key ? t(key) : errorText(e) })
   } finally {
@@ -94,9 +100,19 @@ const passwordValid = computed(() => currentPassword.value.length > 0 && newPass
 function savePassword() {
   if (!passwordValid.value) return
   return run('password', async () => {
-    await changePassword({ currentPassword: currentPassword.value, newPassword: newPassword.value })
+    const next = newPassword.value
+    await changePassword({ currentPassword: currentPassword.value, newPassword: next })
     currentPassword.value = ''
     newPassword.value = ''
+    // The change revokes every refresh token, this browser's included: sign in again for a fresh session.
+    try {
+      await auth.login(me.email, next)
+    } catch {
+      auth.clear()
+      toast.push({ kind: 'error', text: t('settings.reloginNeeded') })
+      void router.replace({ path: '/login', query: { next: '/settings' } })
+      throw new Relogin()
+    }
   })
 }
 

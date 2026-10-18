@@ -76,6 +76,17 @@ describe('Profile page', () => {
     expect(own.find('[data-test="follow"]').exists()).toBe(false)
   })
 
+  it('reloads when the session changes', async () => {
+    fake = installFakeFetch(base())
+    const w = await mountAt('/u/mai', false)
+    expect(fake.callsTo('GET /api/users/mai')).toHaveLength(1)
+    useAuth().setSession({ accessToken: 't', user: makeMe() })
+    await flushPromises()
+    expect(fake.callsTo('GET /api/users/mai')).toHaveLength(2)
+    expect(fake.callsTo('GET /api/users/mai')[1]!.headers.authorization).toBe('Bearer t')
+    expect(w.text()).toContain('Mai')
+  })
+
   it('unknown user shows the not-found page', async () => {
     fake = installFakeFetch({ 'GET /api/users/ghost': { status: 404, body: { error: { code: 'NOT_FOUND', message: 'x' } } } })
     const w = await mountAt('/u/ghost', false)

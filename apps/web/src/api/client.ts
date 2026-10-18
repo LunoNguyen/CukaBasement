@@ -54,6 +54,9 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   const { method = 'GET', body, query, auth = true, retry = true } = opts
   const headers: Record<string, string> = { accept: 'application/json' }
   if (body !== undefined) headers['content-type'] = 'application/json'
+  // Until the start-up refresh settles we do not know who is asking: wait so the
+  // request carries the restored token. The refresh itself is `auth: false`, so this cannot deadlock.
+  if (auth && !useAuth().ready) await useAuth().whenReady()
   const sentToken = auth ? useAuth().token : null
   if (sentToken) headers.authorization = `Bearer ${sentToken}`
 
