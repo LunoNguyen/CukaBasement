@@ -7,7 +7,7 @@ import { FeedCache } from '../src/cache/feed-cache.service'
 import { prepareDatabase } from '../src/database/prepare'
 import { cleanupUploads } from '../src/jobs/handlers/cleanup-uploads'
 import { processFile } from '../src/jobs/handlers/process-file'
-import { ensureHomepage, HOME_SEED } from '../src/site/home-seed'
+import { ensureHomepage, ensureSitePages, HOME_SEED, INTRO_SEED, LEGACY_HOME_SEED } from '../src/site/home-seed'
 import { approve, createPost, createTestHarness, createUser, type Harness, jobDeps, postMultipart, uploadFixture } from './harness'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
@@ -20,15 +20,39 @@ async function siteImage(h: Harness, admin: { token: string }, process = true): 
   return id
 }
 
-async function uploadSite(h: Harness, user: { token: string }): Promise<string> {
-  const body = readFileSync(join(__dirname, 'fixtures', 'tiny.png'))
-  const presign = await h.http().post('/api/uploads').set(auth(user.token)).send({ name: 'tiny.png', size: body.length, mime: 'image/png', purpose: 'site' })
+async function uploadSite(h: Harness, user: { token: string }, fixture = 'tiny.png', mime = 'image/png'): Promise<string> {
+  const body = readFileSync(join(__dirname, 'fixtures', fixture))
+  const presign = await h.http().post('/api/uploads').set(auth(user.token)).send({ name: fixture, size: body.length, mime, purpose: 'site' })
   if (presign.status !== 201) throw new Error(`presign ${presign.status} ${JSON.stringify(presign.body)}`)
   const up = await postMultipart(presign.body.url, presign.body.fields, body)
   if (!up.ok) throw new Error(`storage ${up.status}`)
   const done = await h.http().post(`/api/uploads/${presign.body.fileId}/complete`).set(auth(user.token))
   if (done.status !== 200) throw new Error(`complete ${done.status}`)
   return presign.body.fileId as string
+}
+
+/** Uploads one-second.mp4 as a site video and processes it like the worker would. */
+async function siteVideo(h: Harness, admin: { token: string }, process = true): Promise<string> {
+  const id = await uploadSite(h, admin, 'one-second.mp4', 'video/mp4')
+  if (process) await processFile(jobDeps(h), { fileId: id })
+  return id
+}
+
+function heroVideoWith(video: string | null, images: string[] = [], name = 'Hibiki Du Ca') {
+  return {
+    id: 'top',
+    type: 'heroVideo',
+    visible: true,
+    data: {
+      eyebrow: lt(''),
+      name: lt(name),
+      subtitle: lt(''),
+      video: video ? { fileId: video } : null,
+      videoMobile: null,
+      images: images.map((fileId) => ({ fileId, alt: lt('Du Ca'), decorative: false })),
+      link: { kicker: lt('Đang phát'), label: lt('Kênh YouTube'), href: 'https://www.youtube.com/@hibikiduca' },
+    },
+  }
 }
 
 function heroWith(images: string[], title = 'Hibiki Du Ca') {
@@ -54,16 +78,111 @@ describe('homepage CMS', () => {
     return res.body as { revision: number; sections: Array<Record<string, unknown>>; unpublished: boolean; images: Record<string, { src: string; srcset: string }> }
   }
 
-  it('public GET seeds the default homepage on first use: visible published sections only, no images', async () => {
+  it('public GET seeds the default landing page on first use: full-screen sections, no media yet', async () => {
     const res = await h.http().get('/api/site/home')
     expect(res.status).toBe(200)
     const types = (res.body.sections as Array<{ type: string; visible: boolean }>).map((s) => s.type)
-    expect(types[0]).toBe('hero')
+    expect(types).toEqual(['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])
     expect(types).toEqual(HOME_SEED.filter((s) => s.visible).map((s) => s.type))
+    expect(res.body).toMatchObject({ page: 'home', images: {}, videos: {} })
+    expect(res.body.sections[0].data).toMatchObject({ name: lt('Hibiki Du Ca', 'Hibiki Du Ca'), video: null, link: { href: 'https://www.youtube.com/@hibikiduca' } })
+    expect(res.body.sections[1].data.source).toBe('latestFanart')
+    // The spotlight only names what is public: the original model's debut and the chibi model.
+    expect(JSON.stringify(res.body.sections[2])).toContain('08/08/2021')
+    expect((await h.http().get('/api/site/pages/home')).body).toEqual(res.body)
+  })
+
+  it('the Introduction page carries the long-form profile; unknown pages are 404', async () => {
+    const res = await h.http().get('/api/site/pages/intro')
+    expect(res.status).toBe(200)
+    expect(res.body.page).toBe('intro')
+    const types = res.body.sections.map((s: { type: string }) => s.type)
+    expect(types[0]).toBe('hero')
+    expect(types).toEqual(INTRO_SEED.filter((s) => s.visible).map((s) => s.type))
+    expect(types).toContain('profile')
     expect(types).not.toContain('gallery')
-    expect(res.body.images).toEqual({})
     expect(res.body.sections[0].data.title.vi).toBe('Hibiki Du Ca')
-    expect(JSON.stringify(res.body)).toContain('https://www.youtube.com/@hibikiduca')
+    for (const bad of ['admin', 'HOME', '..', 'x'.repeat(50)]) expect((await h.http().get(`/api/site/pages/${bad}`)).status, bad).toBe(404)
+    const admin = await createUser(h, { role: 'admin' })
+    expect((await h.http().get('/api/admin/site/pages/nope/draft').set(auth(admin.token))).status).toBe(404)
+  })
+
+  describe('upgrade of the first homepage', () => {
+    /** The database as the first homepage release left it: only `home`, holding the long-form seed. */
+    async function legacyDb(edit?: { updatedBy?: Types.ObjectId; publishedBy?: Types.ObjectId; sections?: unknown[] }) {
+      const now = new Date()
+      await h.db.collection('homepage').deleteMany({})
+      await h.db.collection('homepage').insertOne({
+        _id: 'home' as never,
+        draft: { revision: 3, sections: edit?.sections ?? LEGACY_HOME_SEED, updatedAt: now, updatedBy: edit?.updatedBy ?? null },
+        published: { sections: LEGACY_HOME_SEED, publishedAt: now, publishedBy: edit?.publishedBy ?? null },
+      })
+    }
+
+    it('an untouched seeded homepage becomes the landing page; its content moves to the Introduction page', async () => {
+      await legacyDb()
+      const lines: string[] = []
+      await prepareDatabase(h.db, (l) => lines.push(l))
+      expect(lines.find((l) => l.startsWith('homepage:'))).toMatch(/upgraded.*introduction page: created/)
+      const home = await h.db.collection('homepage').findOne({ _id: 'home' as never })
+      expect(home!.draft.revision).toBe(4)
+      expect(home!.published.sections.map((s: { type: string }) => s.type)).toEqual(HOME_SEED.map((s) => s.type))
+      expect(home!.draft.sections).toEqual(home!.published.sections)
+      expect((await h.http().get('/api/site/pages/intro')).body.sections.map((s: { id: string }) => s.id)).toEqual(INTRO_SEED.filter((s) => s.visible).map((s) => s.id))
+      // Running again changes nothing.
+      expect(await ensureSitePages(h.db)).toEqual({ home: 'kept', intro: 'kept' })
+    })
+
+    it('a homepage an admin saved, published or changed is never replaced', async () => {
+      const someone = new Types.ObjectId()
+      const changed = LEGACY_HOME_SEED.map((s) => (s.type === 'hero' ? { ...s, data: { ...s.data, title: lt('Của admin') } } : s))
+      for (const edit of [{ updatedBy: someone }, { publishedBy: someone }, { sections: changed }]) {
+        await legacyDb(edit)
+        expect(await ensureSitePages(h.db)).toEqual({ home: 'kept', intro: 'created' })
+        const home = await h.db.collection('homepage').findOne({ _id: 'home' as never })
+        expect(home!.draft.revision).toBe(3)
+        expect(home!.published.sections[0].type).toBe('hero')
+        if (edit.sections) expect(home!.draft.sections[0].data.title.vi).toBe('Của admin')
+      }
+      // The kept homepage still renders, and new section types can be added to it.
+      const admin = await createUser(h, { role: 'admin' })
+      const d = await draftOf(admin)
+      const res = await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [...d.sections, heroVideoWith(null)] })
+      expect(res.status).toBe(200)
+      expect(res.body.sections.map((s: { type: string }) => s.type).at(-1)).toBe('heroVideo')
+    })
+  })
+
+  it('each page has its own draft, revision and publish; the log names the page', async () => {
+    const admin = await createUser(h, { role: 'admin' })
+    const intro = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    const home = await draftOf(admin)
+    expect(intro.page).toBe('intro')
+    const saved = await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: intro.revision, sections: [heroWith([], 'Giới thiệu mới')] })
+    expect(saved.status).toBe(200)
+    expect(saved.body).toMatchObject({ page: 'intro', unpublished: true, revision: intro.revision + 1 })
+    expect((await draftOf(admin)).revision).toBe(home.revision)
+    expect(JSON.stringify((await h.http().get('/api/site/pages/intro')).body)).not.toContain('Giới thiệu mới')
+
+    // The homepage's revision does not publish the intro draft.
+    expect((await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: intro.revision })).status).toBe(409)
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: intro.revision + 1 }).expect(200)
+    const pub = await h.http().get('/api/site/pages/intro')
+    expect(pub.body.sections.map((s: { data: { title: { vi: string } } }) => s.data.title.vi)).toEqual(['Giới thiệu mới'])
+    expect((await h.http().get('/api/site/home')).body.sections[0].type).toBe('heroVideo')
+
+    const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    await h.http().post('/api/admin/site/pages/intro/discard').set(auth(admin.token)).send({ revision: d.revision }).expect(200)
+    const logs = await h.http().get('/api/admin/logs').set(auth(admin.token))
+    expect(logs.body.items.map((l: { action: string; targetId: string }) => [l.action, l.targetId])).toEqual([
+      ['homepage_discard', 'intro'],
+      ['homepage_publish', 'intro'],
+    ])
+    for (const who of [await createUser(h), await createUser(h, { role: 'moderator' })]) {
+      await h.http().get('/api/admin/site/pages/intro/draft').set(auth(who.token)).expect(403)
+      await h.http().put('/api/admin/site/pages/intro/draft').set(auth(who.token)).send({ revision: 0, sections: [] }).expect(403)
+      await h.http().post('/api/admin/site/pages/intro/publish').set(auth(who.token)).send({ revision: 0 }).expect(403)
+    }
   })
 
   it('seeding is idempotent and never overwrites an edited homepage (setup re-run included)', async () => {
@@ -175,10 +294,18 @@ describe('homepage CMS', () => {
   })
 
   describe('site images', () => {
-    it('site uploads are images only; a post file, unknown id or processing image is refused where it must be', async () => {
+    it('site uploads are images or videos only; a post file, unknown id or processing image is refused where it must be', async () => {
       const admin = await createUser(h, { role: 'admin' })
-      const notImage = await h.http().post('/api/uploads').set(auth(admin.token)).send({ name: 'a.mp4', size: 10, mime: 'video/mp4', purpose: 'site' })
-      expect(notImage.status).toBe(415)
+      for (const [name, mime] of [['a.mp3', 'audio/mpeg'], ['a.zip', 'application/zip'], ['a.psd', 'image/vnd.adobe.photoshop']]) {
+        const res = await h.http().post('/api/uploads').set(auth(admin.token)).send({ name, size: 10, mime, purpose: 'site' })
+        expect(res.status, name).toBe(415)
+      }
+      for (const [name, mime] of [['a.mp4', 'video/mp4'], ['a.webm', 'video/webm']]) {
+        expect((await h.http().post('/api/uploads').set(auth(admin.token)).send({ name, size: 10, mime, purpose: 'site' })).status, name).toBe(201)
+      }
+      // Over the upload size limit like any other file.
+      const huge = await h.http().post('/api/uploads').set(auth(admin.token)).send({ name: 'big.mp4', size: 10 * 1024 * 1024 * 1024, mime: 'video/mp4', purpose: 'site' })
+      expect(huge.status).toBe(413)
 
       const postFile = await uploadFixture(h, admin, 'tiny.png')
       await processFile(jobDeps(h), { fileId: postFile })
@@ -212,6 +339,68 @@ describe('homepage CMS', () => {
       expect(file).toMatchObject({ purpose: 'site', status: 'ready', watermarkedFor: '' })
       expect(file!.variants.map((v: { name: string }) => v.name).sort()).toEqual(['large', 'thumb_md', 'thumb_sm'])
       expect(new Set(file!.variants.map((v: { bucket: string }) => v.bucket))).toEqual(new Set(['test-cuka-public']))
+    })
+
+    it('site videos: the worker publishes the clip and a poster frame; the page serves both', async () => {
+      const admin = await createUser(h, { role: 'admin' })
+      const vid = await siteVideo(h, admin)
+      const file = await h.db.collection('files').findOne({ _id: new Types.ObjectId(vid) })
+      expect(file).toMatchObject({ purpose: 'site', kind: 'video', status: 'ready', watermarkedFor: '' })
+      expect(file!.durationSec).toBeGreaterThan(0)
+      const names = file!.variants.map((v: { name: string }) => v.name).sort()
+      expect(names).toEqual(['large', 'preview', 'thumb_md', 'thumb_sm', 'video'])
+      expect(new Set(file!.variants.map((v: { bucket: string }) => v.bucket))).toEqual(new Set(['test-cuka-public']))
+      const clip = file!.variants.find((v: { name: string }) => v.name === 'video')
+      expect(clip.objectKey).toMatch(/\/video\.mp4$/)
+      expect((await jobDeps(h).storage.stat('test-cuka-public', clip.objectKey))!.size).toBe(file!.sizeBytes)
+
+      const { revision } = await draftOf(admin)
+      await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision, sections: [heroVideoWith(vid)] }).expect(200)
+      await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 }).expect(200)
+      const home = (await h.http().get('/api/site/home')).body
+      expect(home.videos[vid]).toMatchObject({ mime: 'video/mp4', durationSec: expect.any(Number) })
+      expect(home.videos[vid].src).toMatch(/test-cuka-public\/.+\/video\.mp4\?v=\d+$/)
+      // The poster frame, as responsive renders.
+      expect(home.images[vid].srcset).toMatch(/ \d+w/)
+
+      const lib = (await h.http().get('/api/admin/site/images').set(auth(admin.token))).body
+      expect(lib.find((i: { id: string }) => i.id === vid)).toMatchObject({ kind: 'video', used: true, video: { mime: 'video/mp4' }, image: { src: expect.any(String) } })
+      expect((await h.http().delete(`/api/admin/site/images/${vid}`).set(auth(admin.token))).status).toBe(409)
+    })
+
+    it('a video slot takes only a site video, an image slot only a site image; a processing video is not publishable', async () => {
+      const admin = await createUser(h, { role: 'admin' })
+      const img = await siteImage(h, admin)
+      const vid = await siteVideo(h, admin)
+      const { revision } = await draftOf(admin)
+      const put = (sections: unknown[]) => h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision, sections })
+      for (const sections of [[heroVideoWith(img)], [heroVideoWith(null, [vid])], [heroWith([vid])]]) {
+        const res = await put(sections)
+        expect(res.status, JSON.stringify(sections)).toBe(400)
+        expect(res.body.error.code).toBe('SITE_IMAGE_INVALID')
+      }
+      const pending = await siteVideo(h, admin, false)
+      await put([heroVideoWith(pending, [img])]).expect(200)
+      const pub = await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 })
+      expect(pub.status).toBe(400)
+      expect(pub.body.error.details.fileIds).toEqual([pending])
+      // Ready without its published clip (e.g. processed before the upgrade) still is not publishable.
+      await processFile(jobDeps(h), { fileId: pending })
+      await h.db.collection('files').updateOne({ _id: new Types.ObjectId(pending) }, { $pull: { variants: { name: 'video' } } as never })
+      expect((await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 })).status).toBe(400)
+      await processFile(jobDeps(h), { fileId: pending })
+      await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 }).expect(200)
+    })
+
+    it('media used by the Introduction page is in use too, for deletion and for the cleanup job', async () => {
+      const admin = await createUser(h, { role: 'admin' })
+      const img = await siteImage(h, admin)
+      const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+      await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [heroWith([img])] }).expect(200)
+      expect((await h.http().delete(`/api/admin/site/images/${img}`).set(auth(admin.token))).status).toBe(409)
+      await h.db.collection('files').updateOne({ _id: new Types.ObjectId(img) }, { $set: { purpose: 'post', createdAt: new Date(Date.now() - 3 * 24 * 3600_000) } })
+      await cleanupUploads({ ...jobDeps(h), jobs: { enqueue: async () => {} } })
+      expect(await h.db.collection('files').countDocuments({ _id: new Types.ObjectId(img) })).toBe(1)
     })
 
     it('a site image cannot be attached to a post or used as an avatar', async () => {
@@ -327,5 +516,16 @@ describe('homepage cache', () => {
     await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: d.revision + 1 }).expect(200)
     const res = await h.http().get('/api/site/home')
     expect(res.body.sections[0].data.title.vi).toBe('Mới xuất bản')
+
+    // Pages are cached apart: the intro page is its own entry, refreshed by its own publish.
+    await h.http().get('/api/site/pages/intro').expect(200)
+    await h.http().get('/api/site/pages/intro').expect(200)
+    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'published.sections': [heroWith([], 'Ngầm intro')] } })
+    expect(JSON.stringify((await h.http().get('/api/site/pages/intro')).body)).not.toContain('Ngầm intro')
+    const di = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: di.revision, sections: [heroWith([], 'Intro mới')] }).expect(200)
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: di.revision + 1 }).expect(200)
+    expect((await h.http().get('/api/site/pages/intro')).body.sections[0].data.title.vi).toBe('Intro mới')
+    expect((await h.http().get('/api/site/home')).body.sections[0].data.title.vi).toBe('Mới xuất bản')
   })
 })

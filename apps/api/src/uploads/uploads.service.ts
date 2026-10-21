@@ -86,7 +86,7 @@ export class UploadsService {
     const mime = input.mime.toLowerCase()
     const kind = kindForMime(mime, extOf(input.name))
     if (!kind) throw new AppError('FILE_TYPE_NOT_ALLOWED', 415, 'File type is not allowed')
-    if (purpose === 'site' && kind !== 'image') throw new AppError('FILE_TYPE_NOT_ALLOWED', 415, 'Site images must be PNG, JPEG, WebP or GIF')
+    if (purpose === 'site' && kind !== 'image' && kind !== 'video') throw new AppError('FILE_TYPE_NOT_ALLOWED', 415, 'Site media must be PNG, JPEG, WebP, GIF, MP4 or WebM')
     // octet-stream is only whitelisted for .clip (checked by kindForMime); otherwise the mime picks the extension.
     const ext = ALLOWED_FILE_TYPES.find((t) => t.mime === mime && t.kind === kind)!.ext
 

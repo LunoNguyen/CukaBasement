@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { getConnectionToken, InjectModel } from '@nestjs/mongoose'
-import { type HomeSection, homeImageIds, homeSectionSchema, type saveHomeDraftSchema } from '@cuka/shared'
+import { type HomeSection, homeImageIds, homeSectionSchema, homeVideoIds, type saveHomeDraftSchema, SITE_PAGES, type SitePage } from '@cuka/shared'
 import { type Connection, type Model, Types } from 'mongoose'
 import type { z } from 'zod'
 import type { Viewer } from '../auth/viewer'
@@ -12,9 +12,12 @@ import { ModerationLogService } from '../moderation/moderation-log.service'
 import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 import { USER_MODEL, type User } from '../users/user.schema'
-import { ensureHomepage, HOME_COLLECTION, HOME_ID, type HomepageDoc } from './home-seed'
+import { ensureHomepage, ensureSitePages, HOME_COLLECTION, type HomepageDoc } from './home-seed'
 
 export { ensureHomepage }
+
+/** Whether `v` names a CMS page (home, intro). */
+export const isSitePage = (v: unknown): v is SitePage => typeof v === 'string' && (SITE_PAGES as readonly string[]).includes(v)
 
 export type SaveHomeDraftInput = z.output<typeof saveHomeDraftSchema>
 
@@ -26,28 +29,45 @@ export interface SiteImageDto {
   srcset: string
 }
 
+/** A ready site video: its clip in the public bucket (versioned like the images); the poster frame is in `images`. */
+export interface SiteVideoDto {
+  src: string
+  mime: string
+  width: number | null
+  height: number | null
+  durationSec: number | null
+}
+
 export interface PublicHomeDto {
+  page: SitePage
   /** Visible sections of the published version, in order. */
   sections: HomeSection[]
-  /** Images the sections reference, by file id; a missing id renders the section's decorative fallback. */
+  /** Images the sections reference, by file id (a video's id maps to its poster frame); a missing id renders the section's decorative fallback. */
   images: Record<string, SiteImageDto>
+  /** Background videos by file id; a missing id falls back to the poster, the slideshow or the brand art. */
+  videos: Record<string, SiteVideoDto>
   publishedAt: string
 }
 
 export interface AdminSiteImageDto {
   id: string
+  kind: 'image' | 'video'
   status: FileDoc['status']
   originalName: string
   sizeBytes: number
   width: number | null
   height: number | null
   createdAt: string
-  /** Referenced by the draft or the published homepage (then it cannot be deleted). */
+  durationSec: number | null
+  /** Referenced by the draft or the published version of a page (then it cannot be deleted). */
   used: boolean
+  /** The image's renders, or a video's poster frame. */
   image: SiteImageDto | null
+  video: SiteVideoDto | null
 }
 
 export interface HomeDraftDto {
+  page: SitePage
   revision: number
   sections: HomeSection[]
   updatedAt: string
@@ -57,6 +77,7 @@ export interface HomeDraftDto {
   /** The draft differs from the published version. */
   unpublished: boolean
   images: Record<string, SiteImageDto>
+  videos: Record<string, SiteVideoDto>
 }
 
 /** Stored sections that still pass the schema (a hand-edited or older document never breaks the page). */
@@ -86,26 +107,27 @@ export class SiteService {
     return this.conn.collection<HomepageDoc>(HOME_COLLECTION)
   }
 
-  private async load(): Promise<HomepageDoc> {
-    let doc = await this.col().findOne({ _id: HOME_ID })
+  private async load(page: SitePage): Promise<HomepageDoc> {
+    let doc = await this.col().findOne({ _id: page })
     if (!doc) {
-      await ensureHomepage(this.conn)
-      doc = await this.col().findOne({ _id: HOME_ID })
+      await ensureSitePages(this.conn)
+      doc = await this.col().findOne({ _id: page })
     }
     return doc!
   }
 
-  /** The published homepage; cached with the feed cache (fail-open), invalidated by publish. */
-  publicHome(): Promise<PublicHomeDto> {
-    return this.cache.wrap('site-home', { v: 1 }, async () => {
-      const doc = await this.load()
+  /** A published page; cached with the feed cache (fail-open), invalidated by publish. */
+  publicPage(page: SitePage): Promise<PublicHomeDto> {
+    return this.cache.wrap('site-page', { page, v: 2 }, async () => {
+      const doc = await this.load(page)
       const sections = validSections(doc.published.sections).filter((s) => s.visible)
-      return { sections, images: await this.resolveImages(homeImageIds(sections)), publishedAt: doc.published.publishedAt.toISOString() }
+      const media = await this.resolveMedia(homeImageIds(sections))
+      return { page, sections, ...media, publishedAt: doc.published.publishedAt.toISOString() }
     })
   }
 
-  async draft(): Promise<HomeDraftDto> {
-    const doc = await this.load()
+  async draft(page: SitePage): Promise<HomeDraftDto> {
+    const doc = await this.load(page)
     const sections = validSections(doc.draft.sections)
     const ids = [doc.draft.updatedBy, doc.published.publishedBy].filter((x): x is Types.ObjectId => !!x)
     const names = new Map(
@@ -113,6 +135,7 @@ export class SiteService {
     )
     const who = (id: Types.ObjectId | null) => (id && names.has(id.toString()) ? { username: names.get(id.toString())! } : null)
     return {
+      page,
       revision: doc.draft.revision,
       sections,
       updatedAt: doc.draft.updatedAt.toISOString(),
@@ -120,56 +143,56 @@ export class SiteService {
       publishedAt: doc.published.publishedAt.toISOString(),
       publishedBy: who(doc.published.publishedBy),
       unpublished: !sameSections(sections, validSections(doc.published.sections)),
-      images: await this.resolveImages(homeImageIds(sections)),
+      ...(await this.resolveMedia(homeImageIds(sections))),
     }
   }
 
-  async saveDraft(actor: Viewer, input: SaveHomeDraftInput): Promise<HomeDraftDto> {
-    await this.load()
-    await this.assertImages(homeImageIds(input.sections), ['processing', 'ready'])
+  async saveDraft(actor: Viewer, page: SitePage, input: SaveHomeDraftInput): Promise<HomeDraftDto> {
+    await this.load(page)
+    await this.assertMedia(input.sections, ['processing', 'ready'])
     const res = await this.col().updateOne(
-      { _id: HOME_ID, 'draft.revision': input.revision },
+      { _id: page, 'draft.revision': input.revision },
       {
         $set: { 'draft.sections': input.sections, 'draft.updatedAt': new Date(), 'draft.updatedBy': new Types.ObjectId(actor.id) },
         $inc: { 'draft.revision': 1 },
       },
     )
-    if (res.matchedCount === 0) await this.conflict()
-    return this.draft()
+    if (res.matchedCount === 0) await this.conflict(page)
+    return this.draft(page)
   }
 
-  /** Publishes the draft the admin was looking at (`revision`); every image must be ready by then. */
-  async publish(actor: Viewer, revision: number): Promise<HomeDraftDto> {
-    const doc = await this.load()
-    if (doc.draft.revision !== revision) await this.conflict()
+  /** Publishes the draft the admin was looking at (`revision`); every image and video must be ready by then. */
+  async publish(actor: Viewer, page: SitePage, revision: number): Promise<HomeDraftDto> {
+    const doc = await this.load(page)
+    if (doc.draft.revision !== revision) await this.conflict(page)
     const sections = validSections(doc.draft.sections)
-    await this.assertImages(homeImageIds(sections), ['ready'])
+    await this.assertMedia(sections, ['ready'])
     const res = await this.col().updateOne(
-      { _id: HOME_ID, 'draft.revision': revision },
+      { _id: page, 'draft.revision': revision },
       { $set: { published: { sections, publishedAt: new Date(), publishedBy: new Types.ObjectId(actor.id) } } },
     )
-    if (res.matchedCount === 0) await this.conflict()
-    await this.modLog.log(actor.id, 'homepage_publish', 'site', HOME_ID, `${sections.length} sections`)
+    if (res.matchedCount === 0) await this.conflict(page)
+    await this.modLog.log(actor.id, 'homepage_publish', 'site', page, `${sections.length} sections`)
     await this.cache.bump()
-    return this.draft()
+    return this.draft(page)
   }
 
   /** Resets the draft to the published version. */
-  async discard(actor: Viewer, revision: number): Promise<HomeDraftDto> {
-    const doc = await this.load()
+  async discard(actor: Viewer, page: SitePage, revision: number): Promise<HomeDraftDto> {
+    const doc = await this.load(page)
     const res = await this.col().updateOne(
-      { _id: HOME_ID, 'draft.revision': revision },
+      { _id: page, 'draft.revision': revision },
       {
         $set: { 'draft.sections': doc.published.sections, 'draft.updatedAt': new Date(), 'draft.updatedBy': new Types.ObjectId(actor.id) },
         $inc: { 'draft.revision': 1 },
       },
     )
-    if (res.matchedCount === 0) await this.conflict()
-    await this.modLog.log(actor.id, 'homepage_discard', 'site', HOME_ID)
-    return this.draft()
+    if (res.matchedCount === 0) await this.conflict(page)
+    await this.modLog.log(actor.id, 'homepage_discard', 'site', page)
+    return this.draft(page)
   }
 
-  /** The admin's site image library, newest first (abandoned uploads excluded). */
+  /** The admin's site media library (images and videos), newest first (abandoned uploads excluded). */
   async listImages(): Promise<AdminSiteImageDto[]> {
     const [docs, used] = await Promise.all([
       this.files.find({ purpose: 'site', status: { $in: ['processing', 'ready', 'failed'] } }).sort({ createdAt: -1, _id: -1 }).limit(300).lean(),
@@ -177,14 +200,17 @@ export class SiteService {
     ])
     return docs.map((f) => ({
       id: f._id.toString(),
+      kind: f.kind === 'video' ? 'video' : 'image',
       status: f.status,
       originalName: f.originalName,
       sizeBytes: f.sizeBytes,
       width: f.width,
       height: f.height,
       createdAt: f.createdAt.toISOString(),
+      durationSec: f.durationSec ?? null,
       used: used.has(f._id.toString()),
       image: this.imageOf(f),
+      video: this.videoOf(f),
     }))
   }
 
@@ -192,48 +218,77 @@ export class SiteService {
   async deleteImage(actor: Viewer, id: string): Promise<void> {
     const file = Types.ObjectId.isValid(id) ? await this.files.findOne({ _id: id, purpose: 'site' }).lean() : null
     if (!file) throw new AppError('NOT_FOUND', 404, 'Image not found')
-    if ((await this.usedIds()).has(id)) throw new AppError('SITE_IMAGE_IN_USE', 409, 'The homepage still uses this image')
+    if ((await this.usedIds()).has(id)) throw new AppError('SITE_IMAGE_IN_USE', 409, 'A site page still uses this file')
     await removeFile({ conn: this.conn, storage: this.storage, config: this.config }, file)
     await this.modLog.log(actor.id, 'site_image_delete', 'site', id, file.originalName)
   }
 
+  /** Ids referenced by the draft or published version of any page. */
   private async usedIds(): Promise<Set<string>> {
-    const doc = await this.col().findOne({ _id: HOME_ID })
-    return new Set(homeImageIds([...(doc?.draft.sections ?? []), ...(doc?.published.sections ?? [])]))
+    const docs = await this.col().find({}).toArray()
+    return new Set(homeImageIds(docs.flatMap((d) => [...(d.draft?.sections ?? []), ...(d.published?.sections ?? [])])))
   }
 
-  private async conflict(): Promise<never> {
-    const doc = await this.col().findOne({ _id: HOME_ID }, { projection: { 'draft.revision': 1 } })
+  private async conflict(page: SitePage): Promise<never> {
+    const doc = await this.col().findOne({ _id: page }, { projection: { 'draft.revision': 1 } })
     throw new AppError('REVISION_CONFLICT', 409, 'The draft was changed by someone else; reload it', { revision: doc?.draft.revision ?? null })
   }
 
-  /** Every id must be an existing image uploaded as a site image, in one of `statuses`; else 400 SITE_IMAGE_INVALID. */
-  private async assertImages(ids: string[], statuses: Array<FileDoc['status']>): Promise<void> {
+  /**
+   * Every referenced id must be a site upload in one of `statuses`: a background video slot holds a video, every
+   * other slot an image; else 400 SITE_IMAGE_INVALID. A video counts as ready only once its clip is published.
+   */
+  private async assertMedia(sections: HomeSection[], statuses: Array<FileDoc['status']>): Promise<void> {
+    const ids = homeImageIds(sections)
     if (!ids.length) return
-    const found = await this.files.find({ _id: { $in: ids }, purpose: 'site', kind: 'image', status: { $in: statuses } }, { _id: 1 }).lean()
-    const ok = new Set(found.map((f) => f._id.toString()))
+    const videos = new Set(homeVideoIds(sections))
+    const found = await this.files.find({ _id: { $in: ids }, purpose: 'site', status: { $in: statuses } }, { _id: 1, kind: 1, status: 1, variants: 1 }).lean()
+    const ok = new Set(
+      found
+        .filter((f) => {
+          const id = f._id.toString()
+          if (videos.has(id)) return f.kind === 'video' && (f.status !== 'ready' || f.variants.some((v) => v.name === 'video'))
+          return f.kind === 'image'
+        })
+        .map((f) => f._id.toString()),
+    )
     const bad = ids.filter((id) => !ok.has(id))
     if (bad.length) {
-      const why = statuses.includes('processing') ? 'is not a site image' : 'is not a ready site image'
-      throw new AppError('SITE_IMAGE_INVALID', 400, `Image ${bad[0]} ${why}`, { fileIds: bad })
+      const why = statuses.includes('processing') ? 'is not a site image or video for this slot' : 'is not a ready site image or video for this slot'
+      throw new AppError('SITE_IMAGE_INVALID', 400, `File ${bad[0]} ${why}`, { fileIds: bad })
     }
   }
 
-  private async resolveImages(ids: string[]): Promise<Record<string, SiteImageDto>> {
-    if (!ids.length) return {}
+  private async resolveMedia(ids: string[]): Promise<{ images: Record<string, SiteImageDto>; videos: Record<string, SiteVideoDto> }> {
+    const images: Record<string, SiteImageDto> = {}
+    const videos: Record<string, SiteVideoDto> = {}
+    if (!ids.length) return { images, videos }
     const docs = await this.files.find({ _id: { $in: ids }, purpose: 'site', status: 'ready' }).lean()
-    const out: Record<string, SiteImageDto> = {}
     for (const f of docs) {
       const img = this.imageOf(f)
-      if (img) out[f._id.toString()] = img
+      if (img) images[f._id.toString()] = img
+      const video = this.videoOf(f)
+      if (video) videos[f._id.toString()] = video
     }
-    return out
+    return { images, videos }
   }
 
-  /** Public URLs of a ready site image's renders; null until the worker has published them. */
+  private version(f: FileDoc): string {
+    return f.variantsAt ? `?v=${f.variantsAt.getTime()}` : ''
+  }
+
+  /** The published clip of a ready site video; null for images and until the worker has copied it. */
+  private videoOf(f: FileDoc): SiteVideoDto | null {
+    if (f.status !== 'ready' || f.kind !== 'video') return null
+    const clip = f.variants.find((x) => x.name === 'video' && x.bucket === this.config.minio.bucketPublic)
+    if (!clip) return null
+    return { src: `${this.storage.publicUrl(clip.objectKey)}${this.version(f)}`, mime: f.mimeType, width: f.width, height: f.height, durationSec: f.durationSec ?? null }
+  }
+
+  /** Public URLs of a ready site image's renders (a video's poster frame); null until the worker has published them. */
   private imageOf(f: FileDoc): SiteImageDto | null {
     if (f.status !== 'ready') return null
-    const v = f.variantsAt ? `?v=${f.variantsAt.getTime()}` : ''
+    const v = this.version(f)
     const url = (key: string) => `${this.storage.publicUrl(key)}${v}`
     const renders = f.variants
       .filter((x) => x.bucket === this.config.minio.bucketPublic && ['thumb_sm', 'thumb_md', 'large'].includes(x.name) && x.width)

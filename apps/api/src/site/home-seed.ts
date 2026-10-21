@@ -1,15 +1,16 @@
-import { type HomeSection, homeSectionsSchema } from '@cuka/shared'
+import { type HomeSection, homeSectionSchema, homeSectionsSchema, type SitePage } from '@cuka/shared'
 import type { Connection, Types } from 'mongoose'
 
 // Kept free of Nest services: database/prepare (setup, restore) imports it.
 
 
 /**
- * The homepage created on first setup (never over an existing one): Hibiki Du Ca's profile from public sources.
+ * The long-form page: Hibiki Du Ca's profile from public sources. It was the first homepage; it now seeds the
+ * Introduction page ("/gioi-thieu"), and an untouched homepage still holding it is upgraded to the landing below.
  * Every fact here is editable from Quản trị → Trang chủ; image slots are empty until an admin uploads pictures.
  * Gallery and videos start hidden because they have nothing to show yet.
  */
-const raw = [
+const longForm = [
   {
     id: 'hero',
     type: 'hero',
@@ -140,31 +141,115 @@ const raw = [
 ]
 
 /** Validated once at load, so a typo here fails every test instead of reaching a database. */
-export const HOME_SEED: HomeSection[] = homeSectionsSchema.parse(raw)
+export const LEGACY_HOME_SEED: HomeSection[] = homeSectionsSchema.parse(longForm)
+
+/** The Introduction page's default content: the long-form profile above. */
+export const INTRO_SEED: HomeSection[] = homeSectionsSchema.parse(longForm)
+
+/**
+ * The landing page ("/") created on first setup: full-screen sections in the spirit of an agency site. No video or
+ * pictures yet (the brand art stands in), the newest fanart as the "new release" row, and no invented facts: the
+ * spotlight names only the two models whose dates are public.
+ */
+const landing = [
+  {
+    id: 'top',
+    type: 'heroVideo',
+    visible: true,
+    data: {
+      eyebrow: { vi: 'NIJIGEN Project · VTuber', en: 'NIJIGEN Project · VTuber' },
+      name: { vi: 'Hibiki Du Ca', en: 'Hibiki Du Ca' },
+      subtitle: {
+        vi: 'Nữ thần thích lang thang khám phá, lỡ phải lòng âm nhạc và đồ ăn Việt Nam.',
+        en: 'A wandering goddess who fell for human music and Vietnamese food.',
+      },
+      video: null,
+      videoMobile: null,
+      images: [],
+      link: { kicker: { vi: 'Xem trên YouTube', en: 'Watch on YouTube' }, label: { vi: 'Kênh YouTube', en: 'YouTube channel' }, href: 'https://www.youtube.com/@hibikiduca' },
+    },
+  },
+  {
+    id: 'new',
+    type: 'releases',
+    visible: true,
+    data: { eyebrow: { vi: 'Từ Cuka', en: 'From the Cuka' }, heading: { vi: 'Mới phát hành', en: 'New release' }, source: 'latestFanart', count: 5, items: [] },
+  },
+  {
+    id: 'looks',
+    type: 'spotlight',
+    visible: true,
+    data: {
+      eyebrow: { vi: 'Diện mạo', en: 'Looks' },
+      heading: { vi: 'Những phiên bản của Du Ca', en: 'Du Ca, every version' },
+      intervalSec: 4,
+      items: [
+        { name: { vi: 'Model gốc', en: 'Original model' }, caption: { vi: '08/08/2021 · ra mắt trên YouTube', en: 'August 8, 2021 · YouTube debut' }, background: null, thumb: null, href: '/gioi-thieu' },
+        { name: { vi: 'Chibi', en: 'Chibi' }, caption: { vi: '09/08/2024 · mừng 3 năm hoạt động', en: 'August 9, 2024 · 3rd anniversary' }, background: null, thumb: null, href: '' },
+        { name: { vi: 'Qua nét vẽ của Cuka', en: 'Drawn by the Cuka' }, caption: { vi: 'Mọi phiên bản fan vẽ, ở cùng một chỗ', en: 'Every version fans have drawn, in one place' }, background: null, thumb: null, href: '/posts' },
+      ],
+    },
+  },
+  {
+    id: 'vibe',
+    type: 'vibe',
+    visible: true,
+    data: {
+      eyebrow: { vi: 'CukaBasement', en: 'CukaBasement' },
+      text: { vi: 'Một căn hầm ấm áp cho những ai thương Du Ca — để vẽ, để xem, để kể lại.', en: 'A warm basement for everyone who loves Du Ca — to draw, to watch, to tell.' },
+      image: null,
+      cta: { label: { vi: 'Giới thiệu về Du Ca', en: 'Meet Du Ca' }, href: '/gioi-thieu' },
+    },
+  },
+  {
+    id: 'end',
+    type: 'footer',
+    visible: true,
+    data: {
+      note: {
+        vi: 'Trang của cộng đồng fan, không phải trang chính thức của Hibiki Du Ca hay NIJIGEN Project.',
+        en: 'A fan community site, not an official page of Hibiki Du Ca or NIJIGEN Project.',
+      },
+      email: '',
+      links: [
+        { platform: 'youtube', label: { vi: '@hibikiduca', en: '@hibikiduca' }, url: 'https://www.youtube.com/@hibikiduca' },
+        { platform: 'x', label: { vi: '@hibikiduca', en: '@hibikiduca' }, url: 'https://x.com/hibikiduca' },
+        { platform: 'facebook', label: { vi: 'Hibiki Du Ca', en: 'Hibiki Du Ca' }, url: 'https://www.facebook.com/hibikiduca' },
+      ],
+      copyright: { vi: '© CukaBasement · Fanart thuộc về các họa sĩ', en: '© CukaBasement · Fanart belongs to its artists' },
+    },
+  },
+]
+
+export const HOME_SEED: HomeSection[] = homeSectionsSchema.parse(landing)
 
 export const HOME_COLLECTION = 'homepage'
 export const HOME_ID = 'home'
+export const INTRO_ID = 'intro'
+
+const SEEDS: Record<SitePage, HomeSection[]> = { home: HOME_SEED, intro: INTRO_SEED }
 
 /**
- * The single homepage document: the draft admins edit (revision bumps on every save, for optimistic concurrency)
- * and the published version visitors see.
+ * One CMS page (`_id`: home, intro): the draft admins edit (revision bumps on every save, for optimistic
+ * concurrency) and the published version visitors see.
  */
 export interface HomepageDoc {
-  _id: typeof HOME_ID
+  _id: SitePage
   draft: { revision: number; sections: HomeSection[]; updatedAt: Date; updatedBy: Types.ObjectId | null }
   published: { sections: HomeSection[]; publishedAt: Date; publishedBy: Types.ObjectId | null }
 }
 
-/** Creates the default homepage unless one exists; never overwrites. Returns whether it was created. */
-export async function ensureHomepage(conn: Connection): Promise<boolean> {
+/** Creates page `page` with its default content unless it exists; never overwrites. Returns whether it was created. */
+async function ensurePage(conn: Connection, page: SitePage): Promise<boolean> {
   const now = new Date()
+  const sections = SEEDS[page]
   try {
     const res = await conn.collection<HomepageDoc>(HOME_COLLECTION).updateOne(
-      { _id: HOME_ID },
+      { _id: page },
       {
         $setOnInsert: {
-          draft: { revision: 0, sections: HOME_SEED, updatedAt: now, updatedBy: null },
-          published: { sections: HOME_SEED, publishedAt: now, publishedBy: null },
+          draft: { revision: 0, sections, updatedAt: now, updatedBy: null },
+          published: { sections, publishedAt: now, publishedBy: null },
         },
       },
       { upsert: true },
@@ -177,3 +262,51 @@ export async function ensureHomepage(conn: Connection): Promise<boolean> {
   }
 }
 
+/** The stored sections normalised by the schema (as the API serves them), for comparing with a seed. */
+const normalised = (list: unknown) =>
+  JSON.stringify(
+    (Array.isArray(list) ? list : []).flatMap((s) => {
+      const r = homeSectionSchema.safeParse(s)
+      return r.success ? [r.data] : [s]
+    }),
+  )
+
+/**
+ * Whether the homepage is still exactly the first seed, never saved or published by anyone: draft and published
+ * both equal the long-form seed, with no editor recorded. Anything an admin touched fails this.
+ */
+export function isUntouchedLegacyHome(doc: HomepageDoc | null): boolean {
+  if (!doc || doc.draft?.updatedBy || doc.published?.publishedBy) return false
+  const legacy = JSON.stringify(LEGACY_HOME_SEED)
+  return normalised(doc.draft.sections) === legacy && normalised(doc.published.sections) === legacy
+}
+
+export type EnsurePagesResult = { home: 'created' | 'migrated' | 'kept'; intro: 'created' | 'kept' }
+
+/**
+ * Makes sure both pages exist (setup, restore, first read). A homepage that is still the untouched first seed
+ * becomes the new landing page (its long-form content lives on in the Introduction page); one an admin edited is
+ * kept exactly as it is, and only gains the new section types in the editor.
+ */
+export async function ensureSitePages(conn: Connection): Promise<EnsurePagesResult> {
+  const intro = (await ensurePage(conn, 'intro')) ? 'created' : 'kept'
+  if (await ensurePage(conn, 'home')) return { home: 'created', intro }
+  const col = conn.collection<HomepageDoc>(HOME_COLLECTION)
+  const doc = await col.findOne({ _id: HOME_ID })
+  if (!doc || !isUntouchedLegacyHome(doc)) return { home: 'kept', intro }
+  const now = new Date()
+  // Guarded on the revision and the empty editor fields, so a save landing meanwhile wins.
+  const res = await col.updateOne(
+    { _id: HOME_ID, 'draft.revision': doc.draft.revision, 'draft.updatedBy': null, 'published.publishedBy': null },
+    {
+      $set: { 'draft.sections': HOME_SEED, 'draft.updatedAt': now, 'published.sections': HOME_SEED, 'published.publishedAt': now },
+      $inc: { 'draft.revision': 1 },
+    },
+  )
+  return { home: res.modifiedCount ? 'migrated' : 'kept', intro }
+}
+
+/** Creates the default pages unless they exist (see ensureSitePages). Returns whether the homepage was created. */
+export async function ensureHomepage(conn: Connection): Promise<boolean> {
+  return (await ensureSitePages(conn)).home === 'created'
+}

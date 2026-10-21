@@ -147,7 +147,8 @@ export async function renderCleanVariants(
     set.height = info.height ?? null
     await extractFrame(input, frame, 1, deps.config.ffmpegPath)
     const frameBuf = await sharp(frame, SHARP_INPUT).toBuffer()
-    rendered = [await render('preview', sharp(frameBuf, SHARP_INPUT), 1200), ...(await thumbsFrom(frameBuf))]
+    // A site video's poster frame gets the full-bleed `large` render too (it stands in for the video).
+    rendered = [await render('preview', sharp(frameBuf, SHARP_INPUT), 1200), ...(await thumbsFrom(frameBuf, null, file._id.toString(), site))]
   } else if (file.kind === 'audio') {
     const input = join(tmp, `original${extname(file.objectKey)}`)
     await deps.storage.getToFile(file.bucket, file.objectKey, input)
@@ -171,9 +172,10 @@ export async function publishVariants(
   ctx: VariantContext,
   set: Partial<FileDoc>,
   rerender?: (crop: ProfileCropSpec | null) => Promise<Rendered[]>,
+  extra: FileVariant[] = [],
 ): Promise<void> {
   const files = deps.conn.collection<FileDoc>('files')
-  let variants: FileVariant[] = await storeFinalVariants(deps, file, clean, ctx)
+  let variants: FileVariant[] = [...(await storeFinalVariants(deps, file, clean, ctx)), ...extra]
   await files.updateOne({ _id: file._id }, { $set: { ...set, variants, watermarkedFor: clean.length ? watermarkHash(ctx.watermark) : '', variantsAt: new Date() } })
   if (clean.length === 0) return
   for (let i = 0; i < MAX_REDRAWS; i++) {
@@ -181,9 +183,20 @@ export async function publishVariants(
     if (sameContext(now, ctx)) return
     if (!sameCrop(now.crop, ctx.crop) && rerender) clean = await rerender(now.crop)
     ctx = now
-    variants = await storeFinalVariants(deps, file, clean, ctx)
+    variants = [...(await storeFinalVariants(deps, file, clean, ctx)), ...extra]
     await files.updateOne({ _id: file._id }, { $set: { variants, watermarkedFor: watermarkHash(ctx.watermark), variantsAt: new Date() } })
   }
+}
+
+/**
+ * A site video plays straight from the public bucket: its original clip (already checked by the upload's complete
+ * step, never re-encoded) is copied there as the `video` variant. Posts' videos stay private (presigned).
+ */
+async function publishSiteVideo(deps: JobDeps, file: FileDoc, set: Partial<FileDoc>): Promise<FileVariant> {
+  const bucket = deps.config.minio.bucketPublic
+  const objectKey = deps.storage.objectKey(file.ownerId.toString(), file._id.toString(), 'video', extname(file.objectKey).slice(1) || 'mp4')
+  await deps.storage.copy(file.bucket, file.objectKey, bucket, objectKey)
+  return { name: 'video', bucket, objectKey, width: set.width ?? null, height: set.height ?? null }
 }
 
 export async function processFile(deps: JobDeps, data: { fileId: string }): Promise<void> {
@@ -199,7 +212,8 @@ export async function processFile(deps: JobDeps, data: { fileId: string }): Prom
     await processFileHooks.beforeStore?.()
     // `ready` is written before the re-check, so a post created after it sees a ready file in its rewatermark job.
     const rerender = async (crop: ProfileCropSpec | null) => (await renderCleanVariants(deps, file, tmp, crop)).rendered
-    await publishVariants(deps, file, rendered, ctx, { ...set, status: 'ready' }, rerender)
+    const extra = ctx.site && file.kind === 'video' ? [await publishSiteVideo(deps, file, set)] : []
+    await publishVariants(deps, file, rendered, ctx, { ...set, status: 'ready' }, rerender, extra)
   } finally {
     await rm(tmp, { recursive: true, force: true })
   }

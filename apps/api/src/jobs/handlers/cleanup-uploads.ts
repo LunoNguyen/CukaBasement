@@ -68,10 +68,10 @@ export async function profileFileIds(deps: JobDeps, ids: Types.ObjectId[]): Prom
   return used
 }
 
-/** Every image id the homepage draft or published version references. */
+/** Every media id the draft or published version of any site page (home, intro) references. */
 export async function homepageFileIds(deps: Pick<JobDeps, 'conn'>): Promise<Set<string>> {
-  const doc = await deps.conn.collection<any>('homepage').findOne({ _id: 'home' })
-  const sections = [...((doc?.draft?.sections ?? []) as Array<{ data: unknown }>), ...((doc?.published?.sections ?? []) as Array<{ data: unknown }>)]
+  const docs = await deps.conn.collection<any>('homepage').find({}).toArray()
+  const sections = docs.flatMap((doc) => [...((doc?.draft?.sections ?? []) as Array<{ data: unknown }>), ...((doc?.published?.sections ?? []) as Array<{ data: unknown }>)])
   return new Set(homeImageIds(sections))
 }
 

@@ -44,6 +44,8 @@ export const MAX_ANIMATED_BYTES: Record<VariantName, number> = {
   preview: 4 * 1024 * 1024,
   blurred: 4 * 1024 * 1024,
   large: 8 * 1024 * 1024,
+  // A site video's clip is copied as uploaded, never rendered.
+  video: 0,
 }
 
 /** An animated render at most this big is always kept, even when it outweighs a tiny original. */
