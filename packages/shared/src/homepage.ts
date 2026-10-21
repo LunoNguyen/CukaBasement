@@ -3,9 +3,30 @@
 /** WHATWG URL, available in Node and browsers (this package compiles without the DOM or Node typings). */
 declare const URL: new (url: string) => { protocol: string; hostname: string; pathname: string; searchParams: { get(name: string): string | null } }
 
-/** Section types of the homepage, in the order the admin "add section" menu lists them. */
-export const HOME_SECTION_TYPES = ['hero', 'about', 'profile', 'timeline', 'gallery', 'videos', 'links', 'fanart', 'banner'] as const
+/**
+ * Full-screen sections of the snap-scrolling landing page ("/"): background video, new releases, spotlight, brand
+ * statement, footer. Every section type may be used on every page; these are the ones the landing is built from.
+ */
+export const LANDING_SECTION_TYPES = ['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'] as const
+/** Long-form sections (the Introduction page "/gioi-thieu" and the first homepage). */
+export const LONGFORM_SECTION_TYPES = ['hero', 'about', 'profile', 'timeline', 'gallery', 'videos', 'links', 'fanart', 'banner'] as const
+
+/** Section types of the site pages, in the order the admin "add section" menu lists them. */
+export const HOME_SECTION_TYPES = [...LANDING_SECTION_TYPES, ...LONGFORM_SECTION_TYPES] as const
 export type HomeSectionType = (typeof HOME_SECTION_TYPES)[number]
+
+/** The CMS pages: `home` is the landing page at "/", `intro` the Introduction page at "/gioi-thieu". */
+export const SITE_PAGES = ['home', 'intro'] as const
+export type SitePage = (typeof SITE_PAGES)[number]
+
+/** The section types offered first in the editor of each page (the others stay available below them). */
+export const SITE_PAGE_TYPES: Record<SitePage, readonly HomeSectionType[]> = {
+  home: LANDING_SECTION_TYPES,
+  intro: LONGFORM_SECTION_TYPES,
+}
+
+export const RELEASE_SOURCES = ['manual', 'latestFanart'] as const
+export type ReleaseSource = (typeof RELEASE_SOURCES)[number]
 
 export const GALLERY_LAYOUTS = ['grid', 'masonry', 'carousel'] as const
 export type GalleryLayout = (typeof GALLERY_LAYOUTS)[number]
@@ -32,6 +53,13 @@ export const HOME_LIMITS = {
   linksMax: 16,
   fanartMin: 3,
   fanartMax: 24,
+  /** A visible hand-picked "New release" row shows 3–8 covers. */
+  releasesMin: 3,
+  releasesMax: 8,
+  spotlightMax: 8,
+  spotlightIntervalMin: 3,
+  spotlightIntervalMax: 15,
+  emailMax: 120,
 } as const
 
 /** Text in both UI languages; `en` may be empty, then the Vietnamese text is shown. */

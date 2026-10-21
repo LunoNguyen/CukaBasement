@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { GALLERY_LAYOUTS, HOME_LIMITS as L, isSafeHref, parseYouTubeId, unsafeMarkdownLinks } from '../homepage'
+import { GALLERY_LAYOUTS, HOME_LIMITS as L, isSafeHref, parseYouTubeId, RELEASE_SOURCES, SITE_PAGES, unsafeMarkdownLinks } from '../homepage'
 import { SOCIAL_PLATFORMS } from '../social'
 
 /** Control characters other than tab and newline. */
@@ -34,6 +34,8 @@ export const homeHrefSchema = z
 
 const httpUrl = z.url({ protocol: /^https?$/ }).max(L.urlMax)
 
+const socialLinkSchema = z.strictObject({ platform: z.enum(SOCIAL_PLATFORMS), label: localized(L.labelMax), url: httpUrl })
+
 export const homeFileIdSchema = z.string().regex(/^[0-9a-f]{24}$/, 'Invalid file id')
 
 /**
@@ -51,6 +53,12 @@ export const homeImageSchema = z
   })
 
 const optionalImage = homeImageSchema.nullable().default(null)
+
+/** An uploaded site video (mp4/webm). It plays muted as a background, so it needs no alt text. */
+export const homeVideoSchema = z.strictObject({ fileId: homeFileIdSchema })
+const optionalVideo = homeVideoSchema.nullable().default(null)
+
+const optionalHref = z.union([z.literal(''), homeHrefSchema]).default('')
 
 export const homeCtaSchema = z.strictObject({ label: localized(L.labelMax, true), href: homeHrefSchema })
 
@@ -129,7 +137,7 @@ export const videosDataSchema = z.strictObject({
 export const linksDataSchema = z.strictObject({
   ...heading,
   items: z
-    .array(z.strictObject({ platform: z.enum(SOCIAL_PLATFORMS), label: localized(L.labelMax), url: httpUrl }))
+    .array(socialLinkSchema)
     .max(L.linksMax)
     .default([]),
 })
@@ -147,11 +155,84 @@ export const bannerDataSchema = z.strictObject({
   cta: homeCtaSchema.nullable().default(null),
 })
 
+// --- Landing page ("/") sections -------------------------------------------------------------------------------
+
+/**
+ * The opening screen: a muted looping background video (a separate one for phones optional; without any, the
+ * images as a slideshow, else the brand art), the name in huge letters and a "now playing" style link.
+ */
+export const heroVideoDataSchema = z.strictObject({
+  eyebrow: localized(L.eyebrowMax),
+  name: localized(L.headingMax, true),
+  subtitle: localized(L.subtitleMax),
+  video: optionalVideo,
+  videoMobile: optionalVideo,
+  images: z.array(homeImageSchema).max(L.heroImagesMax).default([]),
+  link: z
+    .strictObject({ kicker: localized(L.labelMax), label: localized(L.labelMax, true), href: homeHrefSchema })
+    .nullable()
+    .default(null),
+})
+
+export const releaseItemSchema = z.strictObject({
+  title: localized(L.headingMax, true),
+  cover: homeImageSchema,
+  /** Shown instead of the square cover while the item is expanded (16:9). */
+  wide: optionalImage,
+  href: homeHrefSchema,
+  date: text(L.dateMax).default(''),
+})
+
+/** "New release": hand-picked covers (`manual`) or the newest approved all-ages fanart (`latestFanart`, `count` posts). */
+export const releasesDataSchema = z.strictObject({
+  ...heading,
+  source: z.enum(RELEASE_SOURCES).default('manual'),
+  count: z.number().int().min(L.releasesMin).max(L.releasesMax).default(5),
+  items: z.array(releaseItemSchema).max(L.releasesMax).default([]),
+})
+
+export const spotlightItemSchema = z.strictObject({
+  name: localized(L.headingMax, true),
+  caption: localized(L.subtitleMax),
+  background: optionalImage,
+  /** The small picture in the strip (black-and-white until active); the background is used when left out. */
+  thumb: optionalImage,
+  href: optionalHref,
+})
+
+/** Like an agency's "Our artists": full-bleed pictures cross-fading every `intervalSec` seconds, with a list of names. */
+export const spotlightDataSchema = z.strictObject({
+  ...heading,
+  intervalSec: z.number().int().min(L.spotlightIntervalMin).max(L.spotlightIntervalMax).default(4),
+  items: z.array(spotlightItemSchema).max(L.spotlightMax).default([]),
+})
+
+/** A large brand statement with a picture (or the logo mark) and a link, by default to the Introduction page. */
+export const vibeDataSchema = z.strictObject({
+  eyebrow: localized(L.eyebrowMax),
+  text: localized(L.subtitleMax, true),
+  image: optionalImage,
+  cta: homeCtaSchema.nullable().default(null),
+})
+
+/** The landing page's closing screen: logo, a note, site links, contact e-mail, social links and the copyright line. */
+export const footerDataSchema = z.strictObject({
+  note: localized(L.subtitleMax),
+  email: z.union([z.literal(''), z.email().max(L.emailMax)]).default(''),
+  links: z.array(socialLinkSchema).max(L.linksMax).default([]),
+  copyright: localized(L.subtitleMax),
+})
+
 const sectionId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, 'Invalid section id')
 const section = <T extends string, D extends z.ZodType>(type: T, data: D) =>
   z.strictObject({ id: sectionId, type: z.literal(type), visible: z.boolean().default(true), data })
 
 export const homeSectionSchema = z.discriminatedUnion('type', [
+  section('heroVideo', heroVideoDataSchema),
+  section('releases', releasesDataSchema),
+  section('spotlight', spotlightDataSchema),
+  section('vibe', vibeDataSchema),
+  section('footer', footerDataSchema),
   section('hero', heroDataSchema),
   section('about', aboutDataSchema),
   section('profile', profileDataSchema),
@@ -171,6 +252,9 @@ export const homeSectionsSchema = z
     list.forEach((s, i) => {
       if (seen.has(s.id)) ctx.addIssue({ code: 'custom', path: [i, 'id'], message: 'Duplicate section id' })
       seen.add(s.id)
+      // A hidden row may be built up one cover at a time; a visible one needs a full row.
+      if (s.type === 'releases' && s.visible && s.data.source === 'manual' && s.data.items.length < L.releasesMin)
+        ctx.addIssue({ code: 'custom', path: [i, 'data', 'items'], message: `A visible release row needs at least ${L.releasesMin} items`, params: { code: 'RELEASES_TOO_FEW' } })
     })
   })
 
@@ -179,6 +263,9 @@ export const saveHomeDraftSchema = z.strictObject({
   revision: z.number().int().min(0),
   sections: homeSectionsSchema,
 })
+
+/** The `:page` of the site page routes. */
+export const sitePageSchema = z.enum(SITE_PAGES)
 
 /** POST publish / discard: the draft revision the admin is looking at. */
 export const homeRevisionSchema = z.strictObject({ revision: z.number().int().min(0) })
@@ -196,8 +283,19 @@ export type VideosData = z.output<typeof videosDataSchema>
 export type LinksData = z.output<typeof linksDataSchema>
 export type FanartData = z.output<typeof fanartDataSchema>
 export type BannerData = z.output<typeof bannerDataSchema>
+export type HomeVideo = z.output<typeof homeVideoSchema>
+export type HeroVideoData = z.output<typeof heroVideoDataSchema>
+export type ReleaseItem = z.output<typeof releaseItemSchema>
+export type ReleasesData = z.output<typeof releasesDataSchema>
+export type SpotlightItem = z.output<typeof spotlightItemSchema>
+export type SpotlightData = z.output<typeof spotlightDataSchema>
+export type VibeData = z.output<typeof vibeDataSchema>
+export type FooterData = z.output<typeof footerDataSchema>
 
-/** Every image file id the sections reference (hero slides, about/profile/timeline/banner images, gallery items). */
+/**
+ * Every media file id the sections reference: images (hero slides, about/profile/timeline/banner images, gallery,
+ * release and spotlight items) and the background videos of `heroVideo` sections (see homeVideoIds).
+ */
 export function homeImageIds(sections: ReadonlyArray<{ data: unknown }>): string[] {
   const ids = new Set<string>()
   const walk = (v: unknown): void => {
@@ -209,5 +307,16 @@ export function homeImageIds(sections: ReadonlyArray<{ data: unknown }>): string
     }
   }
   for (const s of sections) walk(s.data)
+  return [...ids]
+}
+
+/** The file ids used as background videos (`heroVideo` desktop and phone clips); every other id is an image. */
+export function homeVideoIds(sections: ReadonlyArray<{ type: string; data: unknown }>): string[] {
+  const ids = new Set<string>()
+  for (const s of sections) {
+    if (s.type !== 'heroVideo') continue
+    const d = s.data as { video?: { fileId?: unknown } | null; videoMobile?: { fileId?: unknown } | null }
+    for (const v of [d.video, d.videoMobile]) if (v && typeof v.fileId === 'string') ids.add(v.fileId)
+  }
   return [...ids]
 }

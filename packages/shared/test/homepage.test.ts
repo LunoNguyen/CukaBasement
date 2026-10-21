@@ -7,17 +7,24 @@ import {
   homeImageIds,
   homeSectionSchema,
   homeSectionsSchema,
+  homeVideoIds,
   isSafeHref,
+  LANDING_SECTION_TYPES,
   markdownToText,
   MOD_ACTIONS,
   parseMarkdown,
   parseYouTubeId,
   pickText,
   saveHomeDraftSchema,
+  SITE_PAGE_TYPES,
+  SITE_PAGES,
+  sitePageSchema,
+  UPLOAD_PURPOSES,
   VARIANT_NAMES,
 } from '../src'
 
 const FID = 'a'.repeat(24)
+const VID = 'c'.repeat(24)
 const lt = (vi: string, en = '') => ({ vi, en })
 const img = (over: Record<string, unknown> = {}) => ({ fileId: FID, alt: lt('Du Ca'), decorative: false, ...over })
 
@@ -32,6 +39,32 @@ const samples: Record<string, unknown> = {
   links: { id: 'links', type: 'links', visible: true, data: { eyebrow: lt(''), heading: lt('Liên kết'), items: [{ platform: 'youtube', label: lt(''), url: 'https://www.youtube.com/@hibikiduca' }] } },
   fanart: { id: 'fanart', type: 'fanart', visible: true, data: { eyebrow: lt(''), heading: lt('Fanart'), count: 8 } },
   banner: { id: 'banner', type: 'banner', visible: true, data: { eyebrow: lt(''), text: lt('#DuCaArt'), attribution: lt(''), image: null, cta: { label: lt('Đăng'), href: '/upload' } } },
+  heroVideo: {
+    id: 'top',
+    type: 'heroVideo',
+    visible: true,
+    data: { eyebrow: lt('NIJIGEN'), name: lt('Hibiki Du Ca'), subtitle: lt(''), video: { fileId: VID }, videoMobile: null, images: [img()], link: { kicker: lt('Đang phát'), label: lt('Kênh YouTube'), href: 'https://www.youtube.com/@hibikiduca' } },
+  },
+  releases: {
+    id: 'new',
+    type: 'releases',
+    visible: true,
+    data: {
+      eyebrow: lt(''),
+      heading: lt('Mới phát hành', 'New release'),
+      source: 'manual',
+      count: 5,
+      items: [1, 2, 3].map((n) => ({ title: lt(`Bài ${n}`), cover: img(), wide: n === 1 ? img() : null, href: 'https://open.spotify.com/track/x', date: '2026' })),
+    },
+  },
+  spotlight: {
+    id: 'looks',
+    type: 'spotlight',
+    visible: true,
+    data: { eyebrow: lt(''), heading: lt('Diện mạo'), intervalSec: 4, items: [{ name: lt('Model gốc'), caption: lt('08/08/2021'), background: img(), thumb: null, href: '' }] },
+  },
+  vibe: { id: 'vibe', type: 'vibe', visible: true, data: { eyebrow: lt(''), text: lt('Một căn hầm ấm áp'), image: null, cta: { label: lt('Giới thiệu'), href: '/gioi-thieu' } } },
+  footer: { id: 'foot', type: 'footer', visible: true, data: { note: lt('Fan site'), email: 'hi@cuka.test', links: [{ platform: 'youtube', label: lt(''), url: 'https://www.youtube.com/@hibikiduca' }], copyright: lt('© CukaBasement') } },
 }
 
 describe('homepage schemas', () => {
@@ -116,15 +149,73 @@ describe('homepage schemas', () => {
     expect(saveHomeDraftSchema.safeParse({ revision: 0, sections: [] }).success).toBe(true)
   })
 
-  it('homeImageIds collects every referenced file', () => {
-    const ids = homeImageIds(homeSectionsSchema.parse(Object.values(samples)))
-    expect(ids).toEqual([FID])
+  it('homeImageIds collects every referenced file; homeVideoIds only the background videos', () => {
+    const parsed = homeSectionsSchema.parse(Object.values(samples))
+    expect(homeImageIds(parsed).sort()).toEqual([FID, VID])
+    expect(homeVideoIds(parsed)).toEqual([VID])
+  })
+
+  it('landing sections fill their defaults', () => {
+    expect(homeSectionSchema.parse({ id: 'h', type: 'heroVideo', data: { name: { vi: 'Du Ca' } } }).data).toEqual({
+      eyebrow: lt(''),
+      name: lt('Du Ca'),
+      subtitle: lt(''),
+      video: null,
+      videoMobile: null,
+      images: [],
+      link: null,
+    })
+    expect(homeSectionSchema.parse({ id: 'r', type: 'releases', data: { heading: { vi: 'Mới' } } }).data).toMatchObject({ source: 'manual', count: 5, items: [] })
+    expect(homeSectionSchema.parse({ id: 's', type: 'spotlight', data: { heading: { vi: 'S' } } }).data).toMatchObject({ intervalSec: 4, items: [] })
+    expect(homeSectionSchema.parse({ id: 'f', type: 'footer', data: {} }).data).toEqual({ note: lt(''), email: '', links: [], copyright: lt('') })
+  })
+
+  it('releases: 3–8 covers when visible and hand-picked; links must be safe; fanart source needs no items', () => {
+    const rel = samples.releases as { data: { items: unknown[] } }
+    const withItems = (n: number, extra: Record<string, unknown> = {}) => ({ ...rel, ...extra, data: { ...rel.data, items: Array.from({ length: n }, () => rel.data.items[0]) } })
+    expect(homeSectionsSchema.safeParse([withItems(2)]).success).toBe(false)
+    expect(homeSectionsSchema.safeParse([withItems(2, { visible: false })]).success).toBe(true)
+    expect(homeSectionsSchema.safeParse([withItems(8)]).success).toBe(true)
+    expect(homeSectionsSchema.safeParse([withItems(9)]).success).toBe(false)
+    expect(homeSectionsSchema.safeParse([{ ...rel, data: { ...rel.data, source: 'latestFanart', items: [] } }]).success).toBe(true)
+    expect(homeSectionSchema.safeParse({ ...rel, data: { ...rel.data, count: 2 } }).success).toBe(false)
+    const bad = structuredClone(rel) as { data: { items: Array<{ href: string }> } }
+    bad.data.items[0]!.href = 'javascript:alert(1)'
+    expect(homeSectionSchema.safeParse(bad).success).toBe(false)
+    const noCover = structuredClone(rel) as { data: { items: Array<Record<string, unknown>> } }
+    delete noCover.data.items[0]!.cover
+    expect(homeSectionSchema.safeParse(noCover).success).toBe(false)
+  })
+
+  it('heroVideo: the video is a file id only, the link must be safe; spotlight interval and footer e-mail are bounded', () => {
+    const hv = samples.heroVideo as { data: Record<string, unknown> }
+    const withData = (d: Record<string, unknown>) => homeSectionSchema.safeParse({ ...hv, data: { ...hv.data, ...d } }).success
+    expect(withData({ video: { fileId: VID, src: 'https://evil.example/x.mp4' } })).toBe(false)
+    expect(withData({ video: { fileId: 'nope' } })).toBe(false)
+    expect(withData({ link: { kicker: lt(''), label: lt('x'), href: 'javascript:alert(1)' } })).toBe(false)
+    expect(withData({ name: lt(' ') })).toBe(false)
+    const sp = samples.spotlight as { data: Record<string, unknown> }
+    for (const [sec, ok] of [[2, false], [3, true], [15, true], [16, false]] as const) expect(homeSectionSchema.safeParse({ ...sp, data: { ...sp.data, intervalSec: sec } }).success).toBe(ok)
+    const ft = samples.footer as { data: Record<string, unknown> }
+    expect(homeSectionSchema.safeParse({ ...ft, data: { ...ft.data, email: 'not-an-email' } }).success).toBe(false)
+    expect(homeSectionSchema.safeParse({ ...ft, data: { ...ft.data, email: 'javascript:alert(1)' } }).success).toBe(false)
+  })
+
+  it('site pages: home and intro, each with its own suggested types', () => {
+    expect(SITE_PAGES).toEqual(['home', 'intro'])
+    expect(sitePageSchema.safeParse('intro').success).toBe(true)
+    expect(sitePageSchema.safeParse('admin').success).toBe(false)
+    expect(SITE_PAGE_TYPES.home).toEqual(LANDING_SECTION_TYPES)
+    expect(SITE_PAGE_TYPES.intro).toContain('profile')
+    expect(HOME_SECTION_TYPES).toHaveLength(14)
   })
 
   it('upload purpose, variant, actions and error codes exist', () => {
     expect(createUploadSchema.parse({ name: 'a.png', size: 1, mime: 'image/png', purpose: 'site' }).purpose).toBe('site')
     expect(createUploadSchema.safeParse({ name: 'a.png', size: 1, mime: 'image/png', purpose: 'avatar' }).success).toBe(false)
     expect(VARIANT_NAMES).toContain('large')
+    expect(VARIANT_NAMES).toContain('video')
+    expect(UPLOAD_PURPOSES).toEqual(['post', 'site'])
     for (const a of ['homepage_publish', 'homepage_discard', 'site_image_delete']) expect(MOD_ACTIONS).toContain(a)
     for (const c of ['REVISION_CONFLICT', 'SITE_IMAGE_INVALID', 'SITE_IMAGE_IN_USE']) expect(ERROR_CODES).toContain(c)
   })
