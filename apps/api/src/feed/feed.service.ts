@@ -40,6 +40,14 @@ export class FeedService {
     return this.cache.wrap('home', { r18: !!v, cursor: q.cursor ?? null, limit: q.limit }, () => this.page(v, q, []))
   }
 
+  /**
+   * The newest approved, all-ages posts for the homepage fanart strip. R18 posts never appear here, whoever asks
+   * (the landing page is the site's front door), so one cached list serves everyone.
+   */
+  showcase(limit: number): Promise<Page> {
+    return this.cache.wrap('showcase', { limit }, () => this.page(ANON, { limit }, [{ rating: 'all' }]))
+  }
+
   /** Posts by the viewer's followees (the newest 5000 follows). */
   async following(viewer: Viewer, q: CursorQuery): Promise<Page> {
     const follows = await this.follows

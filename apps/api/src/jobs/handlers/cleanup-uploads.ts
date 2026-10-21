@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common'
+import { homeImageIds } from '@cuka/shared'
 import type { mongo, Types } from 'mongoose'
 import type { FileDoc } from '../../uploads/file.schema'
 import { stagingKey } from '../../uploads/uploads.service'
@@ -67,9 +68,17 @@ export async function profileFileIds(deps: JobDeps, ids: Types.ObjectId[]): Prom
   return used
 }
 
-/** Ids among `ids` used by any post (deleted ones too: purge owns those) or as a user's avatar or banner. */
+/** Every image id the homepage draft or published version references. */
+export async function homepageFileIds(deps: Pick<JobDeps, 'conn'>): Promise<Set<string>> {
+  const doc = await deps.conn.collection<any>('homepage').findOne({ _id: 'home' })
+  const sections = [...((doc?.draft?.sections ?? []) as Array<{ data: unknown }>), ...((doc?.published?.sections ?? []) as Array<{ data: unknown }>)]
+  return new Set(homeImageIds(sections))
+}
+
+/** Ids among `ids` used by any post (deleted ones too: purge owns those), as a user's avatar or banner, or by the homepage. */
 async function referencedIds(deps: JobDeps, ids: Types.ObjectId[]): Promise<Set<string>> {
   const used = await profileFileIds(deps, ids)
+  for (const id of await homepageFileIds(deps)) used.add(id)
   const posts = deps.conn.collection('posts').find({ 'files.fileId': { $in: ids } }, { projection: { files: 1 } })
   for await (const p of posts) for (const f of (p.files ?? []) as Array<{ fileId: Types.ObjectId }>) used.add(f.fileId.toString())
   return used
@@ -86,8 +95,9 @@ async function hasPendingProcessJob(deps: JobDeps, fileId: string): Promise<bool
 /**
  * Hourly upload hygiene:
  * 1. abandoned uploads: `uploading` or stuck `validating` (crash mid-complete) older than 24h;
- * 2. `processing`/`ready`/`failed` files older than 24h not used by any post, avatar or banner
- *    (a post or avatar may hold a processing file that later failed, so `failed` is checked too);
+ * 2. `processing`/`ready`/`failed` files older than 24h not used by any post, avatar, banner or the homepage
+ *    (a post or avatar may hold a processing file that later failed, so `failed` is checked too). Site images
+ *    (`purpose: 'site'`) form the admin's homepage library and are only removed here once they failed;
  * 3. leftover staging objects (`upload.<ext>`, best-effort removal in complete) of files past `uploading`
  *    created in the last 48h. Files have no updatedAt; a presigned POST expires after 15 min, so a
  *    staging object can only appear right after createdAt and the 48h window bounds the per-run cost;
@@ -102,7 +112,8 @@ export async function cleanupUploads(deps: CleanupDeps, now = new Date()): Promi
     result.removed += batch.length
   })
 
-  await forEachBatch(deps, { status: { $in: ['processing', 'ready', 'failed'] }, createdAt: { $lt: dayAgo } }, async (batch) => {
+  const unusedFilter = { status: { $in: ['processing', 'ready', 'failed'] }, createdAt: { $lt: dayAgo }, $or: [{ purpose: { $ne: 'site' } }, { status: 'failed' }] } as mongo.Filter<FileDoc>
+  await forEachBatch(deps, unusedFilter, async (batch) => {
     const used = await referencedIds(deps, batch.map((f) => f._id))
     for (const file of batch) {
       if (used.has(file._id.toString())) continue

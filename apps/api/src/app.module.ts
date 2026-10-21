@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module'
 import { PostsModule } from './posts/posts.module'
 import { ReportsModule } from './reports/reports.module'
 import { SettingsModule } from './settings/settings.module'
+import { SiteModule } from './site/site.module'
 import { StorageModule } from './storage/storage.module'
 import { UploadsModule } from './uploads/uploads.module'
 
@@ -76,6 +77,7 @@ export class HealthController {
     AdminModule,
     BackupModule,
     OgModule,
+    SiteModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: GlobalErrorFilter }],

@@ -17,6 +17,7 @@ import { runBackupCli } from '../src/scripts/backup'
 import { runRestoreCli } from '../src/scripts/restore'
 import { StorageService } from '../src/storage/storage.service'
 import { createPost, createTestHarness, createUser, type Harness, jobDeps, testConfig } from './harness'
+import { ensureHomepage } from '../src/site/home-seed'
 
 const PASSWORD = 'correct horse battery'
 
@@ -134,6 +135,8 @@ describe('backup & restore', () => {
     const pub = config.minio.bucketPublic
     await storage.client.putObject(pub, 'misc/hello.txt', Buffer.from('hello'), 5, { 'Content-Type': 'text/plain', 'Cache-Control': 'max-age=60' })
     await h.db.collection('settings').updateOne({ _id: 'global' as never }, { $set: { reportHideThreshold: 9 } }, { upsert: true })
+    // As `npm run setup` leaves it: the homepage exists, so the archive carries it (a restore seeds it only when missing).
+    await ensureHomepage(h.db)
     // A recurring Agenda schedule and a one-off job: only the recurring one should survive the restore.
     await h.db.collection('jobs').insertMany([
       { name: 'cleanup-uploads', type: 'single', nextRunAt: new Date() },

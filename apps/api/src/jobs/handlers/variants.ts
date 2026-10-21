@@ -43,6 +43,7 @@ export const MAX_ANIMATED_BYTES: Record<VariantName, number> = {
   thumb_md: 4 * 1024 * 1024,
   preview: 4 * 1024 * 1024,
   blurred: 4 * 1024 * 1024,
+  large: 8 * 1024 * 1024,
 }
 
 /** An animated render at most this big is always kept, even when it outweighs a tiny original. */
@@ -77,6 +78,8 @@ export interface VariantContext {
   published: boolean
   /** Set only for a post-less profile image: its clean renders are cropped for the role (see ProfileCropSpec). */
   crop: ProfileCropSpec | null
+  /** A homepage image (file purpose `site`): published clean, with the extra `large` render. */
+  site?: true
 }
 
 interface PostForContext {
@@ -103,6 +106,9 @@ export async function contextOfPost(conn: mongoose.Connection, doc: Record<strin
  * both); anything else stays unpublished (private, no watermark).
  */
 export async function findContextForFile(conn: mongoose.Connection, fileId: Types.ObjectId): Promise<VariantContext> {
+  // Site images never join a post or profile (assertUsableFiles refuses them), so their context is fixed.
+  const own = await conn.collection('files').findOne({ _id: fileId }, { projection: { purpose: 1 } })
+  if (own?.purpose === 'site') return { rating: 'all', watermark: null, published: true, crop: null, site: true }
   const post = await conn
     .collection('posts')
     .findOne({ 'files.fileId': fileId }, { projection: { rating: 1, credit: 1, authorId: 1 }, sort: { deletedAt: 1 } })
@@ -139,7 +145,7 @@ export function contextBucket(deps: JobDeps, ctx: VariantContext): string {
 }
 
 export function sameContext(a: VariantContext, b: VariantContext): boolean {
-  return a.rating === b.rating && a.published === b.published && sameCrop(a.crop, b.crop) && a.watermark?.full === b.watermark?.full && a.watermark?.short === b.watermark?.short
+  return a.rating === b.rating && a.published === b.published && !!a.site === !!b.site && sameCrop(a.crop, b.crop) && a.watermark?.full === b.watermark?.full && a.watermark?.short === b.watermark?.short
 }
 
 /** `all` variants are served publicly; `r18` ones stay private in the originals bucket. */

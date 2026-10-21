@@ -80,11 +80,13 @@ export class UploadsService {
   ) {}
 
   async presign(ownerId: string, input: CreateUploadInput) {
+    const purpose = input.purpose ?? 'post'
     const s = await this.settings.get()
     if (input.size > s.maxFileBytes) throw new AppError('FILE_TOO_LARGE', 413, 'File is too large')
     const mime = input.mime.toLowerCase()
     const kind = kindForMime(mime, extOf(input.name))
     if (!kind) throw new AppError('FILE_TYPE_NOT_ALLOWED', 415, 'File type is not allowed')
+    if (purpose === 'site' && kind !== 'image') throw new AppError('FILE_TYPE_NOT_ALLOWED', 415, 'Site images must be PNG, JPEG, WebP or GIF')
     // octet-stream is only whitelisted for .clip (checked by kindForMime); otherwise the mime picks the extension.
     const ext = ALLOWED_FILE_TYPES.find((t) => t.mime === mime && t.kind === kind)!.ext
 
@@ -109,6 +111,7 @@ export class UploadsService {
       sizeBytes: input.size,
       kind,
       status: 'uploading',
+      purpose,
     })
     // The client may only write the staging key; complete copies it to the server-owned objectKey.
     const { url, fields } = await this.storage.presignPost(bucket, stagingKey(ownerId, _id.toString(), ext), input.size, mime)
@@ -201,12 +204,12 @@ export class UploadsService {
     throw new AppError(code, status, message)
   }
 
-  /** All files exist, belong to `ownerId` and are `processing` or `ready`; otherwise 400 FILE_NOT_READY. */
+  /** All files exist, belong to `ownerId`, are not site images and are `processing` or `ready`; otherwise 400 FILE_NOT_READY. */
   async assertUsableFiles(ownerId: string, fileIds: string[]): Promise<FileDoc[]> {
     const unique = [...new Set(fileIds)]
     if (!unique.every((id) => /^[0-9a-fA-F]{24}$/.test(id))) throw new AppError('FILE_NOT_READY', 400, 'File is not usable')
     const docs = await this.files
-      .find({ _id: { $in: unique }, ownerId, status: { $in: ['processing', 'ready'] } })
+      .find({ _id: { $in: unique }, ownerId, status: { $in: ['processing', 'ready'] }, purpose: { $ne: 'site' } })
       .lean()
     if (docs.length !== unique.length) throw new AppError('FILE_NOT_READY', 400, 'File is not usable')
     return docs

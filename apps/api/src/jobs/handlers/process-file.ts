@@ -31,6 +31,9 @@ const THUMBS: Array<[VariantName, number]> = [
   ['thumb_md', 1200],
 ]
 
+/** Site images (homepage hero, galleries) also get a render for full-bleed screens. */
+const SITE_LARGE: [VariantName, number] = ['large', 2400]
+
 /** Profile renders: aspect ratio (width / height) and the width of each thumb. */
 const PROFILE: Record<ProfileCrop, { ratio: number; widths: Record<'thumb_sm' | 'thumb_md', number> }> = {
   avatar: { ratio: 1, widths: { thumb_sm: 360, thumb_md: 512 } },
@@ -91,9 +94,9 @@ async function inspectImage(input: Buffer, fileId: string): Promise<ImageInput> 
   return { width: dims.width ?? 0, height: dims.height ?? 0, animated }
 }
 
-async function thumbsFrom(input: Buffer, crop: ProfileCropSpec | null = null, fileId = ''): Promise<Rendered[]> {
+async function thumbsFrom(input: Buffer, crop: ProfileCropSpec | null = null, fileId = '', site = false): Promise<Rendered[]> {
   const img = await inspectImage(input, fileId)
-  const widths = THUMBS.map(([name, width]): [VariantName, number] => [name, crop ? PROFILE[crop.role].widths[name as 'thumb_sm' | 'thumb_md'] : width])
+  const widths = (site ? [...THUMBS, SITE_LARGE] : THUMBS).map(([name, width]): [VariantName, number] => [name, crop ? PROFILE[crop.role].widths[name as 'thumb_sm' | 'thumb_md'] : width])
   // sharp strips EXIF (incl. GPS) unless withMetadata/withExif is called; never call them here.
   // An animated input is a "toilet roll" of frames; resize/extract apply per frame and webp output keeps the animation.
   const pipeline = (animated: boolean): Sharp => {
@@ -123,6 +126,7 @@ export async function renderCleanVariants(
   file: FileDoc,
   tmp: string,
   crop: ProfileCropSpec | null = null,
+  site = false,
 ): Promise<{ set: Partial<FileDoc>; rendered: Rendered[] }> {
   const set: Partial<FileDoc> = {}
   let rendered: Rendered[] = []
@@ -132,7 +136,7 @@ export async function renderCleanVariants(
     const dims = meta.autoOrient ?? { width: meta.width, height: meta.height }
     set.width = dims.width ?? null
     set.height = dims.height ?? null
-    rendered = await thumbsFrom(buf, crop, file._id.toString())
+    rendered = await thumbsFrom(buf, crop, file._id.toString(), site)
   } else if (file.kind === 'video') {
     const input = join(tmp, `original${extname(file.objectKey)}`)
     const frame = join(tmp, 'frame.png')
@@ -191,7 +195,7 @@ export async function processFile(deps: JobDeps, data: { fileId: string }): Prom
   try {
     // No post yet → no watermark; creating the post enqueues rewatermark, and publishVariants re-checks.
     const ctx = await findContextForFile(deps.conn, file._id)
-    const { set, rendered } = await renderCleanVariants(deps, file, tmp, ctx.crop)
+    const { set, rendered } = await renderCleanVariants(deps, file, tmp, ctx.crop, !!ctx.site)
     await processFileHooks.beforeStore?.()
     // `ready` is written before the re-check, so a post created after it sees a ready file in its rewatermark job.
     const rerender = async (crop: ProfileCropSpec | null) => (await renderCleanVariants(deps, file, tmp, crop)).rendered

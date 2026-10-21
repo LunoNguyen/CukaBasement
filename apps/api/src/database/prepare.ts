@@ -2,10 +2,11 @@ import { DEFAULT_SETTINGS } from '@cuka/shared'
 import type { Client } from 'minio'
 import type mongoose from 'mongoose'
 import type { Config } from '../config/config'
+import { ensureHomepage } from '../site/home-seed'
 import { migrateLegacyLinks } from '../users/social-links'
 import { ensureIndexes } from './indexes'
 
-/** The database half of `npm run setup`, also run after every restore: indexes, default settings, data migrations. */
+/** The database half of `npm run setup`, also run after every restore: indexes, default settings and homepage, data migrations. */
 export async function prepareDatabase(conn: mongoose.Connection, log: (line: string) => void = () => {}): Promise<void> {
   await ensureIndexes(conn)
   log(`indexes: synced ${Object.keys(conn.models).length} models`)
@@ -13,6 +14,7 @@ export async function prepareDatabase(conn: mongoose.Connection, log: (line: str
     .collection<any>('settings')
     .updateOne({ _id: 'global' }, { $setOnInsert: { ...DEFAULT_SETTINGS } }, { upsert: true })
   log(`settings: ${res.upsertedCount ? 'created with defaults' : 'kept existing'}`)
+  log(`homepage: ${(await ensureHomepage(conn)) ? 'created with the default content' : 'kept existing'}`)
   log(`profile links: migrated ${await migrateLegacyLinks(conn)} legacy profiles`)
 }
 

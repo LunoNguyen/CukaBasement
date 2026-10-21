@@ -1,7 +1,7 @@
 import { MOD_ACTIONS, type ModAction } from '@cuka/shared'
 import { type HydratedDocument, Schema, Types } from 'mongoose'
 
-export type ModTargetType = 'post' | 'user' | 'comment' | 'settings' | 'backup'
+export type ModTargetType = 'post' | 'user' | 'comment' | 'settings' | 'backup' | 'site'
 
 export interface ModerationLog {
   _id: Types.ObjectId
@@ -22,7 +22,7 @@ export const ModerationLogSchema = new Schema<ModerationLog>(
   {
     actorId: { type: Schema.Types.Mixed, required: true },
     action: { type: String, enum: MOD_ACTIONS, required: true },
-    targetType: { type: String, enum: ['post', 'user', 'comment', 'settings', 'backup'], required: true },
+    targetType: { type: String, enum: ['post', 'user', 'comment', 'settings', 'backup', 'site'], required: true },
     // A string so non-ObjectId targets (the 'global' settings document) fit too.
     targetId: { type: String, required: true },
     note: { type: String, default: '' },
