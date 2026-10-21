@@ -1,5 +1,5 @@
 import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
-import { ALLOWED_FILE_TYPES, DEFAULT_SETTINGS, type FileKind, kindForMime } from '@cuka/shared'
+import { ALLOWED_FILE_TYPES, DEFAULT_SETTINGS, type FileKind, kindForMime, type UploadPurpose } from '@cuka/shared'
 import { ApiError } from '@/api/client'
 import { completeUpload, postToStorage, presignUpload } from '@/api/endpoints/uploads'
 
@@ -52,7 +52,8 @@ export function validateFile(
 
 let seq = 0
 
-export function useUploader(initial: QueueItem[] = []): {
+/** `purpose: 'site'` uploads homepage images (admins only). */
+export function useUploader(initial: QueueItem[] = [], opts: { purpose?: UploadPurpose } = {}): {
   queue: Ref<QueueItem[]>
   add(files: File[]): void
   remove(id: string): void
@@ -81,7 +82,7 @@ export function useUploader(initial: QueueItem[] = []): {
     patch(id, { status: 'uploading', progress: 0 })
     try {
       // The declared size is the exact size: the storage policy rejects anything bigger.
-      const p = await presignUpload({ name: file.name, size: file.size, mime: mimeOf(file) })
+      const p = await presignUpload({ name: file.name, size: file.size, mime: mimeOf(file), ...(opts.purpose ? { purpose: opts.purpose } : {}) })
       if (ac.signal.aborted || disposed) return
       patch(id, { fileId: p.fileId })
       await postToStorage(p.url, p.fields, file, (progress) => patch(id, { progress }), ac.signal)

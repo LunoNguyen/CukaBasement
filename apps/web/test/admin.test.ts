@@ -258,7 +258,9 @@ describe('Admin pages', () => {
 
   it('tab lives in the query string', async () => {
     const { w, router } = await mountAt('/admin', { 'GET /api/admin/users': users(), 'GET /api/admin/logs': ok({ items: [], nextCursor: null }) })
-    await w.findAll('[role="tab"]')[2]!.trigger('click')
+    const tabs = w.findAll('[role="tab"]')
+    expect(tabs.map((t) => t.text())).toEqual(['Tài khoản', 'Trang chủ', 'Cài đặt', 'Nhật ký', 'Sao lưu'])
+    await tabs[3]!.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.query.tab).toBe('logs')
   })

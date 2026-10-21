@@ -1,7 +1,8 @@
+import type { UploadPurpose } from '@cuka/shared'
 import { ApiError, request } from '../client'
 import type { FileDto, PresignDto } from '../types'
 
-export const presignUpload = (body: { name: string; size: number; mime: string }) =>
+export const presignUpload = (body: { name: string; size: number; mime: string; purpose?: UploadPurpose }) =>
   request<PresignDto>('/uploads', { method: 'POST', body })
 
 export const completeUpload = (fileId: string) =>
