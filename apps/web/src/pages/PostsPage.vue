@@ -6,7 +6,6 @@ import { followingFeed, homeFeed } from '@/api/endpoints/feed'
 import Tabs from '@/components/common/Tabs.vue'
 import PostFeed from '@/components/post/PostFeed.vue'
 import { useAuth } from '@/stores/auth'
-import HomeHero from '@/components/brand/HomeHero.vue'
 
 const { t } = useI18n()
 const auth = useAuth()
@@ -31,7 +30,7 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col gap-4">
-    <HomeHero v-if="auth.ready && !auth.isLoggedIn" />
+    <h1 class="font-display text-3xl font-semibold tracking-tight">{{ t('nav.posts') }}</h1>
     <div v-if="tags.length" class="flex flex-wrap gap-2">
       <RouterLink
         v-for="tag in tags"

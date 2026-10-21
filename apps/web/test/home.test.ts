@@ -34,13 +34,13 @@ async function mountAt(path: string, loggedIn = false) {
   return { w, router }
 }
 
-describe('Home', () => {
+describe('Posts (the feed that used to be the home page)', () => {
   it('hides Following tab when logged out, shows featured tags from API', async () => {
     fake = installFakeFetch({
       'GET /api/tags/featured': { status: 200, body: tags },
       'GET /api/feed/home': ok([card()]),
     })
-    const { w } = await mountAt('/')
+    const { w } = await mountAt('/posts')
     expect(w.findAll('[role="tab"]').map((t) => t.text())).toEqual(['Mới nhất'])
     const chips = w.findAll('[data-test="featured-tag"]')
     expect(chips.map((c) => c.text())).toEqual(['Fanart', 'OC'])
@@ -49,18 +49,25 @@ describe('Home', () => {
     expect(fake.callsTo('GET /api/feed/following')).toHaveLength(0)
   })
 
-  it('logged out: a hero with the site intro and sign-up; logged in: no hero. The footer is on every page', async () => {
+  it('has a heading, no welcome hero (that moved to the landing page), and the footer', async () => {
     fake = installFakeFetch({ 'GET /api/tags/featured': { status: 200, body: [] }, 'GET /api/feed/home': ok([]) })
-    let { w } = await mountAt('/')
-    const hero = w.get('[data-test="home-hero"]')
-    expect(hero.get('h1').text()).toBe('Nơi chia sẻ fanart Hibiki Du Ca')
-    expect(hero.get('[data-test="hero-register"]').attributes('href')).toBe('/register')
+    const { w } = await mountAt('/posts')
+    expect(w.get('h1').text()).toBe('Bài đăng')
+    expect(w.find('[data-test="home-hero"]').exists()).toBe(false)
     expect(w.get('[data-test="footer"]').text()).toContain('Nơi chia sẻ fanart Hibiki Du Ca')
     expect(w.get('[data-test="empty-art"]').attributes('aria-hidden')).toBe('true')
     w.unmount()
-    ;({ w } = await mountAt('/', true))
-    expect(w.find('[data-test="home-hero"]').exists()).toBe(false)
-    expect(w.find('[data-test="footer"]').exists()).toBe(true)
+  })
+
+  it('header: "Trang chủ" links to the landing page and "Bài đăng" to /posts; /feed redirects', async () => {
+    fake = installFakeFetch({ 'GET /api/tags/featured': { status: 200, body: [] }, 'GET /api/feed/home': ok([]) })
+    const { w, router } = await mountAt('/feed')
+    expect(router.currentRoute.value.path).toBe('/posts')
+    expect(w.get('[data-test="nav-home"]').attributes('href')).toBe('/')
+    expect(w.get('[data-test="nav-home"]').text()).toBe('Trang chủ')
+    expect(w.get('[data-test="nav-posts"]').attributes('href')).toBe('/posts')
+    expect(w.get('[data-test="nav-posts"]').text()).toBe('Bài đăng')
+    expect(w.get('[data-test="nav-posts"]').classes()).toContain('text-[var(--c-text)]')
     w.unmount()
   })
 
@@ -70,7 +77,7 @@ describe('Home', () => {
       'GET /api/feed/home': ok([card()]),
       'GET /api/feed/following': ok([card({ id: 'p2', title: 'Chó' })]),
     })
-    const { w } = await mountAt('/', true)
+    const { w } = await mountAt('/posts', true)
     const tabs = w.findAll('[role="tab"]')
     expect(tabs.map((t) => t.text())).toEqual(['Mới nhất', 'Đang theo dõi'])
     await tabs[1]!.trigger('click')
@@ -91,7 +98,7 @@ describe('Home', () => {
       },
     )
     fake = installFakeFetch({ 'GET /api/tags/featured': { status: 200, body: [] }, 'GET /api/feed/home': ok([], 'more') })
-    const { w } = await mountAt('/')
+    const { w } = await mountAt('/posts')
     expect(fake.callsTo('GET /api/feed/home')).toHaveLength(6)
     expect(observers.length).toBeGreaterThan(0)
     observers.at(-1)!([{ isIntersecting: true }])
@@ -106,7 +113,7 @@ describe('Home', () => {
 
   it('shows an empty state when the feed is empty', async () => {
     fake = installFakeFetch({ 'GET /api/tags/featured': { status: 200, body: [] }, 'GET /api/feed/home': ok([]) })
-    const { w } = await mountAt('/')
+    const { w } = await mountAt('/posts')
     expect(w.text()).toContain('Chưa có bài đăng nào')
   })
 })

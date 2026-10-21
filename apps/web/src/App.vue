@@ -32,7 +32,7 @@ watch(
   <AppHeader />
   <VerifyBanner />
   <div class="flex min-h-[calc(100dvh-4rem)] flex-col">
-    <main class="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-5">
+    <main :class="route.meta.fullBleed && !showMaintenance ? 'w-full flex-1' : 'mx-auto w-full max-w-screen-2xl flex-1 px-4 py-5'">
       <MaintenanceNotice v-if="showMaintenance" />
       <RouterView v-else />
     </main>

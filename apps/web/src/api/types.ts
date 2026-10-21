@@ -264,3 +264,41 @@ export interface BackupOverviewDto {
   schedule: BackupScheduleStateDto
   maxUploadBytes: number
 }
+
+// apps/api/src/site/site.service.ts
+/** A ready site image: `src` is the 1200px render, `srcset` lists every width. */
+export interface SiteImageDto {
+  width: number | null
+  height: number | null
+  src: string
+  srcset: string
+}
+
+export interface PublicHomeDto {
+  sections: import('@cuka/shared').HomeSection[]
+  images: Record<string, SiteImageDto>
+  publishedAt: string
+}
+
+export interface HomeDraftDto {
+  revision: number
+  sections: import('@cuka/shared').HomeSection[]
+  updatedAt: string
+  updatedBy: { username: string } | null
+  publishedAt: string
+  publishedBy: { username: string } | null
+  unpublished: boolean
+  images: Record<string, SiteImageDto>
+}
+
+export interface AdminSiteImageDto {
+  id: string
+  status: FileStatus | 'validating'
+  originalName: string
+  sizeBytes: number
+  width: number | null
+  height: number | null
+  createdAt: string
+  used: boolean
+  image: SiteImageDto | null
+}

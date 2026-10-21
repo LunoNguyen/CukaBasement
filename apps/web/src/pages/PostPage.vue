@@ -306,7 +306,7 @@ async function confirmDelete() {
     await postsApi.deletePost(post.value.id)
     deleteOpen.value = false
     toast.push({ kind: 'success', text: t('post.deleted') })
-    void router.push('/')
+    void router.push('/posts')
   } catch (e) {
     toast.push({ kind: 'error', text: errorText(e) })
   } finally {

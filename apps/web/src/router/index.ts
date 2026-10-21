@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
 import type { Role } from '@cuka/shared'
-import HomePage from '@/pages/HomePage.vue'
+import LandingPage from '@/pages/LandingPage.vue'
+import PostsPage from '@/pages/PostsPage.vue'
 import TagPage from '@/pages/TagPage.vue'
 import SearchPage from '@/pages/SearchPage.vue'
 import PostPage from '@/pages/PostPage.vue'
@@ -13,6 +14,8 @@ declare module 'vue-router' {
   interface RouteMeta {
     auth?: boolean
     roles?: Role[]
+    /** The page draws its own full-width bands (no centred column, no top padding). */
+    fullBleed?: boolean
   }
 }
 
@@ -33,7 +36,10 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({
     history,
     routes: [
-      { path: '/', name: 'home', component: HomePage },
+      { path: '/', name: 'home', component: LandingPage, meta: { fullBleed: true } },
+      // The feed (latest / following) that used to be the home page.
+      { path: '/posts', name: 'posts', component: PostsPage },
+      { path: '/feed', redirect: '/posts' },
       { path: '/403', name: 'forbidden', component: ForbiddenPage },
       { path: '/login', component: LoginPage },
       { path: '/register', component: RegisterPage },

@@ -2,6 +2,8 @@
 import { useI18n } from 'vue-i18n'
 import BasementArt from './BasementArt.vue'
 
+/** `h2` where the page already has its own h1 (the landing page). */
+withDefaults(defineProps<{ level?: 'h1' | 'h2' }>(), { level: 'h1' })
 const { t } = useI18n()
 </script>
 
@@ -10,7 +12,7 @@ const { t } = useI18n()
   <section data-test="home-hero" class="grid overflow-hidden rounded-2xl bg-[var(--c-cellar)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
     <div class="order-2 flex flex-col gap-5 p-6 sm:p-8 md:order-1 md:py-10">
       <p class="font-mono text-xs tracking-[0.08em] text-[var(--c-cellar-muted)] uppercase">{{ t('common.siteName') }}</p>
-      <h1 class="font-display text-4xl leading-[1.05] font-semibold tracking-[-0.025em] text-[var(--c-cellar-text)] sm:text-5xl">{{ t('brand.heroTitle') }}</h1>
+      <component :is="level" class="font-display text-4xl leading-[1.05] font-semibold tracking-[-0.025em] text-[var(--c-cellar-text)] sm:text-5xl">{{ t('brand.heroTitle') }}</component>
       <p class="max-w-md text-sm leading-relaxed text-[var(--c-cellar-text)]/85">{{ t('brand.heroBody') }}</p>
       <div class="flex flex-wrap gap-3">
         <RouterLink to="/register" data-test="hero-register" class="inline-flex min-h-11 items-center rounded-full bg-[#fbf7f4] px-5 text-sm font-semibold text-[#5b3a29] hover:bg-white">{{

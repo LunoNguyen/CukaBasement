@@ -29,7 +29,8 @@ function search() {
         <span class="wordmark text-xl" aria-hidden="true"><b>Cuka</b>Basement</span>
       </RouterLink>
       <nav class="flex gap-1 text-sm font-medium text-[var(--c-muted)]">
-        <RouterLink to="/" class="inline-flex min-h-11 items-center px-2 hover:text-[var(--c-text)]" exact-active-class="text-[var(--c-text)]">{{ t('nav.home') }}</RouterLink>
+        <RouterLink to="/" data-test="nav-home" class="inline-flex min-h-11 items-center px-2 hover:text-[var(--c-text)]" exact-active-class="text-[var(--c-text)]">{{ t('nav.home') }}</RouterLink>
+        <RouterLink to="/posts" data-test="nav-posts" class="inline-flex min-h-11 items-center px-2 hover:text-[var(--c-text)]" exact-active-class="text-[var(--c-text)]">{{ t('nav.posts') }}</RouterLink>
         <RouterLink to="/search" class="inline-flex min-h-11 items-center px-2 hover:text-[var(--c-text)] md:hidden" active-class="text-[var(--c-text)]">{{ t('nav.search') }}</RouterLink>
       </nav>
       <!-- Not a <form>: pages own the forms, and this one would be the first on every page. -->
