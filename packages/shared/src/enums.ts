@@ -22,7 +22,8 @@ export type FileKind = (typeof FILE_KINDS)[number]
 export const FILE_STATUSES = ['uploading', 'processing', 'ready', 'failed'] as const
 export type FileStatus = (typeof FILE_STATUSES)[number]
 
-export const VARIANT_NAMES = ['thumb_sm', 'thumb_md', 'preview', 'blurred'] as const
+/** `large` (2400px wide) is rendered only for site images (the homepage hero and galleries). */
+export const VARIANT_NAMES = ['thumb_sm', 'thumb_md', 'preview', 'blurred', 'large'] as const
 export type VariantName = (typeof VARIANT_NAMES)[number]
 
 export const REPORT_REASONS = ['ai_art', 'stolen_art', 'unmarked_r18', 'spam', 'other'] as const
@@ -67,8 +68,15 @@ export const MOD_ACTIONS = [
   'backup_delete',
   'backup_upload',
   'backup_download',
+  'homepage_publish',
+  'homepage_discard',
+  'site_image_delete',
 ] as const
 export type ModAction = (typeof MOD_ACTIONS)[number]
+
+/** What an upload is for: `site` images (admins only) are homepage pictures, never attached to posts or profiles. */
+export const UPLOAD_PURPOSES = ['post', 'site'] as const
+export type UploadPurpose = (typeof UPLOAD_PURPOSES)[number]
 
 export const LOCALES = ['vi', 'en'] as const
 export type Locale = (typeof LOCALES)[number]

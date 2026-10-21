@@ -36,5 +36,8 @@ export const ERROR_CODES = [
   'BACKUP_NOT_FOUND',
   'BACKUP_INVALID',
   'BACKUP_TOO_LARGE',
+  'REVISION_CONFLICT',
+  'SITE_IMAGE_INVALID',
+  'SITE_IMAGE_IN_USE',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
