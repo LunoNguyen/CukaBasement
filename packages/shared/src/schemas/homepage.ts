@@ -10,10 +10,10 @@ const text = (max: number) => z.string().trim().max(max).refine(noControl, 'Cont
 
 /** Vietnamese and English text; `en` may be left empty (the Vietnamese text is shown). */
 const localized = (max: number, required = false) =>
-  z.strictObject({
-    vi: required ? text(max).min(1) : text(max).default(''),
-    en: text(max).default(''),
-  })
+  required
+    ? z.strictObject({ vi: text(max).min(1), en: text(max).default('') })
+    : // An optional text may also be left out entirely.
+      z.strictObject({ vi: text(max).default(''), en: text(max).default('') }).prefault({ vi: '' })
 
 /** Limited Markdown (see parseMarkdown): a link to anything but an http(s) URL or a site path is refused. */
 const markdown = (max: number) =>
