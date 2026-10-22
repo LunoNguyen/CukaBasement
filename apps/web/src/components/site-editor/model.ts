@@ -1,6 +1,6 @@
 import type { HomeImage, HomeSection, HomeSectionType, LocalizedText } from '@cuka/shared'
 import { inject, type InjectionKey, provide, type Ref } from 'vue'
-import type { SiteImageDto } from '@/api/types'
+import type { SiteImageDto, SiteVideoDto } from '@/api/types'
 
 export const lt = (vi = '', en = ''): LocalizedText => ({ vi, en })
 
@@ -8,6 +8,16 @@ export const lt = (vi = '', en = ''): LocalizedText => ({ vi, en })
 export function newSection(type: HomeSectionType, id: string): HomeSection {
   const head = { eyebrow: lt(), heading: lt() }
   switch (type) {
+    case 'heroVideo':
+      return { id, type, visible: true, data: { eyebrow: lt(), name: lt(), subtitle: lt(), video: null, videoMobile: null, images: [], link: null } }
+    case 'releases':
+      return { id, type, visible: true, data: { eyebrow: lt(), heading: lt('Mới phát hành', 'New release'), source: 'latestFanart', count: 5, items: [] } }
+    case 'spotlight':
+      return { id, type, visible: true, data: { ...head, intervalSec: 4, items: [] } }
+    case 'vibe':
+      return { id, type, visible: true, data: { eyebrow: lt(), text: lt(), image: null, cta: { label: lt('Giới thiệu', 'About'), href: '/gioi-thieu' } } }
+    case 'footer':
+      return { id, type, visible: true, data: { note: lt(), email: '', links: [], copyright: lt('© CukaBasement') } }
     case 'hero':
       return { id, type, visible: true, data: { eyebrow: lt(), title: lt(), subtitle: lt(), images: [], ctas: [] } }
     case 'about':
@@ -43,6 +53,8 @@ export function freshId(type: string, taken: Set<string>): string {
 export interface EditorContext {
   lang: Ref<'vi' | 'en'>
   images: Ref<Record<string, SiteImageDto>>
+  /** Resolved site videos (their posters are in `images`). */
+  videos: Ref<Record<string, SiteVideoDto>>
 }
 const KEY: InjectionKey<EditorContext> = Symbol('site-editor')
 export const provideEditor = (ctx: EditorContext) => provide(KEY, ctx)
@@ -54,6 +66,6 @@ export function useEditor(): EditorContext {
 
 /** The text a section is listed under in the editor. */
 export function sectionTitle(s: HomeSection): LocalizedText | null {
-  const d = s.data as { heading?: LocalizedText; title?: LocalizedText; text?: LocalizedText }
-  return d.heading ?? d.title ?? d.text ?? null
+  const d = s.data as { heading?: LocalizedText; title?: LocalizedText; name?: LocalizedText; text?: LocalizedText; note?: LocalizedText }
+  return d.heading ?? d.title ?? d.name ?? d.text ?? d.note ?? null
 }

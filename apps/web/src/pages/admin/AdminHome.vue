@@ -2,23 +2,25 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
-import { HOME_LIMITS, HOME_SECTION_TYPES, type HomeSection, type HomeSectionType, homeSectionsSchema, pickText } from '@cuka/shared'
+import { HOME_LIMITS, HOME_SECTION_TYPES, type HomeSection, type HomeSectionType, homeSectionsSchema, pickText, SITE_PAGE_TYPES, SITE_PAGES, type SitePage } from '@cuka/shared'
 import { ApiError } from '@/api/client'
 import * as api from '@/api/endpoints/site'
-import type { HomeDraftDto, SiteImageDto } from '@/api/types'
+import type { HomeDraftDto, SiteImageDto, SiteVideoDto } from '@/api/types'
 import Btn from '@/components/common/Btn.vue'
 import Modal from '@/components/common/Modal.vue'
 import Spinner from '@/components/common/Spinner.vue'
 import LandingSections from '@/components/landing/LandingSections.vue'
+import FullPage from '@/components/landing/fullpage/FullPage.vue'
 import SectionForm from '@/components/site-editor/SectionForm.vue'
 import { freshId, newSection, provideEditor, sectionTitle } from '@/components/site-editor/model'
 import { useErrorText } from '@/composables/useErrorText'
 import { useToast } from '@/stores/toast'
 
 /**
- * Quản trị → Trang chủ: edit the homepage as a list of sections (add, reorder, duplicate, hide, delete, edit fields),
- * with a live preview drawn by the same components as the public page. Saves go to the draft (guarded by its
- * revision); "Xuất bản" makes the draft public.
+ * Quản trị → Trang chủ: edit a site page — the landing page ("/") or the Introduction page ("/gioi-thieu") — as a
+ * list of sections (add, reorder, duplicate, hide, delete, edit fields), with a live preview drawn by the same
+ * components as the public page. Each page has its own draft (saves are guarded by its revision); "Xuất bản" makes
+ * the draft public.
  */
 const { t, locale } = useI18n()
 const toast = useToast()
@@ -28,10 +30,12 @@ const draft = ref<HomeDraftDto | null>(null)
 const sections = ref<HomeSection[]>([])
 const saved = ref('[]')
 const images = ref<Record<string, SiteImageDto>>({})
+const videos = ref<Record<string, SiteVideoDto>>({})
+const page = ref<SitePage>('home')
 const LANGS = ['vi', 'en'] as const
 const lang = ref<'vi' | 'en'>(locale.value === 'en' ? 'en' : 'vi')
 const setLang = (l: 'vi' | 'en') => (lang.value = l)
-provideEditor({ lang, images })
+provideEditor({ lang, images, videos })
 
 const selectedId = ref<string | null>(null)
 const selected = computed(() => sections.value.find((s) => s.id === selectedId.value) ?? null)
@@ -41,7 +45,15 @@ const conflict = ref(false)
 const problem = ref<string | null>(null)
 const view = ref<'edit' | 'preview'>('edit')
 const confirm = ref<'' | 'publish' | 'discard' | 'delete'>('')
-const addType = ref<HomeSectionType>('about')
+const addType = ref<HomeSectionType>(SITE_PAGE_TYPES.home[0]!)
+/** The page's own section types first, then the others. */
+const addGroups = computed(() => {
+  const own = SITE_PAGE_TYPES[page.value]
+  return [
+    { key: page.value, types: own },
+    { key: page.value === 'home' ? 'intro' : 'home', types: HOME_SECTION_TYPES.filter((ty) => !own.includes(ty)) },
+  ]
+})
 
 const dirty = computed(() => JSON.stringify(sections.value) !== saved.value)
 
@@ -50,6 +62,7 @@ function apply(d: HomeDraftDto) {
   sections.value = JSON.parse(JSON.stringify(d.sections)) as HomeSection[]
   saved.value = JSON.stringify(d.sections)
   images.value = { ...images.value, ...d.images }
+  videos.value = { ...videos.value, ...(d.videos ?? {}) }
   conflict.value = false
   problem.value = null
   if (!sections.value.some((s) => s.id === selectedId.value)) selectedId.value = sections.value[0]?.id ?? null
@@ -58,12 +71,24 @@ function apply(d: HomeDraftDto) {
 async function load() {
   loadError.value = null
   try {
-    apply(await api.homeDraft())
+    apply(await api.pageDraft(page.value))
   } catch (e) {
     loadError.value = e
   }
 }
 onMounted(load)
+
+/** Switches the page being edited (asks first when there are unsaved changes). */
+async function switchPage(p: SitePage) {
+  if (p === page.value || busy.value) return
+  if (dirty.value && !window.confirm(t('admin.home.leaveConfirm'))) return
+  page.value = p
+  draft.value = null
+  selectedId.value = null
+  addType.value = SITE_PAGE_TYPES[p][0]!
+  view.value = 'edit'
+  await load()
+}
 
 // --- Section list ----------------------------------------------------------------------------------------------
 const label = (s: HomeSection) => pickText(sectionTitle(s), lang.value) || t(`admin.home.types.${s.type}`)
@@ -128,7 +153,7 @@ async function save(): Promise<boolean> {
   if (!valid) return false
   busy.value = 'save'
   try {
-    apply(await api.saveHomeDraft(draft.value.revision, valid))
+    apply(await api.savePageDraft(page.value, draft.value.revision, valid))
     toast.push({ kind: 'success', text: t('admin.home.saved') })
     return true
   } catch (e) {
@@ -145,8 +170,8 @@ async function publish() {
   if (dirty.value && !(await save())) return
   busy.value = 'publish'
   try {
-    apply(await api.publishHome(draft.value.revision))
-    toast.push({ kind: 'success', text: t('admin.home.published') })
+    apply(await api.publishPage(page.value, draft.value.revision))
+    toast.push({ kind: 'success', text: t('admin.home.publishedPage', { page: t(`admin.home.pages.${page.value}`) }) })
   } catch (e) {
     onError(e)
   } finally {
@@ -159,7 +184,7 @@ async function discard() {
   if (!draft.value) return
   busy.value = 'discard'
   try {
-    apply(await api.discardHomeDraft(draft.value.revision))
+    apply(await api.discardPageDraft(page.value, draft.value.revision))
     toast.push({ kind: 'success', text: t('admin.home.discarded') })
   } catch (e) {
     onError(e)
@@ -209,6 +234,23 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
 
 <template>
   <div data-test="admin-home">
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <div class="flex rounded-full border border-[var(--c-border)] p-1" role="group" :aria-label="t('admin.home.pageSwitch')" data-test="page-switch">
+        <button
+          v-for="p in SITE_PAGES"
+          :key="p"
+          type="button"
+          class="min-h-11 rounded-full px-5 text-sm font-semibold transition-colors"
+          :class="page === p ? 'bg-[var(--c-primary)] text-[var(--c-bg)]' : 'text-[var(--c-muted)] hover:text-[var(--c-text)]'"
+          :aria-pressed="page === p"
+          :data-test="`page-${p}`"
+          @click="switchPage(p)"
+        >
+          {{ t(`admin.home.pages.${p}`) }}
+        </button>
+      </div>
+      <RouterLink :to="page === 'home' ? '/' : '/gioi-thieu'" target="_blank" class="link text-sm" data-test="page-open">{{ t('admin.home.openPage') }} ↗</RouterLink>
+    </div>
     <p v-if="loadError" class="text-sm text-[var(--c-danger)]">
       {{ errorText(loadError) }} <button type="button" class="link" @click="load">{{ t('common.retry') }}</button>
     </p>
@@ -274,7 +316,9 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
             <div class="mt-3 flex gap-2 border-t border-[var(--c-border)] pt-3">
               <label class="sr-only" for="add-type">{{ t('admin.home.addType') }}</label>
               <select id="add-type" v-model="addType" class="field min-h-11 flex-1" data-test="add-type">
-                <option v-for="ty in HOME_SECTION_TYPES" :key="ty" :value="ty">{{ t(`admin.home.types.${ty}`) }}</option>
+                <optgroup v-for="g in addGroups" :key="g.key" :label="t(`admin.home.typeGroups.${g.key}`)">
+                  <option v-for="ty in g.types" :key="ty" :value="ty">{{ t(`admin.home.types.${ty}`) }}</option>
+                </optgroup>
               </select>
               <Btn variant="ghost" :disabled="sections.length >= HOME_LIMITS.sectionsMax" data-test="add-section" @click="add">{{ t('admin.home.add') }}</Btn>
             </div>
@@ -302,7 +346,8 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
             <div ref="pane" class="overflow-hidden rounded-xl border border-[var(--c-border)] lg:max-h-[calc(100dvh-12rem)] lg:overflow-y-auto" data-test="home-preview">
               <div :style="scale < 1 ? { height: `${innerHeight * scale}px` } : undefined">
                 <div ref="inner" :style="scale < 1 ? { width: `${PREVIEW_WIDTH}px`, transform: `scale(${scale})`, transformOrigin: '0 0' } : undefined">
-                  <LandingSections :sections="sections" :images="images" :locale="lang" preview />
+                  <FullPage v-if="page === 'home'" :key="`fp-${lang}`" :sections="sections" :images="images" :videos="videos" :locale="lang" preview />
+                  <LandingSections v-else :sections="sections" :images="images" :locale="lang" preview />
                 </div>
               </div>
             </div>
@@ -311,7 +356,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
       </div>
     </template>
 
-    <Modal :open="confirm === 'publish'" :title="t('admin.home.publishTitle')" @update:open="(v) => !v && (confirm = '')">
+    <Modal :open="confirm === 'publish'" :title="t('admin.home.publishPageTitle', { page: t(`admin.home.pages.${page}`) })" @update:open="(v) => !v && (confirm = '')">
       <p class="text-sm">{{ t('admin.home.publishConfirm') }}</p>
       <div class="mt-5 flex justify-end gap-2">
         <Btn variant="ghost" @click="confirm = ''">{{ t('common.cancel') }}</Btn>
