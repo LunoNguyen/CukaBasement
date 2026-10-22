@@ -23,7 +23,7 @@ async function mountHeader(avatarUrl: string | null) {
   auth.setSession({ accessToken: 't', user: makeMe({ avatarUrl }) })
   auth.ready = true
   const router = createAppRouter(createMemoryHistory())
-  await router.push('/')
+  await router.push('/posts')
   const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
   await flushPromises()
   return { w, auth }

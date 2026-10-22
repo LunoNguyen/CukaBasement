@@ -14,7 +14,7 @@ import { resolve } from 'node:path'
 
 const css = readFileSync(resolve(__dirname, '../src/styles.css'), 'utf8')
 
-async function mountApp(path = '/') {
+async function mountApp(path = '/posts') {
   const pinia = createPinia()
   const router = createAppRouter(createMemoryHistory())
   router.push(path)
@@ -55,7 +55,7 @@ describe('foundation', () => {
   })
 
   it('LangSwitch changes visible text and <html lang>', async () => {
-    const { w } = await mountApp('/')
+    const { w } = await mountApp('/posts')
     expect(w.find('nav').text()).toContain('Trang chủ')
     await w.get('[data-test="lang-en"]').trigger('click')
     expect(w.find('nav').text()).toContain('Home')
@@ -66,7 +66,7 @@ describe('foundation', () => {
     vitest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('denied')
     })
-    const { w } = await mountApp('/')
+    const { w } = await mountApp('/posts')
     expect(document.documentElement.dataset.theme).toBe('light')
     await w.get('[data-test="theme-toggle"]').trigger('click')
     expect(document.documentElement.dataset.theme).toBe('dark')

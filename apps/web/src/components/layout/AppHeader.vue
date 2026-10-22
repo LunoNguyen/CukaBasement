@@ -30,6 +30,7 @@ function search() {
       </RouterLink>
       <nav class="flex gap-1 text-sm font-medium text-[var(--c-muted)]">
         <RouterLink to="/" data-test="nav-home" class="inline-flex min-h-11 items-center px-2 hover:text-[var(--c-text)]" exact-active-class="text-[var(--c-text)]">{{ t('nav.home') }}</RouterLink>
+        <RouterLink to="/gioi-thieu" data-test="nav-intro" class="inline-flex min-h-11 items-center px-2 hover:text-[var(--c-text)]" active-class="text-[var(--c-text)]">{{ t('nav.intro') }}</RouterLink>
         <RouterLink to="/posts" data-test="nav-posts" class="inline-flex min-h-11 items-center px-2 hover:text-[var(--c-text)]" exact-active-class="text-[var(--c-text)]">{{ t('nav.posts') }}</RouterLink>
         <RouterLink to="/search" class="inline-flex min-h-11 items-center px-2 hover:text-[var(--c-text)] md:hidden" active-class="text-[var(--c-text)]">{{ t('nav.search') }}</RouterLink>
       </nav>

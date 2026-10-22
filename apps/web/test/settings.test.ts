@@ -529,7 +529,7 @@ describe('Settings page', () => {
         await pickImage(w, 'avatar')
         await vi.advanceTimersByTimeAsync(3000)
         expect(fake.callsTo('GET /api/me')).toHaveLength(1)
-        await w.vm.$router.push('/')
+        await w.vm.$router.push('/posts')
         await flushPromises()
         expect(w.find('[data-test="profile-form"]').exists()).toBe(false)
         await vi.advanceTimersByTimeAsync(27_000)

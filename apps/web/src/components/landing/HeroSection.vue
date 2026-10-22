@@ -12,7 +12,7 @@ import { useLanding } from './context'
  * Full-bleed opening band. With pictures: a cross-fading slideshow (paused on reduced motion, with a pause button
  * and slide dots). Without: the basement arch and halftone dots of the brand board.
  */
-const props = defineProps<{ data: HeroData }>()
+const props = withDefaults(defineProps<{ data: HeroData; level?: 1 | 2 }>(), { level: 1 })
 const { t } = useI18n()
 const { tx, images } = useLanding()
 const titleId = useId()
@@ -87,9 +87,9 @@ watch(
           <span class="size-2 rounded-full bg-[var(--c-cellar-accent)]" aria-hidden="true" />
           {{ tx(data.eyebrow) }}
         </p>
-        <h1 :id="titleId" class="font-display text-[clamp(3.25rem,11vw,8.5rem)] leading-[0.9] font-semibold tracking-[-0.045em] text-balance">
+        <component :is="level === 1 ? 'h1' : 'h2'" :id="titleId" class="font-display text-[clamp(3.25rem,11vw,8.5rem)] leading-[0.9] font-semibold tracking-[-0.045em] text-balance">
           {{ tx(data.title) }}
-        </h1>
+        </component>
         <p v-if="tx(data.subtitle)" class="max-w-xl text-lg leading-relaxed text-[var(--c-cellar-text)]/90 sm:text-xl">{{ tx(data.subtitle) }}</p>
         <div v-if="data.ctas.length" class="flex flex-wrap gap-3 pt-1">
           <SmartLink

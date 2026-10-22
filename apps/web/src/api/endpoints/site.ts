@@ -1,15 +1,17 @@
-import type { HomeSection } from '@cuka/shared'
+import type { HomeSection, SitePage } from '@cuka/shared'
 import { request } from '../client'
 import type { AdminSiteImageDto, HomeDraftDto, Page, PostCardDto, PublicHomeDto } from '../types'
 
-export const publicHome = () => request<PublicHomeDto>('/site/home')
+/** A published page: `home` (the landing page at "/") or `intro` (the Introduction page). */
+export const publicPage = (page: SitePage) => request<PublicHomeDto>(`/site/pages/${page}`)
+export const publicHome = () => publicPage('home')
 export const fanartShowcase = (limit: number) => request<Page<PostCardDto>>('/feed/showcase', { query: { limit } })
 
-export const homeDraft = () => request<HomeDraftDto>('/admin/site/home/draft')
-export const saveHomeDraft = (revision: number, sections: HomeSection[]) =>
-  request<HomeDraftDto>('/admin/site/home/draft', { method: 'PUT', body: { revision, sections } })
-export const publishHome = (revision: number) => request<HomeDraftDto>('/admin/site/home/publish', { method: 'POST', body: { revision } })
-export const discardHomeDraft = (revision: number) => request<HomeDraftDto>('/admin/site/home/discard', { method: 'POST', body: { revision } })
+export const pageDraft = (page: SitePage) => request<HomeDraftDto>(`/admin/site/pages/${page}/draft`)
+export const savePageDraft = (page: SitePage, revision: number, sections: HomeSection[]) =>
+  request<HomeDraftDto>(`/admin/site/pages/${page}/draft`, { method: 'PUT', body: { revision, sections } })
+export const publishPage = (page: SitePage, revision: number) => request<HomeDraftDto>(`/admin/site/pages/${page}/publish`, { method: 'POST', body: { revision } })
+export const discardPageDraft = (page: SitePage, revision: number) => request<HomeDraftDto>(`/admin/site/pages/${page}/discard`, { method: 'POST', body: { revision } })
 
 export const siteImages = () => request<AdminSiteImageDto[]>('/admin/site/images')
 export const deleteSiteImage = (id: string) => request<void>(`/admin/site/images/${encodeURIComponent(id)}`, { method: 'DELETE' })

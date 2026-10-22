@@ -20,7 +20,7 @@ afterEach(() => {
 
 async function mountLanding(home = publicHome(), loggedIn = false, extra: Record<string, unknown> = {}) {
   fake = installFakeFetch({
-    'GET /api/site/home': { status: 200, body: home },
+    'GET /api/site/pages/intro': { status: 200, body: home },
     'GET /api/feed/showcase': { status: 200, body: { items: [card(), card({ id: 'p2', title: 'Chó' })], nextCursor: null } },
     ...(extra as Record<string, { status: number }>),
   })
@@ -30,13 +30,13 @@ async function mountLanding(home = publicHome(), loggedIn = false, extra: Record
   auth.ready = true
   if (loggedIn) auth.setSession({ accessToken: 't', user: makeMe() })
   const router = createAppRouter(createMemoryHistory())
-  await router.push('/')
+  await router.push('/gioi-thieu')
   const w = mount(App, { global: { plugins: [pinia, router, i18n] }, attachTo: document.body })
   await flushPromises()
   return { w, router }
 }
 
-describe('Landing page (/)', () => {
+describe('Introduction page (/gioi-thieu)', () => {
   it('renders every section type from the published homepage, in order, without the hidden one', async () => {
     const { w } = await mountLanding()
     const order = w.findAll('[data-test^="landing-"]').map((e) => e.attributes('data-test'))
@@ -77,7 +77,10 @@ describe('Landing page (/)', () => {
     expect(hero.find('[data-test="hero-pause"]').exists()).toBe(true)
     // Section headings are h2 under the single h1.
     expect(w.findAll('h2').map((h) => h.text())).toContain('Hồ sơ Du Ca')
-    expect(document.title).toBe('Hibiki Du Ca · CukaBasement')
+    expect(document.title).toBe('Giới thiệu · Hibiki Du Ca · CukaBasement')
+    // The normal site header, with the Introduction link marked current.
+    expect(w.get('[data-test="nav-intro"]').classes()).toContain('text-[var(--c-text)]')
+    expect(w.find('[data-test="landing-chrome"]').exists()).toBe(false)
     w.unmount()
   })
 
@@ -198,7 +201,7 @@ describe('Landing page (/)', () => {
   })
 
   it('API down: a fallback welcome that still leads to the posts', async () => {
-    const { w } = await mountLanding(publicHome(), false, { 'GET /api/site/home': { status: 500, body: { error: { code: 'INTERNAL' } } } })
+    const { w } = await mountLanding(publicHome(), false, { 'GET /api/site/pages/intro': { status: 500, body: { error: { code: 'INTERNAL' } } } })
     expect(w.get('h1').text()).toBe('CukaBasement')
     expect(w.findAll('a').some((a) => a.attributes('href') === '/posts' && a.text() === 'Xem bài đăng')).toBe(true)
     w.unmount()

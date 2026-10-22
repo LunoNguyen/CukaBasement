@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
 import type { Role } from '@cuka/shared'
 import LandingPage from '@/pages/LandingPage.vue'
+import IntroPage from '@/pages/IntroPage.vue'
 import PostsPage from '@/pages/PostsPage.vue'
 import TagPage from '@/pages/TagPage.vue'
 import SearchPage from '@/pages/SearchPage.vue'
@@ -16,6 +17,8 @@ declare module 'vue-router' {
     roles?: Role[]
     /** The page draws its own full-width bands (no centred column, no top padding). */
     fullBleed?: boolean
+    /** Full-screen page with its own floating chrome: no site header, banner or footer. */
+    immersive?: boolean
   }
 }
 
@@ -36,7 +39,9 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({
     history,
     routes: [
-      { path: '/', name: 'home', component: LandingPage, meta: { fullBleed: true } },
+      { path: '/', name: 'home', component: LandingPage, meta: { fullBleed: true, immersive: true } },
+      { path: '/gioi-thieu', name: 'intro', component: IntroPage, meta: { fullBleed: true } },
+      { path: '/intro', redirect: '/gioi-thieu' },
       // The feed (latest / following) that used to be the home page.
       { path: '/posts', name: 'posts', component: PostsPage },
       { path: '/feed', redirect: '/posts' },

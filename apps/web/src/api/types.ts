@@ -274,13 +274,25 @@ export interface SiteImageDto {
   srcset: string
 }
 
+/** A ready site video: the clip in the public bucket; its poster frame is `images[id]`. */
+export interface SiteVideoDto {
+  src: string
+  mime: string
+  width: number | null
+  height: number | null
+  durationSec: number | null
+}
+
 export interface PublicHomeDto {
+  page: import('@cuka/shared').SitePage
   sections: import('@cuka/shared').HomeSection[]
   images: Record<string, SiteImageDto>
+  videos: Record<string, SiteVideoDto>
   publishedAt: string
 }
 
 export interface HomeDraftDto {
+  page: import('@cuka/shared').SitePage
   revision: number
   sections: import('@cuka/shared').HomeSection[]
   updatedAt: string
@@ -289,16 +301,21 @@ export interface HomeDraftDto {
   publishedBy: { username: string } | null
   unpublished: boolean
   images: Record<string, SiteImageDto>
+  videos: Record<string, SiteVideoDto>
 }
 
 export interface AdminSiteImageDto {
   id: string
+  kind: 'image' | 'video'
   status: FileStatus | 'validating'
   originalName: string
   sizeBytes: number
   width: number | null
   height: number | null
   createdAt: string
+  durationSec: number | null
   used: boolean
+  /** The image's renders, or a video's poster frame. */
   image: SiteImageDto | null
+  video: SiteVideoDto | null
 }

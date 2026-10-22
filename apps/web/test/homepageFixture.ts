@@ -1,5 +1,5 @@
 import type { HomeSection } from '@cuka/shared'
-import type { PublicHomeDto, SiteImageDto } from '@/api/types'
+import type { PublicHomeDto, SiteImageDto, SiteVideoDto } from '@/api/types'
 
 export const lt = (vi: string, en = '') => ({ vi, en })
 export const IMG = 'a'.repeat(24)
@@ -30,5 +30,79 @@ export function allSections(): HomeSection[] {
 }
 
 export function publicHome(sections = allSections()): PublicHomeDto {
-  return { sections, images: { [IMG]: resolved(IMG), [IMG2]: resolved(IMG2) }, publishedAt: '2026-10-01T00:00:00.000Z' }
+  return { page: 'intro', sections, images: { [IMG]: resolved(IMG), [IMG2]: resolved(IMG2) }, videos: {}, publishedAt: '2026-10-01T00:00:00.000Z' }
+}
+
+export const VID = 'c'.repeat(24)
+export const VID_M = 'd'.repeat(24)
+export const resolvedVideo = (id: string): SiteVideoDto => ({ src: `http://cdn/${id}/video.mp4?v=1`, mime: 'video/mp4', width: 1920, height: 1080, durationSec: 12 })
+
+/** The full-page landing: one section of every landing type, as the API returns them. */
+export function landingSections(): HomeSection[] {
+  return [
+    {
+      id: 'top',
+      type: 'heroVideo',
+      visible: true,
+      data: {
+        eyebrow: lt('NIJIGEN Project · VTuber'),
+        name: lt('Hibiki Du Ca'),
+        subtitle: lt('Nữ thần mê đồ ăn Việt', 'A goddess who loves Vietnamese food'),
+        video: { fileId: VID },
+        videoMobile: { fileId: VID_M },
+        images: [],
+        link: { kicker: lt('Đang phát', 'Now playing'), label: lt('Kênh YouTube', 'YouTube channel'), href: 'https://www.youtube.com/@hibikiduca' },
+      },
+    },
+    {
+      id: 'new',
+      type: 'releases',
+      visible: true,
+      data: {
+        eyebrow: lt('Từ Cuka'),
+        heading: lt('Mới phát hành', 'New release'),
+        source: 'manual',
+        count: 5,
+        items: [
+          { title: lt('Bài một'), cover: image(IMG, 'Bìa một'), wide: image(IMG2, 'Ngang một'), href: 'https://open.spotify.com/track/1', date: '2026.10.01' },
+          { title: lt('Bài hai'), cover: image(IMG2, 'Bìa hai'), wide: null, href: '/posts/p2', date: '' },
+          { title: lt('Bài ba'), cover: image(IMG, 'Bìa ba'), wide: null, href: 'https://youtu.be/dQw4w9WgXcQ', date: '' },
+          { title: lt('Bài bốn'), cover: image(IMG2, 'Bìa bốn'), wide: null, href: '/posts/p4', date: '' },
+        ],
+      },
+    },
+    {
+      id: 'looks',
+      type: 'spotlight',
+      visible: true,
+      data: {
+        eyebrow: lt('Diện mạo'),
+        heading: lt('Những phiên bản của Du Ca'),
+        intervalSec: 4,
+        items: [
+          { name: lt('Model gốc', 'Original model'), caption: lt('08/08/2021'), background: image(IMG, 'Model gốc'), thumb: null, href: '/gioi-thieu' },
+          { name: lt('Chibi'), caption: lt('09/08/2024'), background: image(IMG2, 'Chibi'), thumb: null, href: '' },
+          { name: lt('Qua nét vẽ của Cuka'), caption: lt(''), background: null, thumb: null, href: '/posts' },
+        ],
+      },
+    },
+    { id: 'vibe', type: 'vibe', visible: true, data: { eyebrow: lt('CukaBasement'), text: lt('Một căn hầm ấm áp'), image: null, cta: { label: lt('Giới thiệu về Du Ca'), href: '/gioi-thieu' } } },
+    {
+      id: 'end',
+      type: 'footer',
+      visible: true,
+      data: { note: lt('Trang của cộng đồng fan'), email: 'lienhe@cuka.test', links: [{ platform: 'youtube', label: lt('@hibikiduca'), url: 'https://www.youtube.com/@hibikiduca' }], copyright: lt('© CukaBasement') },
+    },
+    { id: 'hidden', type: 'vibe', visible: false, data: { eyebrow: lt(''), text: lt('Bí mật'), image: null, cta: null } },
+  ] as HomeSection[]
+}
+
+export function publicLanding(sections = landingSections(), videos: Record<string, SiteVideoDto> = { [VID]: resolvedVideo(VID), [VID_M]: resolvedVideo(VID_M) }): PublicHomeDto {
+  return {
+    page: 'home',
+    sections,
+    images: { [IMG]: resolved(IMG), [IMG2]: resolved(IMG2), [VID]: resolved(VID), [VID_M]: resolved(VID_M) },
+    videos,
+    publishedAt: '2026-10-01T00:00:00.000Z',
+  }
 }

@@ -8,7 +8,10 @@ import VerifyBanner from '@/components/layout/VerifyBanner.vue'
 import ToastHost from '@/components/layout/ToastHost.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import MaintenanceNotice from '@/components/layout/MaintenanceNotice.vue'
+import { useTheme } from '@/composables/useTheme'
 
+// The theme is applied here, not only by the header's toggle: the landing page has no header.
+useTheme()
 const auth = useAuth()
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +32,11 @@ watch(
 </script>
 
 <template>
+  <!-- The landing page brings its own floating chrome (route meta `immersive`). -->
+  <main v-if="route.meta.immersive && !showMaintenance" class="w-full">
+    <RouterView />
+  </main>
+  <template v-else>
   <AppHeader />
   <VerifyBanner />
   <div class="flex min-h-[calc(100dvh-4rem)] flex-col">
@@ -38,5 +46,6 @@ watch(
     </main>
     <AppFooter />
   </div>
+  </template>
   <ToastHost />
 </template>

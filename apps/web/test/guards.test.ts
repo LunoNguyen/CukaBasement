@@ -107,7 +107,7 @@ describe('account menu and banner', () => {
     fake = installFakeFetch({ 'POST /api/auth/resend-verification': { status: 204 } })
     const { pinia, auth, router } = setup('user', false)
     auth.ready = true
-    await router.push('/')
+    await router.push('/posts')
     const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
     await flushPromises()
     const btn = w.get('[data-test="resend-verification"]')
@@ -120,7 +120,7 @@ describe('account menu and banner', () => {
   it('no banner for verified users or logged-out visitors', async () => {
     const { pinia, auth, router } = setup('user', true)
     auth.ready = true
-    await router.push('/')
+    await router.push('/posts')
     const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
     await flushPromises()
     expect(w.find('[data-test="resend-verification"]').exists()).toBe(false)
@@ -129,7 +129,7 @@ describe('account menu and banner', () => {
   it('logged out header shows login/register; logged in shows upload + menu', async () => {
     let s = setup()
     s.auth.ready = true
-    await s.router.push('/')
+    await s.router.push('/posts')
     let w = mount(App, { global: { plugins: [s.pinia, s.router, i18n] } })
     await flushPromises()
     expect(w.text()).toContain('Đăng nhập')
@@ -139,7 +139,7 @@ describe('account menu and banner', () => {
 
     s = setup('admin')
     s.auth.ready = true
-    await s.router.push('/')
+    await s.router.push('/posts')
     w = mount(App, { global: { plugins: [s.pinia, s.router, i18n] } })
     await flushPromises()
     expect(w.text()).toContain('Đăng bài')
@@ -156,7 +156,7 @@ describe('account menu and banner', () => {
   it('menu hides Mod/Admin for plain users and closes on Escape and outside click', async () => {
     const { pinia, auth, router } = setup('user')
     auth.ready = true
-    await router.push('/')
+    await router.push('/posts')
     const w = mount(App, { attachTo: document.body, global: { plugins: [pinia, router, i18n] } })
     await flushPromises()
     const btn = w.get('[data-test="account-menu-button"]')
@@ -185,7 +185,7 @@ describe('account menu and banner', () => {
     const { pinia, auth, router } = setup('user')
     auth.setUser(makeMe({ profile: { ...makeMe().profile, displayName: 'Một cái tên hiển thị rất là dài luôn đó nha' } }))
     auth.ready = true
-    await router.push('/')
+    await router.push('/posts')
     const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
     await flushPromises()
     const actions = w.get('[data-test="header-actions"]').classes()
@@ -202,7 +202,7 @@ describe('account menu and banner', () => {
     fake = installFakeFetch({ 'POST /api/auth/logout': { status: 204 } })
     const { pinia, auth, router } = setup('user')
     auth.ready = true
-    await router.push('/')
+    await router.push('/posts')
     const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
     await flushPromises()
     await w.get('[data-test="account-menu-button"]').trigger('click')

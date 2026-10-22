@@ -55,7 +55,7 @@ describe('Notification bell', () => {
   it('polls every 60s only while visible and stops after logout (fake timers)', async () => {
     vi.useFakeTimers()
     let count = 3
-    const { w, auth } = await mountAt('/', { 'GET /api/notifications/unread-count': () => ok({ count }) }, true)
+    const { w, auth } = await mountAt('/posts', { 'GET /api/notifications/unread-count': () => ok({ count }) }, true)
     const calls = () => fake!.callsTo('GET /api/notifications/unread-count').length
     expect(calls()).toBe(1)
     expect(w.get('[data-test="bell"]').attributes('aria-label')).toBe('Thông báo, 3 chưa đọc')
@@ -86,7 +86,7 @@ describe('Notification bell', () => {
   })
 
   it('hides the badge when nothing is unread', async () => {
-    const { w } = await mountAt('/', { 'GET /api/notifications/unread-count': ok({ count: 0 }) })
+    const { w } = await mountAt('/posts', { 'GET /api/notifications/unread-count': ok({ count: 0 }) })
     expect(w.find('[data-test="bell-badge"]').exists()).toBe(false)
   })
 })
