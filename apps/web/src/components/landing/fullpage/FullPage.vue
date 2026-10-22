@@ -71,7 +71,7 @@ const rows = computed(() => {
     const tone: PanelTone = DARK.has(s.type) ? 'dark' : 'page'
     const band: 'cream' | 'soft' = light++ % 2 === 0 ? 'cream' : 'soft'
     const index = DARK.has(s.type) || s.type === 'vibe' ? 0 : ++n
-    return { s, tone, band, index, name: nameOf(s) || t(`admin.home.types.${s.type}`), level: (i === firstHero ? 1 : 2) as 1 | 2, short: s.type === 'footer' }
+    return { s, tone, band, index, name: nameOf(s) || t(`admin.home.types.${s.type}`), level: (i === firstHero ? 1 : 2) as 1 | 2, short: false }
   })
 })
 const hasH1 = computed(() => rows.value.some((r) => r.level === 1))

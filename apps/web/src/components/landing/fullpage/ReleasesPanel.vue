@@ -148,7 +148,7 @@ function onTouchEnd(e: TouchEvent) {
         <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 font-mono text-[11px] tracking-[0.2em] text-[var(--c-cellar-muted)] uppercase">
           <span class="h-px w-8 bg-[var(--c-cellar-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
         </p>
-        <h2 :id="headingId" class="font-display text-[clamp(2.9rem,8.6vw,9rem)] leading-[0.86] font-semibold tracking-[-0.045em] uppercase">{{ tx(data.heading) }}</h2>
+        <h2 :id="headingId" class="font-display text-[clamp(2.9rem,8.6cqw,9rem)] leading-[0.95] md:leading-[0.86] font-semibold tracking-[-0.045em] uppercase [word-spacing:0.1em]">{{ tx(data.heading) }}</h2>
       </div>
       <div class="flex items-center gap-5">
         <span v-if="n" class="hidden font-mono text-xs tracking-[0.16em] text-[var(--c-cellar-muted)] md:inline" aria-hidden="true">{{ active === null ? '—' : pad(active) }} / {{ String(n).padStart(2, '0') }}</span>
@@ -171,7 +171,7 @@ function onTouchEnd(e: TouchEvent) {
         ref="row"
         data-test="releases-row"
         class="hidden w-full gap-2 md:flex"
-        :style="{ height: `min(calc((100vw - 8.5rem - ${(n - 1) * 0.5}rem) / ${n}), 56svh)` }"
+        :style="{ height: `min(calc((100cqw - 8.5rem - ${(n - 1) * 0.5}rem) / ${n}), 56svh)` }"
         @mouseleave="active = null"
         @focusout="onRowFocusOut"
       >
@@ -192,7 +192,7 @@ function onTouchEnd(e: TouchEvent) {
             <span class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-[#f3ebe6] transition-[opacity,transform] duration-500 motion-reduce:transition-none" :class="active === i ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'">
               <span class="flex min-w-0 flex-col gap-1">
                 <span v-if="c.date" class="font-mono text-[11px] tracking-[0.14em] opacity-80">{{ c.date }}</span>
-                <span class="font-display text-[clamp(1.25rem,2vw,2rem)] leading-tight font-semibold">{{ c.title }}</span>
+                <span class="font-display text-[clamp(1.25rem,2cqw,2rem)] leading-tight font-semibold">{{ c.title }}</span>
               </span>
               <svg viewBox="0 0 24 24" class="size-6 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
             </span>
@@ -203,7 +203,7 @@ function onTouchEnd(e: TouchEvent) {
 
       <!-- Phone: cover flow -->
       <div class="flex flex-col gap-6 md:hidden" data-test="releases-flow" role="group" :aria-roledescription="t('landing.fp.carousel')" :aria-label="tx(data.heading)">
-        <div class="relative h-[min(64vw,46svh)]" @touchstart.passive="onTouchStart" @touchend="onTouchEnd">
+        <div class="relative h-[min(64cqw,46svh)]" @touchstart.passive="onTouchStart" @touchend="onTouchEnd">
           <div
             v-for="(c, i) in cards"
             :key="c.key"

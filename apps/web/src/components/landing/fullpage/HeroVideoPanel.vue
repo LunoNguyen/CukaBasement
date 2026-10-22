@@ -138,8 +138,8 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
         <Halftone class="absolute inset-0 h-full w-full opacity-40" from="tr" :size="11" />
       </template>
       <!-- Flat scrims keep the type at contrast over any frame. -->
-      <div class="absolute inset-0 bg-[#0f0b09]/30" />
-      <div class="absolute inset-x-0 bottom-0 h-1/2 bg-[#0f0b09]/35" />
+      <div class="absolute inset-0 bg-[#0f0b09]/25" />
+      <div class="absolute inset-x-0 bottom-0 h-2/3 bg-linear-to-t from-[#0f0b09]/70 to-transparent" />
     </div>
 
     <p v-if="tx(data.eyebrow)" class="fp-fade pointer-events-none absolute top-6 left-1/2 hidden -translate-x-1/2 items-center gap-3 font-mono text-[11px] tracking-[0.22em] whitespace-nowrap text-[#f3ebe6]/85 uppercase sm:top-8 md:flex">
@@ -155,7 +155,7 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
           :is="level === 1 ? 'h1' : 'h2'"
           :id="nameId"
           data-test="fp-hero-name"
-          class="font-display text-[clamp(3.6rem,11.5vw,12.5rem)] leading-[0.84] font-semibold tracking-[-0.045em] uppercase [overflow-wrap:anywhere]"
+          class="font-display text-[clamp(2.6rem,11.5cqw,12.5rem)] leading-[0.84] font-semibold tracking-[-0.045em] uppercase [word-spacing:0.12em] [overflow-wrap:anywhere]"
         >
           <template v-for="(w, i) in words" :key="i"
             ><span class="fp-word inline-block overflow-hidden pb-[0.06em] align-bottom"
@@ -177,7 +177,7 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
           <span class="fp-eq flex h-5 items-end gap-[3px]" aria-hidden="true"><i /><i /><i /><i /></span>
           <span class="flex flex-col leading-tight">
             <span v-if="tx(data.link.kicker)" class="font-mono text-[10px] tracking-[0.2em] uppercase opacity-80">{{ tx(data.link.kicker) }}</span>
-            <span class="font-display text-lg font-semibold sm:text-xl">{{ tx(data.link.label) }}</span>
+            <span class="font-display text-lg font-semibold whitespace-nowrap sm:text-xl">{{ tx(data.link.label) }}</span>
           </span>
           <svg viewBox="0 0 24 24" class="size-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
         </SmartLink>
@@ -185,13 +185,13 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
           v-if="animated"
           type="button"
           data-test="fp-hero-toggle"
-          class="flex min-h-11 items-center gap-2 rounded-full border border-[#f3ebe6]/40 bg-[#0f0b09]/30 px-4 text-xs font-semibold tracking-[0.08em] text-[#f3ebe6] uppercase backdrop-blur-sm hover:border-[#f3ebe6]"
+          class="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[#f3ebe6]/40 bg-[#0f0b09]/30 px-3 text-xs font-semibold tracking-[0.08em] whitespace-nowrap text-[#f3ebe6] uppercase backdrop-blur-sm hover:border-[#f3ebe6] sm:px-4"
           :aria-pressed="!wanted"
           @click="toggle"
         >
           <svg v-if="wanted" viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
           <svg v-else viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-          {{ wanted ? t(clip ? 'landing.fp.pauseVideo' : 'landing.pause') : t(clip ? 'landing.fp.playVideo' : 'landing.play') }}
+          <span class="sr-only sm:not-sr-only">{{ wanted ? t(clip ? 'landing.fp.pauseVideo' : 'landing.pause') : t(clip ? 'landing.fp.playVideo' : 'landing.play') }}</span>
         </button>
       </div>
     </div>

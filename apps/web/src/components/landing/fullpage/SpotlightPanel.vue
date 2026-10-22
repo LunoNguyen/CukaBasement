@@ -94,12 +94,14 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
       >
         <img v-if="it.bg" :src="it.bg.src" :srcset="it.bg.srcset" sizes="100vw" alt="" :loading="i === 0 ? 'eager' : 'lazy'" decoding="async" class="h-full w-full object-cover" :class="i === cur ? 'fp-kenburns' : ''" />
         <div v-else class="relative h-full w-full bg-[#17110e]">
-          <Halftone class="absolute inset-0 h-full w-full opacity-35" :from="art[i % art.length]" :size="9 + (i % 3) * 2" />
-          <span class="absolute right-[6%] bottom-[-6%] font-display text-[clamp(16rem,42vw,44rem)] leading-none font-semibold text-transparent italic [-webkit-text-stroke:1.5px_rgb(255_122_144/0.55)]">{{ it.name.charAt(0) }}</span>
+          <div class="absolute inset-0" :style="{ background: `radial-gradient(circle at ${[72, 30, 60][i % 3]}% ${[38, 62, 30][i % 3]}%, rgb(232 93 117 / 0.32), transparent 58%)` }" />
+          <Halftone class="absolute inset-0 h-full w-full opacity-50" :from="art[i % art.length]" :size="9 + (i % 3) * 2" />
+          <span class="absolute right-[6%] bottom-[-6%] font-display text-[clamp(16rem,42cqw,44rem)] leading-none font-semibold text-transparent italic [-webkit-text-stroke:1.5px_rgb(255_122_144/0.55)]">{{ it.name.charAt(0) }}</span>
         </div>
       </div>
-      <div class="absolute inset-0 bg-[#0f0b09]/45" />
-      <div class="absolute inset-y-0 left-0 w-full bg-[#0f0b09]/30 md:w-[58%]" />
+      <div class="absolute inset-0 bg-[#0f0b09]/35" />
+      <div class="absolute inset-0 bg-linear-to-r from-[#0f0b09]/70 via-[#0f0b09]/25 to-transparent" />
+      <div class="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-[#0f0b09]/60 to-transparent" />
     </div>
 
     <div class="relative flex flex-1 flex-col justify-between gap-8 px-5 pt-24 pb-8 sm:px-10 sm:pb-10 md:pr-20 lg:pr-24">
@@ -107,7 +109,7 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
         <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 font-mono text-[11px] tracking-[0.2em] text-[#f3ebe6]/80 uppercase">
           <span class="h-px w-8 bg-[var(--c-cellar-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
         </p>
-        <h2 :id="headingId" class="font-display text-[clamp(2.4rem,6vw,6rem)] leading-[0.9] font-semibold tracking-[-0.04em] uppercase">{{ tx(data.heading) }}</h2>
+        <h2 :id="headingId" class="font-display text-[clamp(2.2rem,5cqw,5rem)] leading-[1] md:leading-[0.92] font-semibold tracking-[-0.04em] uppercase [word-spacing:0.1em]">{{ tx(data.heading) }}</h2>
       </header>
 
       <div class="grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -126,11 +128,11 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
                 @click="hold(i)"
               >
                 <span class="w-7 font-mono text-[11px] tracking-[0.14em]" :class="i === cur ? 'text-[var(--c-cellar-accent)]' : ''" aria-hidden="true">{{ pad(i) }}</span>
-                <span class="font-display text-[clamp(1.75rem,3.4vw,3.5rem)] leading-[1.02] font-semibold tracking-[-0.03em]">{{ it.name }}</span>
+                <span class="font-display text-[clamp(1.75rem,3.4cqw,3.5rem)] leading-[1.02] font-semibold tracking-[-0.03em]">{{ it.name }}</span>
               </button>
             </li>
           </ol>
-          <p class="font-display text-[clamp(2.25rem,10vw,3.5rem)] leading-none font-semibold tracking-[-0.03em] md:hidden" aria-hidden="true">{{ items[cur]?.name }}</p>
+          <p class="font-display text-[clamp(2.25rem,10cqw,3.5rem)] leading-none font-semibold tracking-[-0.03em] md:hidden" aria-hidden="true">{{ items[cur]?.name }}</p>
           <div class="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-2" aria-live="polite">
             <p v-if="items[cur]?.caption" class="font-mono text-xs tracking-[0.12em] text-[#f3ebe6]/85 uppercase" data-test="spotlight-caption">{{ items[cur]!.caption }}</p>
             <SmartLink v-if="items[cur]?.href" :href="items[cur]!.href" class="group inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#f3ebe6] underline-offset-4 hover:underline" data-test="spotlight-link">
@@ -148,7 +150,7 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
               :key="it.key"
               type="button"
               tabindex="-1"
-              class="relative aspect-[3/4] w-[clamp(4rem,6vw,6.5rem)] overflow-hidden rounded-[2px] border transition-[border-color,transform] duration-300"
+              class="relative aspect-[3/4] w-[clamp(4rem,6cqw,6.5rem)] overflow-hidden rounded-[2px] border transition-[border-color,transform] duration-300"
               :class="i === cur ? 'border-[#f3ebe6] -translate-y-1' : 'border-transparent'"
               data-test="spotlight-thumb"
               @mouseenter="hold(i)"

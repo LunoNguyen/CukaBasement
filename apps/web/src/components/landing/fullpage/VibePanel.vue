@@ -26,7 +26,7 @@ const pic = computed(() => panelImage(props.data.image, images.value, tx))
         <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 font-mono text-[11px] tracking-[0.2em] text-[var(--c-muted)] uppercase">
           <span class="h-px w-8 bg-[var(--c-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
         </p>
-        <h2 :id="textId" class="font-display text-[clamp(2.1rem,5.4vw,5.6rem)] leading-[1.02] font-medium tracking-[-0.035em] text-balance italic">{{ tx(data.text) }}</h2>
+        <h2 :id="textId" class="font-display text-[clamp(2.1rem,5.4cqw,5.6rem)] leading-[1.02] font-medium tracking-[-0.035em] text-balance italic">{{ tx(data.text) }}</h2>
         <SmartLink
           v-if="data.cta"
           :href="data.cta.href"
@@ -37,7 +37,7 @@ const pic = computed(() => panelImage(props.data.image, images.value, tx))
           <svg viewBox="0 0 24 24" class="size-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </SmartLink>
       </div>
-      <div v-reveal class="relative mx-auto w-full max-w-[min(26rem,70vw)] md:max-w-md">
+      <div v-reveal class="relative mx-auto w-full max-w-[min(26rem,70cqw)] md:max-w-md">
         <div class="relative aspect-[4/5] overflow-hidden rounded-t-full border border-[var(--c-border)] bg-[var(--c-cellar)]">
           <img v-if="pic" :src="pic.src" :srcset="pic.srcset" sizes="(min-width: 768px) 30vw, 70vw" :alt="pic.alt" loading="lazy" decoding="async" class="h-full w-full object-cover" data-test="vibe-image" />
           <div v-else class="flex h-full w-full items-center justify-center" aria-hidden="true">

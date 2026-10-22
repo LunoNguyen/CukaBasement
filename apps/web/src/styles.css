@@ -104,6 +104,9 @@ html.fp-snap {
 html.fp-menu-open {
   overflow: hidden;
 }
+.fp-root {
+  container-type: inline-size;
+}
 .fp-panel {
   position: relative;
   display: flex;

@@ -22,12 +22,13 @@ const platformName = (p: keyof typeof SOCIAL_PLATFORM_LABELS, url: string) => SO
 
 <template>
   <footer data-test="fp-footer" class="relative flex flex-1 flex-col justify-end bg-[#0b0806] text-[#f3ebe6]">
-    <div class="mx-auto flex w-full max-w-screen-2xl flex-col gap-12 px-5 pt-24 pb-8 sm:px-10 sm:pb-10">
+    <div class="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col justify-end gap-12 px-5 pt-24 pb-8 sm:px-10 sm:pb-10 md:pr-20 lg:pr-24">
+      <p class="hidden font-display text-[clamp(3.2rem,13cqw,14rem)] sm:block leading-[0.82] font-semibold tracking-[-0.05em] text-[#f3ebe6]/[0.08] select-none" aria-hidden="true"><b class="font-bold">Cuka</b>Basement</p>
       <div class="grid gap-10 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div class="flex flex-col gap-5">
           <RouterLink to="/" class="flex w-fit items-center gap-3" :aria-label="t('common.siteName')">
             <BrandMark on-dark class="size-12 shrink-0" />
-            <span class="font-display text-[clamp(1.75rem,3vw,2.5rem)] tracking-[-0.02em]" aria-hidden="true"><b class="font-bold">Cuka</b>Basement</span>
+            <span class="font-display text-[clamp(1.75rem,3cqw,2.5rem)] tracking-[-0.02em]" aria-hidden="true"><b class="font-bold">Cuka</b>Basement</span>
           </RouterLink>
           <p v-if="tx(data.note)" class="max-w-md text-sm leading-relaxed text-[#a89a90]">{{ tx(data.note) }}</p>
         </div>
