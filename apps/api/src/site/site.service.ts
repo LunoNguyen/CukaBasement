@@ -8,11 +8,13 @@ import { FeedCache } from '../cache/feed-cache.service'
 import { AppError } from '../common/app-error'
 import { CONFIG, type Config } from '../config/config'
 import { removeFile } from '../jobs/handlers/cleanup-uploads'
+import { JOBS, type JobsPort } from '../jobs/jobs.port'
 import { ModerationLogService } from '../moderation/moderation-log.service'
 import { StorageService } from '../storage/storage.service'
 import { FILE_MODEL, type FileDoc } from '../uploads/file.schema'
 import { USER_MODEL, type User } from '../users/user.schema'
 import { ensureHomepage, ensureSitePages, HOME_COLLECTION, type HomepageDoc } from './home-seed'
+import { feedsCol, musicSections, type PageYouTubeDto, resolveYouTube } from './music-store'
 
 export { ensureHomepage }
 
@@ -46,7 +48,25 @@ export interface PublicHomeDto {
   images: Record<string, SiteImageDto>
   /** Background videos by file id; a missing id falls back to the poster, the slideshow or the brand art. */
   videos: Record<string, SiteVideoDto>
+  /** What the music sections show: their automatic tabs' video ids and every video's details (see music-store). */
+  youtube: PageYouTubeDto
   publishedAt: string
+}
+
+/** One automatic music tab's feed, for the admin form's status line. */
+export interface MusicFeedStatusDto {
+  key: string
+  count: number
+  fetchedAt: string | null
+  attemptAt: string
+  error: string | null
+  errorAt: string | null
+}
+
+export interface MusicStatusDto {
+  /** YOUTUBE_API_KEY is set: the newest and popular tabs may be automatic. */
+  apiKey: boolean
+  feeds: MusicFeedStatusDto[]
 }
 
 export interface AdminSiteImageDto {
@@ -78,6 +98,7 @@ export interface HomeDraftDto {
   unpublished: boolean
   images: Record<string, SiteImageDto>
   videos: Record<string, SiteVideoDto>
+  youtube: PageYouTubeDto
 }
 
 /** Stored sections that still pass the schema (a hand-edited or older document never breaks the page). */
@@ -101,6 +122,7 @@ export class SiteService {
     private readonly storage: StorageService,
     private readonly cache: FeedCache,
     private readonly modLog: ModerationLogService,
+    @Inject(JOBS) private readonly jobs: JobsPort,
   ) {}
 
   private col() {
@@ -118,12 +140,44 @@ export class SiteService {
 
   /** A published page; cached with the feed cache (fail-open), invalidated by publish. */
   publicPage(page: SitePage): Promise<PublicHomeDto> {
-    return this.cache.wrap('site-page', { page, v: 2 }, async () => {
+    return this.cache.wrap('site-page', { page, v: 3 }, async () => {
       const doc = await this.load(page)
       const sections = validSections(doc.published.sections).filter((s) => s.visible)
       const media = await this.resolveMedia(homeImageIds(sections))
-      return { page, sections, ...media, publishedAt: doc.published.publishedAt.toISOString() }
+      return { page, sections, ...media, youtube: await this.youtube(sections), publishedAt: doc.published.publishedAt.toISOString() }
     })
+  }
+
+  /** Stored YouTube data of the music sections (never fetched on the request path: see the youtube-sync job). */
+  private youtube(sections: HomeSection[]): Promise<PageYouTubeDto> {
+    return resolveYouTube(this.conn, sections, { apiKey: !!this.config.youtube?.apiKey, publicUrl: (k) => this.storage.publicUrl(k) })
+  }
+
+  /** Asks the worker to fetch what the music sections now need (new links, a changed channel or tab). */
+  private async syncMusic(sections: HomeSection[], force = false): Promise<void> {
+    if (!force && !musicSections(sections).length) return
+    await this.jobs.enqueue('youtube-sync', force ? { force: true } : {})
+  }
+
+  /** The admin form's status: whether an API key is set and every automatic feed's last fetch. */
+  async musicStatus(): Promise<MusicStatusDto> {
+    const feeds = await feedsCol(this.conn).find({}).sort({ _id: 1 }).limit(200).toArray()
+    return {
+      apiKey: !!this.config.youtube?.apiKey,
+      feeds: feeds.map((f) => ({
+        key: f._id,
+        count: f.ids.length,
+        fetchedAt: f.fetchedAt?.toISOString() ?? null,
+        attemptAt: f.attemptAt.toISOString(),
+        error: f.error,
+        errorAt: f.errorAt?.toISOString() ?? null,
+      })),
+    }
+  }
+
+  /** "Làm mới ngay": the worker refetches every feed now. */
+  async refreshMusic(): Promise<void> {
+    await this.syncMusic([], true)
   }
 
   async draft(page: SitePage): Promise<HomeDraftDto> {
@@ -144,6 +198,7 @@ export class SiteService {
       publishedBy: who(doc.published.publishedBy),
       unpublished: !sameSections(sections, validSections(doc.published.sections)),
       ...(await this.resolveMedia(homeImageIds(sections))),
+      youtube: await this.youtube(sections),
     }
   }
 
@@ -158,6 +213,7 @@ export class SiteService {
       },
     )
     if (res.matchedCount === 0) await this.conflict(page)
+    await this.syncMusic(input.sections)
     return this.draft(page)
   }
 
@@ -174,6 +230,7 @@ export class SiteService {
     if (res.matchedCount === 0) await this.conflict(page)
     await this.modLog.log(actor.id, 'homepage_publish', 'site', page, `${sections.length} sections`)
     await this.cache.bump()
+    await this.syncMusic(sections)
     return this.draft(page)
   }
 

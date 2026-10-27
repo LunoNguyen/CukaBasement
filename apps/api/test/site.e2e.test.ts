@@ -82,13 +82,13 @@ describe('homepage CMS', () => {
     const res = await h.http().get('/api/site/home')
     expect(res.status).toBe(200)
     const types = (res.body.sections as Array<{ type: string; visible: boolean }>).map((s) => s.type)
-    expect(types).toEqual(['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])
+    expect(types).toEqual(['heroVideo', 'releases', 'music', 'spotlight', 'vibe', 'footer'])
     expect(types).toEqual(HOME_SEED.filter((s) => s.visible).map((s) => s.type))
     expect(res.body).toMatchObject({ page: 'home', images: {}, videos: {} })
     expect(res.body.sections[0].data).toMatchObject({ name: lt('Hibiki Du Ca', 'Hibiki Du Ca'), video: null, link: { href: 'https://www.youtube.com/@hibikiduca' } })
     expect(res.body.sections[1].data.source).toBe('latestFanart')
     // The spotlight only names what is public: the original model's debut and the chibi model.
-    expect(JSON.stringify(res.body.sections[2])).toContain('08/08/2021')
+    expect(JSON.stringify(res.body.sections[3])).toContain('08/08/2021')
     expect((await h.http().get('/api/site/pages/home')).body).toEqual(res.body)
   })
 

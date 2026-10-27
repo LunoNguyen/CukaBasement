@@ -9,6 +9,7 @@ export type JobName =
   | 'purge-deleted-posts'
   | 'reconcile-counters'
   | 'notify-staff-review'
+  | 'youtube-sync'
 
 export interface JobsPort {
   enqueue(name: JobName, data: Record<string, unknown>): Promise<void>

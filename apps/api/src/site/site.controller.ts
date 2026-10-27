@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put } from '@nestjs/common'
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common'
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler'
 import { homeRevisionSchema, saveHomeDraftSchema, type SitePage } from '@cuka/shared'
 import type { z } from 'zod'
 import { Auth, CurrentViewer } from '../auth/decorators'
@@ -89,6 +90,23 @@ export class AdminSiteController {
   @Auth({ roles: ['admin'], write: true })
   pageDiscard(@CurrentViewer() v: Viewer, @Param('page') page: string, @Body(new ZodPipe(homeRevisionSchema)) body: RevisionBody) {
     return this.site.discard(v, pageOf(page), body.revision)
+  }
+
+  /** The music section's automatic feeds: last fetch, count and error, and whether an API key is set. */
+  @Get('music')
+  musicStatus() {
+    return this.site.musicStatus()
+  }
+
+  /** "Làm mới ngay": queues a refetch of every YouTube feed (the worker does it; a few per minute at most). */
+  @Post('music/refresh')
+  @HttpCode(202)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Auth({ roles: ['admin'], write: true })
+  async refreshMusic() {
+    await this.site.refreshMusic()
+    return { queued: true }
   }
 
   @Get('images')

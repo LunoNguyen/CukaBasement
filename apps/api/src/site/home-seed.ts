@@ -1,4 +1,4 @@
-import { type HomeSection, homeSectionSchema, homeSectionsSchema, type SitePage } from '@cuka/shared'
+import { DU_CA_CHANNEL_ID, type HomeSection, homeSectionSchema, homeSectionsSchema, type SitePage } from '@cuka/shared'
 import type { Connection, Types } from 'mongoose'
 
 // Kept free of Nest services: database/prepare (setup, restore) imports it.
@@ -148,8 +148,9 @@ export const INTRO_SEED: HomeSection[] = homeSectionsSchema.parse(longForm)
 
 /**
  * The landing page ("/") created on first setup: full-screen sections in the spirit of an agency site. No video or
- * pictures yet (the brand art stands in), the newest fanart as the "new release" row, and no invented facts: the
- * spotlight names only the two models whose dates are public.
+ * pictures yet (the brand art stands in), the newest fanart as the "new release" row, Du Ca's channel videos (from
+ * its public feed; the MV tabs wait for an admin to pick videos), and no invented facts: the spotlight names only the
+ * two models whose dates are public.
  */
 const landing = [
   {
@@ -174,6 +175,19 @@ const landing = [
     type: 'releases',
     visible: true,
     data: { eyebrow: { vi: 'Từ Cuka', en: 'From the Cuka' }, heading: { vi: 'Mới phát hành', en: 'New release' }, source: 'latestFanart', count: 5, items: [] },
+  },
+  {
+    id: 'music',
+    type: 'music',
+    visible: true,
+    data: {
+      eyebrow: { vi: 'Hibiki Du Ca', en: 'Hibiki Du Ca' },
+      heading: { vi: 'Âm nhạc', en: 'Music' },
+      channelId: DU_CA_CHANNEL_ID,
+      newest: { label: { vi: 'MV mới', en: 'New MV' }, auto: false, keyword: '', items: [] },
+      popular: { label: { vi: 'MV phổ biến', en: 'Popular MVs' }, auto: false, items: [] },
+      channel: { label: { vi: 'Video kênh', en: 'Channel videos' }, auto: true, items: [] },
+    },
   },
   {
     id: 'looks',

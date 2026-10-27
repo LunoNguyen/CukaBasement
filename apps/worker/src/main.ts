@@ -19,6 +19,7 @@ import { purgeDeletedPosts } from '@cuka/api/jobs/handlers/purge-deleted-posts'
 import { reconcileCounters } from '@cuka/api/jobs/handlers/reconcile-counters'
 import { relocateFile, relocateVariants } from '@cuka/api/jobs/handlers/relocate-variants'
 import { rewatermark } from '@cuka/api/jobs/handlers/rewatermark'
+import { youtubeSync, type YouTubeSyncData } from '@cuka/api/jobs/handlers/youtube-sync'
 import { JOBS } from '@cuka/api/jobs/jobs.port'
 import { ModerationLogService } from '@cuka/api/moderation/moderation-log.service'
 import { StorageService } from '@cuka/api/storage/storage.service'
@@ -60,6 +61,8 @@ async function bootstrap(): Promise<void> {
   agenda.define('cleanup-uploads', unlessRestoring(async () => void (await cleanupUploads({ ...deps, jobs }))), { concurrency: 1 })
   agenda.define('purge-deleted-posts', unlessRestoring(async () => void (await purgeDeletedPosts(deps))), { concurrency: 1 })
   agenda.define('reconcile-counters', unlessRestoring(async () => void (await reconcileCounters(deps))), { concurrency: 1 })
+  // The music section's YouTube data (feeds, titles, thumbnails); failures are recorded per feed, never thrown.
+  agenda.define<YouTubeSyncData>('youtube-sync', unlessRestoring(async (job) => void (await youtubeSync(deps, job.attrs.data ?? {}))), { concurrency: 1 })
 
   // Scheduled backups: the tick only decides whether a slot is due (cheap) and starts the backup without
   // waiting for it, so a long backup never holds the Agenda job past its lock lifetime. The slot claim and the
@@ -111,6 +114,7 @@ async function bootstrap(): Promise<void> {
   await agenda.start()
   // Cron times are server local time.
   await agenda.every('1 hour', 'cleanup-uploads')
+  await agenda.every('1 hour', 'youtube-sync', {})
   await agenda.every('0 3 * * *', 'purge-deleted-posts')
   await agenda.every('30 3 * * *', 'reconcile-counters')
   await agenda.every('1 minute', 'backup-schedule-tick')

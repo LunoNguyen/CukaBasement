@@ -147,6 +147,8 @@ export function testConfig(): Config {
     throttleDisabled: true,
     // Tests never need Redis; feed-cache tests turn it on with createTestHarness({ redisUrl }).
     redis: { ...base.redis, disabled: true },
+    // No test reaches YouTube; the music tests set a key where they need one.
+    youtube: { apiKey: undefined },
     minio: { ...base.minio, bucketOriginals: 'test-cuka-originals', bucketPublic: 'test-cuka-public' },
     backup: { ...base.backup, dir: join(tmpdir(), `cuka-backup-test-${process.pid}`) },
   }

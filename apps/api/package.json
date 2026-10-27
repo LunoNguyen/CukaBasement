@@ -27,6 +27,7 @@
     "agenda": "^6.2.6",
     "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
+    "fast-xml-parser": "^5.11.2",
     "file-type": "^22.2.0",
     "ioredis": "^6.0.0",
     "minio": "^8.0.7",

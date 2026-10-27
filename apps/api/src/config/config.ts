@@ -27,6 +27,7 @@ const envSchema = z.object({
   THROTTLE_DISABLED: bool.default(false),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
   REDIS_DISABLED: bool.default(false),
+  YOUTUBE_API_KEY: z.string().trim().min(1).max(200).optional(),
   BACKUP_DIR: z.string().min(1).default('backups'),
   BACKUP_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(50 * 1024 ** 3),
   BACKUP_TZ: z
@@ -70,6 +71,8 @@ export interface Config {
   throttleDisabled: boolean
   /** Public list cache (see FeedCache); everything works without it. */
   redis: { url: string; disabled: boolean }
+  /** YouTube Data API v3 key: optional; enables the automatic "newest MV" and "most popular" music tabs. */
+  youtube: { apiKey?: string }
   backup: {
     /** Absolute; a relative BACKUP_DIR is resolved against the repository root, not the working directory. */
     dir: string
@@ -112,6 +115,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     ffprobePath: e.FFPROBE_PATH ?? deriveFfprobe(e.FFMPEG_PATH),
     throttleDisabled: e.THROTTLE_DISABLED,
     redis: { url: e.REDIS_URL, disabled: e.REDIS_DISABLED },
+    youtube: { apiKey: e.YOUTUBE_API_KEY },
     backup: {
       dir: isAbsolute(e.BACKUP_DIR) ? e.BACKUP_DIR : resolve(REPO_ROOT, e.BACKUP_DIR),
       maxUploadBytes: e.BACKUP_MAX_UPLOAD_BYTES,
