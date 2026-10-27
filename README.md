@@ -9,7 +9,7 @@ Trang chia sẻ fanart kiểu pixiv cho cộng đồng Cuka, fan của VTuber [H
 - **R18:** ẩn mặc định, người dùng tự bật trong Cài đặt.
 - **Cộng đồng:** thích, lưu, bình luận, theo dõi, thông báo, tìm kiếm.
 - **Hồ sơ:** ảnh đại diện và ảnh bìa (có khung cắt, giữ ảnh động GIF/WebP), danh sách liên kết mạng xã hội.
-- **Trang chủ:** trang toàn màn hình (video nền, mới phát hành, diện mạo…) và trang `/gioi-thieu`; quản trị viên sửa cả hai trong Quản trị → «Trang chủ» (mục, ảnh, video, xem trước, lưu nháp, xuất bản). Danh sách bài ở `/posts`.
+- **Trang chủ:** trang toàn màn hình (video nền, mới phát hành, MV/video YouTube của Du Ca — tự lấy từ kênh, `YOUTUBE_API_KEY` tùy chọn —, diện mạo…) và trang `/gioi-thieu`; quản trị viên sửa cả hai trong Quản trị → «Trang chủ» (mục, ảnh, video, xem trước, lưu nháp, xuất bản). Danh sách bài ở `/posts`.
 - **Vai trò:** user, moderator, admin. Giao diện tiếng Việt và tiếng Anh.
 
 ## Công nghệ
