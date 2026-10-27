@@ -5,7 +5,7 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { HOME_LIMITS, HOME_SECTION_TYPES, type HomeSection, type HomeSectionType, homeSectionsSchema, pickText, SITE_PAGE_TYPES, SITE_PAGES, type SitePage } from '@cuka/shared'
 import { ApiError } from '@/api/client'
 import * as api from '@/api/endpoints/site'
-import type { HomeDraftDto, SiteImageDto, SiteVideoDto } from '@/api/types'
+import type { HomeDraftDto, PageYouTubeDto, SiteImageDto, SiteVideoDto } from '@/api/types'
 import Btn from '@/components/common/Btn.vue'
 import Modal from '@/components/common/Modal.vue'
 import Spinner from '@/components/common/Spinner.vue'
@@ -31,11 +31,12 @@ const sections = ref<HomeSection[]>([])
 const saved = ref('[]')
 const images = ref<Record<string, SiteImageDto>>({})
 const videos = ref<Record<string, SiteVideoDto>>({})
+const youtube = ref<PageYouTubeDto>({ feeds: {}, videos: {} })
 const page = ref<SitePage>('home')
 const LANGS = ['vi', 'en'] as const
 const lang = ref<'vi' | 'en'>(locale.value === 'en' ? 'en' : 'vi')
 const setLang = (l: 'vi' | 'en') => (lang.value = l)
-provideEditor({ lang, images, videos })
+provideEditor({ lang, images, videos, youtube })
 
 const selectedId = ref<string | null>(null)
 const selected = computed(() => sections.value.find((s) => s.id === selectedId.value) ?? null)
@@ -63,6 +64,7 @@ function apply(d: HomeDraftDto) {
   saved.value = JSON.stringify(d.sections)
   images.value = { ...images.value, ...d.images }
   videos.value = { ...videos.value, ...(d.videos ?? {}) }
+  youtube.value = d.youtube ?? { feeds: {}, videos: {} }
   conflict.value = false
   problem.value = null
   if (!sections.value.some((s) => s.id === selectedId.value)) selectedId.value = sections.value[0]?.id ?? null
@@ -346,7 +348,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
             <div ref="pane" class="overflow-hidden rounded-xl border border-[var(--c-border)] lg:max-h-[calc(100dvh-12rem)] lg:overflow-y-auto" data-test="home-preview">
               <div :style="scale < 1 ? { height: `${innerHeight * scale}px` } : undefined">
                 <div ref="inner" :style="scale < 1 ? { width: `${PREVIEW_WIDTH}px`, transform: `scale(${scale})`, transformOrigin: '0 0' } : undefined">
-                  <FullPage v-if="page === 'home'" :key="`fp-${lang}`" :sections="sections" :images="images" :videos="videos" :locale="lang" preview />
+                  <FullPage v-if="page === 'home'" :key="`fp-${lang}`" :sections="sections" :images="images" :videos="videos" :youtube="youtube" :locale="lang" preview />
                   <LandingSections v-else :sections="sections" :images="images" :locale="lang" preview />
                 </div>
               </div>

@@ -1,6 +1,6 @@
-import type { HomeImage, HomeSection, HomeSectionType, LocalizedText } from '@cuka/shared'
+import { DU_CA_CHANNEL_ID, type HomeImage, type HomeSection, type HomeSectionType, type LocalizedText } from '@cuka/shared'
 import { inject, type InjectionKey, provide, type Ref } from 'vue'
-import type { SiteImageDto, SiteVideoDto } from '@/api/types'
+import type { PageYouTubeDto, SiteImageDto, SiteVideoDto } from '@/api/types'
 
 export const lt = (vi = '', en = ''): LocalizedText => ({ vi, en })
 
@@ -12,6 +12,20 @@ export function newSection(type: HomeSectionType, id: string): HomeSection {
       return { id, type, visible: true, data: { eyebrow: lt(), name: lt(), subtitle: lt(), video: null, videoMobile: null, images: [], link: null } }
     case 'releases':
       return { id, type, visible: true, data: { eyebrow: lt(), heading: lt('Mới phát hành', 'New release'), source: 'latestFanart', count: 5, items: [] } }
+    case 'music':
+      return {
+        id,
+        type,
+        visible: true,
+        data: {
+          eyebrow: lt('Hibiki Du Ca'),
+          heading: lt('Âm nhạc', 'Music'),
+          channelId: DU_CA_CHANNEL_ID,
+          newest: { label: lt('MV mới', 'New MV'), auto: false, keyword: '', items: [] },
+          popular: { label: lt('MV phổ biến', 'Popular MVs'), auto: false, items: [] },
+          channel: { label: lt('Video kênh', 'Channel videos'), auto: true, items: [] },
+        },
+      }
     case 'spotlight':
       return { id, type, visible: true, data: { ...head, intervalSec: 4, items: [] } }
     case 'vibe':
@@ -55,6 +69,8 @@ export interface EditorContext {
   images: Ref<Record<string, SiteImageDto>>
   /** Resolved site videos (their posters are in `images`). */
   videos: Ref<Record<string, SiteVideoDto>>
+  /** Stored YouTube data of the music sections (the preview draws it; the form shows what was found). */
+  youtube?: Ref<PageYouTubeDto>
 }
 const KEY: InjectionKey<EditorContext> = Symbol('site-editor')
 export const provideEditor = (ctx: EditorContext) => provide(KEY, ctx)

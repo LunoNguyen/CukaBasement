@@ -69,6 +69,6 @@ onBeforeUnmount(() => {
         <RouterLink to="/posts" class="inline-flex min-h-12 w-fit items-center rounded-full bg-[#fbf7f4] px-6 text-sm font-semibold text-[#5b3a29] hover:bg-white">{{ t('landing.browsePosts') }}</RouterLink>
       </div>
     </section>
-    <FullPage v-else-if="home" :sections="home.sections" :images="home.images" :videos="home.videos" @active="(_, tn) => (tone = tn)" />
+    <FullPage v-else-if="home" :sections="home.sections" :images="home.images" :videos="home.videos" :youtube="home.youtube" @active="(_, tn) => (tone = tn)" />
   </div>
 </template>

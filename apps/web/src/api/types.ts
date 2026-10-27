@@ -283,11 +283,42 @@ export interface SiteVideoDto {
   durationSec: number | null
 }
 
+// apps/api/src/site/music-store.ts
+/** A YouTube video the music section shows: what YouTube says (the section's overrides win) and our own thumbnail. */
+export interface YouTubeVideoDto {
+  title: string | null
+  publishedAt: string | null
+  views: number | null
+  thumb: { src: string; srcset: string; width: number; height: number } | null
+}
+
+export interface PageYouTubeDto {
+  /** By music section id: the ids each automatic tab adds after the hand-picked videos. */
+  feeds: Record<string, Record<import('@cuka/shared').MusicGroup, string[]>>
+  videos: Record<string, YouTubeVideoDto>
+}
+
+export interface MusicFeedStatusDto {
+  key: string
+  count: number
+  fetchedAt: string | null
+  attemptAt: string
+  error: string | null
+  errorAt: string | null
+}
+
+export interface MusicStatusDto {
+  apiKey: boolean
+  feeds: MusicFeedStatusDto[]
+}
+
 export interface PublicHomeDto {
   page: import('@cuka/shared').SitePage
   sections: import('@cuka/shared').HomeSection[]
   images: Record<string, SiteImageDto>
   videos: Record<string, SiteVideoDto>
+  /** Absent from an older API answer. */
+  youtube?: PageYouTubeDto
   publishedAt: string
 }
 
@@ -302,6 +333,7 @@ export interface HomeDraftDto {
   unpublished: boolean
   images: Record<string, SiteImageDto>
   videos: Record<string, SiteVideoDto>
+  youtube?: PageYouTubeDto
 }
 
 export interface AdminSiteImageDto {

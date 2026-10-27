@@ -101,7 +101,8 @@ html.fp-snap {
     scroll-snap-type: y mandatory;
   }
 }
-html.fp-menu-open {
+html.fp-menu-open,
+html.fp-dialog-open {
   overflow: hidden;
 }
 .fp-root {

@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type HomeSection, pickText } from '@cuka/shared'
-import type { SiteImageDto, SiteVideoDto } from '@/api/types'
+import type { PageYouTubeDto, SiteImageDto, SiteVideoDto } from '@/api/types'
 import AboutSection from '../AboutSection.vue'
 import BannerSection from '../BannerSection.vue'
 import FanartSection from '../FanartSection.vue'
@@ -16,6 +16,8 @@ import { provideLanding } from '../context'
 import DotNav from './DotNav.vue'
 import FooterPanel from './FooterPanel.vue'
 import HeroVideoPanel from './HeroVideoPanel.vue'
+import MusicPanel from './MusicPanel.vue'
+import { musicTabs } from './music'
 import ReleasesPanel from './ReleasesPanel.vue'
 import SpotlightPanel from './SpotlightPanel.vue'
 import VibePanel from './VibePanel.vue'
@@ -28,13 +30,13 @@ import type { PanelTone } from './media'
  * fixed height, without snapping, keys or dots.
  */
 const props = withDefaults(
-  defineProps<{ sections: HomeSection[]; images: Record<string, SiteImageDto>; videos?: Record<string, SiteVideoDto>; locale?: string; preview?: boolean }>(),
-  { videos: () => ({}), locale: undefined, preview: false },
+  defineProps<{ sections: HomeSection[]; images: Record<string, SiteImageDto>; videos?: Record<string, SiteVideoDto>; youtube?: PageYouTubeDto; locale?: string; preview?: boolean }>(),
+  { videos: () => ({}), youtube: () => ({ feeds: {}, videos: {} }), locale: undefined, preview: false },
 )
 const emit = defineEmits<{ active: [index: number, tone: PanelTone] }>()
 const { t, locale: uiLocale } = useI18n()
 const loc = computed(() => props.locale ?? uiLocale.value)
-provideLanding({ locale: loc, images: computed(() => props.images), videos: computed(() => props.videos), preview: props.preview })
+provideLanding({ locale: loc, images: computed(() => props.images), videos: computed(() => props.videos), youtube: computed(() => props.youtube), preview: props.preview })
 const tx = (v: Parameters<typeof pickText>[0]) => pickText(v, loc.value)
 
 const DARK = new Set(['heroVideo', 'releases', 'spotlight', 'footer', 'hero', 'banner'])
@@ -42,6 +44,7 @@ const DARK = new Set(['heroVideo', 'releases', 'spotlight', 'footer', 'hero', 'b
 /** Whether a section has anything to show a visitor (the preview keeps empty ones). */
 function hasContent(s: HomeSection): boolean {
   if (s.type === 'releases') return s.data.source === 'latestFanart' || s.data.items.length > 0
+  if (s.type === 'music') return Object.values(musicTabs(s.data, s.id, props.youtube, loc.value, '')).some((l) => l.length > 0)
   return !('items' in s.data) || s.data.items.length > 0
 }
 
@@ -136,7 +139,7 @@ function onKey(e: KeyboardEvent) {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
   const target = e.target as HTMLElement | null
   if (target && (TYPING.test(target.tagName) || target.isContentEditable || target.closest('[role="dialog"]'))) return
-  if (document.documentElement.classList.contains('fp-menu-open')) return
+  if (document.documentElement.classList.contains('fp-menu-open') || document.documentElement.classList.contains('fp-dialog-open')) return
   const el = panels.value[active.value]
   const rect = el?.getBoundingClientRect()
   const vh = window.innerHeight
@@ -196,6 +199,7 @@ defineExpose({ goTo })
     >
       <HeroVideoPanel v-if="r.s.type === 'heroVideo'" :data="r.s.data" :level="r.level" />
       <ReleasesPanel v-else-if="r.s.type === 'releases'" :data="r.s.data" />
+      <MusicPanel v-else-if="r.s.type === 'music'" :data="r.s.data" :section-id="r.s.id" />
       <SpotlightPanel v-else-if="r.s.type === 'spotlight'" :data="r.s.data" />
       <VibePanel v-else-if="r.s.type === 'vibe'" :data="r.s.data" />
       <FooterPanel v-else-if="r.s.type === 'footer'" :data="r.s.data" @top="goTo(0, true)" />

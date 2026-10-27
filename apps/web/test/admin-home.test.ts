@@ -326,7 +326,9 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     // The preview never plays the background video.
     expect(preview.get('[data-test="fp-hero-video"]').attributes('poster')).toContain(VID)
     const groups = w.findAll('[data-test="add-type"] optgroup')
-    expect(groups[0]!.findAll('option').map((o) => o.attributes('value'))).toEqual(['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])
+    // The newest landing type comes first, and is what "Thêm mục" adds by default.
+    expect(groups[0]!.findAll('option').map((o) => o.attributes('value'))).toEqual(['music', 'heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])
+    expect((w.get('[data-test="add-type"]').element as HTMLSelectElement).value).toBe('music')
   })
 
   it('opening video form: choose a background video from the video library; poster and name update the preview', async () => {

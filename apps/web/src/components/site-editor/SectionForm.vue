@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { GALLERY_LAYOUTS, HOME_LIMITS as L, type HomeSection, parseYouTubeId, RELEASE_SOURCES, SOCIAL_PLATFORM_LABELS, SOCIAL_PLATFORMS } from '@cuka/shared'
 import ItemList from './ItemList.vue'
 import LocalizedInput from './LocalizedInput.vue'
+import MusicForm from './MusicForm.vue'
 import SiteImageField from './SiteImageField.vue'
 import SiteVideoField from './SiteVideoField.vue'
 import { lt, newImage } from './model'
@@ -85,6 +86,8 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
         </ItemList>
       </template>
     </template>
+
+    <MusicForm v-else-if="s.type === 'music'" :data="s.data" />
 
     <template v-else-if="s.type === 'spotlight'">
       <label class="flex flex-col gap-1.5 text-sm font-medium">

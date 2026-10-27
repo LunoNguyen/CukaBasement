@@ -1,6 +1,6 @@
 import type { HomeSection, SitePage } from '@cuka/shared'
 import { request } from '../client'
-import type { AdminSiteImageDto, HomeDraftDto, Page, PostCardDto, PublicHomeDto } from '../types'
+import type { AdminSiteImageDto, HomeDraftDto, MusicStatusDto, Page, PostCardDto, PublicHomeDto } from '../types'
 
 /** A published page: `home` (the landing page at "/") or `intro` (the Introduction page). */
 export const publicPage = (page: SitePage) => request<PublicHomeDto>(`/site/pages/${page}`)
@@ -15,3 +15,8 @@ export const discardPageDraft = (page: SitePage, revision: number) => request<Ho
 
 export const siteImages = () => request<AdminSiteImageDto[]>('/admin/site/images')
 export const deleteSiteImage = (id: string) => request<void>(`/admin/site/images/${encodeURIComponent(id)}`, { method: 'DELETE' })
+
+/** The music section's automatic feeds (last fetch, count, error) and whether the server has a YouTube API key. */
+export const musicStatus = () => request<MusicStatusDto>('/admin/site/music')
+/** Asks the worker to refetch every YouTube feed now (rate-limited). */
+export const refreshMusic = () => request<{ queued: boolean }>('/admin/site/music/refresh', { method: 'POST' })
