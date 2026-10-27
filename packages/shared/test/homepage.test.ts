@@ -9,6 +9,10 @@ import {
   homeSectionsSchema,
   homeVideoIds,
   isSafeHref,
+  isYouTubeChannelId,
+  isYouTubeVideoId,
+  DU_CA_CHANNEL_ID,
+  MUSIC_GROUPS,
   LANDING_SECTION_TYPES,
   markdownToText,
   MOD_ACTIONS,
@@ -64,6 +68,19 @@ const samples: Record<string, unknown> = {
     data: { eyebrow: lt(''), heading: lt('Diện mạo'), intervalSec: 4, items: [{ name: lt('Model gốc'), caption: lt('08/08/2021'), background: img(), thumb: null, href: '' }] },
   },
   vibe: { id: 'vibe', type: 'vibe', visible: true, data: { eyebrow: lt(''), text: lt('Một căn hầm ấm áp'), image: null, cta: { label: lt('Giới thiệu'), href: '/gioi-thieu' } } },
+  music: {
+    id: 'music',
+    type: 'music',
+    visible: true,
+    data: {
+      eyebrow: lt('Hibiki Du Ca'),
+      heading: lt('Âm nhạc', 'Music'),
+      channelId: 'UC5RSxmHP5c4pU9Og1Pxx4wg',
+      newest: { label: lt('MV mới'), auto: false, keyword: 'MV', items: [{ url: 'https://youtu.be/dQw4w9WgXcQ', title: lt('MV đầu tay'), date: '2026-10-01', views: 1200 }] },
+      popular: { label: lt(''), auto: false, items: [] },
+      channel: { label: lt(''), auto: true, items: [] },
+    },
+  },
   footer: { id: 'foot', type: 'footer', visible: true, data: { note: lt('Fan site'), email: 'hi@cuka.test', links: [{ platform: 'youtube', label: lt(''), url: 'https://www.youtube.com/@hibikiduca' }], copyright: lt('© CukaBasement') } },
 }
 
@@ -89,6 +106,49 @@ describe('homepage schemas', () => {
     const withSrc = structuredClone(samples.hero) as { data: { images: Array<Record<string, unknown>> } }
     withSrc.data.images[0]!.src = 'https://evil.example/x.png'
     expect(homeSectionSchema.safeParse(withSrc).success).toBe(false)
+  })
+
+  it('music: defaults to Du Ca\'s channel with the channel tab automatic and the others hand-picked', () => {
+    const r = homeSectionSchema.parse({ id: 'm', type: 'music', data: { heading: { vi: 'Âm nhạc' } } })
+    expect(r.type).toBe('music')
+    const d = r.data as { channelId: string; newest: Record<string, unknown>; popular: Record<string, unknown>; channel: Record<string, unknown> }
+    expect(d.channelId).toBe(DU_CA_CHANNEL_ID)
+    expect(d.newest).toEqual({ label: lt(''), auto: false, items: [], keyword: '' })
+    expect(d.popular).toEqual({ label: lt(''), auto: false, items: [] })
+    expect(d.channel).toEqual({ label: lt(''), auto: true, items: [] })
+    expect(MUSIC_GROUPS).toEqual(['newest', 'popular', 'channel'])
+    const item = homeSectionSchema.parse({ id: 'm', type: 'music', data: { heading: { vi: 'MV' }, popular: { items: [{ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }] } } })
+    expect((item.data as { popular: { items: unknown[] } }).popular.items[0]).toEqual({ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: lt(''), date: '', views: null })
+  })
+
+  it('music: refuses non-YouTube links, bad dates and views, bad channel ids, too many videos and unknown keys', () => {
+    const base = structuredClone(samples.music) as { data: Record<string, any> }
+    const withItem = (over: Record<string, unknown>) => {
+      const m = structuredClone(base)
+      m.data.newest.items = [{ ...m.data.newest.items[0], ...over }]
+      return homeSectionSchema.safeParse(m).success
+    }
+    expect(withItem({})).toBe(true)
+    for (const url of ['https://www.youtube.com/@hibikiduca', 'https://evil.example/watch?v=dQw4w9WgXcQ', 'javascript:alert(1)', 'https://www.youtube.com/playlist?list=PL1'])
+      expect(withItem({ url }), url).toBe(false)
+    for (const date of ['2026-02-30', '01/10/2026', '2026-1-1', 'hôm qua']) expect(withItem({ date }), date).toBe(false)
+    expect(withItem({ date: '' })).toBe(true)
+    for (const views of [-1, 1.5, '100', HOME_LIMITS.musicViewsMax + 1]) expect(withItem({ views }), String(views)).toBe(false)
+    expect(withItem({ thumb: 'https://i.ytimg.com/vi/x/hqdefault.jpg' })).toBe(false)
+    for (const channelId of ['UC123', 'https://www.youtube.com/@hibikiduca', '@hibikiduca', `UC${'a'.repeat(21)}/`]) {
+      const m = structuredClone(base)
+      m.data.channelId = channelId
+      expect(homeSectionSchema.safeParse(m).success, channelId).toBe(false)
+    }
+    const many = structuredClone(base)
+    many.data.channel.items = Array.from({ length: HOME_LIMITS.musicItemsMax + 1 }, () => ({ url: 'https://youtu.be/dQw4w9WgXcQ' }))
+    expect(homeSectionSchema.safeParse(many).success).toBe(false)
+    const extra = structuredClone(base)
+    extra.data.channel.html = '<b>'
+    expect(homeSectionSchema.safeParse(extra).success).toBe(false)
+    const kw = structuredClone(base)
+    kw.data.newest.keyword = 'x'.repeat(HOME_LIMITS.musicKeywordMax + 1)
+    expect(homeSectionSchema.safeParse(kw).success).toBe(false)
   })
 
   it('refuses unknown types, duplicate ids, bad ids and too many sections', () => {
@@ -205,9 +265,11 @@ describe('homepage schemas', () => {
     expect(SITE_PAGES).toEqual(['home', 'intro'])
     expect(sitePageSchema.safeParse('intro').success).toBe(true)
     expect(sitePageSchema.safeParse('admin').success).toBe(false)
-    expect(SITE_PAGE_TYPES.home).toEqual(LANDING_SECTION_TYPES)
+    // The same types, the music row first so admins of an existing homepage find it.
+    expect(SITE_PAGE_TYPES.home[0]).toBe('music')
+    expect([...SITE_PAGE_TYPES.home].sort()).toEqual([...LANDING_SECTION_TYPES].sort())
     expect(SITE_PAGE_TYPES.intro).toContain('profile')
-    expect(HOME_SECTION_TYPES).toHaveLength(14)
+    expect(HOME_SECTION_TYPES).toHaveLength(15)
   })
 
   it('upload purpose, variant, actions and error codes exist', () => {
@@ -238,6 +300,13 @@ describe('homepage helpers', () => {
     for (const u of ['https://www.youtube.com/@hibikiduca', 'https://evil.example/watch?v=' + id, 'javascript:alert(1)', `https://youtu.be/${id}x`, 'not a url']) {
       expect(parseYouTubeId(u), u).toBeNull()
     }
+  })
+
+  it('YouTube video and channel ids', () => {
+    expect(isYouTubeVideoId('dQw4w9WgXcQ')).toBe(true)
+    for (const bad of ['dQw4w9WgXc', 'dQw4w9WgXcQQ', '../../etc/p', 'dQw4w9WgX/Q', 42, null]) expect(isYouTubeVideoId(bad), String(bad)).toBe(false)
+    expect(isYouTubeChannelId(DU_CA_CHANNEL_ID)).toBe(true)
+    for (const bad of ['UC5RSxmHP5c4pU9Og1Pxx4w', 'UU5RSxmHP5c4pU9Og1Pxx4wg', 'UC5RSxmHP5c4pU9Og1Pxx4w&', '']) expect(isYouTubeChannelId(bad), bad).toBe(false)
   })
 
   it('isSafeHref', () => {

@@ -4,10 +4,10 @@
 declare const URL: new (url: string) => { protocol: string; hostname: string; pathname: string; searchParams: { get(name: string): string | null } }
 
 /**
- * Full-screen sections of the snap-scrolling landing page ("/"): background video, new releases, spotlight, brand
- * statement, footer. Every section type may be used on every page; these are the ones the landing is built from.
+ * Full-screen sections of the snap-scrolling landing page ("/"): background video, new releases, music videos,
+ * spotlight, brand statement, footer. Every section type may be used on every page; these are the ones the landing is built from.
  */
-export const LANDING_SECTION_TYPES = ['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'] as const
+export const LANDING_SECTION_TYPES = ['heroVideo', 'releases', 'music', 'spotlight', 'vibe', 'footer'] as const
 /** Long-form sections (the Introduction page "/gioi-thieu" and the first homepage). */
 export const LONGFORM_SECTION_TYPES = ['hero', 'about', 'profile', 'timeline', 'gallery', 'videos', 'links', 'fanart', 'banner'] as const
 
@@ -21,12 +21,28 @@ export type SitePage = (typeof SITE_PAGES)[number]
 
 /** The section types offered first in the editor of each page (the others stay available below them). */
 export const SITE_PAGE_TYPES: Record<SitePage, readonly HomeSectionType[]> = {
-  home: LANDING_SECTION_TYPES,
+  // The music row is the newest landing type: listed first so admins of an existing homepage find it.
+  home: ['music', ...LANDING_SECTION_TYPES.filter((t) => t !== 'music')],
   intro: LONGFORM_SECTION_TYPES,
 }
 
 export const RELEASE_SOURCES = ['manual', 'latestFanart'] as const
 export type ReleaseSource = (typeof RELEASE_SOURCES)[number]
+
+/** The tabs of the music section: newest MV, most popular MVs, channel videos. */
+export const MUSIC_GROUPS = ['newest', 'popular', 'channel'] as const
+export type MusicGroup = (typeof MUSIC_GROUPS)[number]
+
+/** Hibiki Du Ca's YouTube channel, the music section's default source of channel videos. */
+export const DU_CA_CHANNEL_ID = 'UC5RSxmHP5c4pU9Og1Pxx4wg'
+
+/**
+ * Where the server keeps the videos it found for an automatic music tab: `channel:<id>` (the channel's feed),
+ * `popular:<id>`, `newest:<id>:<keyword in lower case>`. The admin status lists feeds under these keys.
+ */
+export function musicFeedKey(group: MusicGroup, channelId: string, keyword = ''): string {
+  return group === 'newest' ? `newest:${channelId}:${keyword.trim().toLocaleLowerCase()}` : `${group}:${channelId}`
+}
 
 export const GALLERY_LAYOUTS = ['grid', 'masonry', 'carousel'] as const
 export type GalleryLayout = (typeof GALLERY_LAYOUTS)[number]
@@ -60,6 +76,10 @@ export const HOME_LIMITS = {
   spotlightIntervalMin: 3,
   spotlightIntervalMax: 15,
   emailMax: 120,
+  /** Videos per music tab (hand-picked, and shown in all). */
+  musicItemsMax: 12,
+  musicKeywordMax: 40,
+  musicViewsMax: 1e13,
 } as const
 
 /** Text in both UI languages; `en` may be empty, then the Vietnamese text is shown. */
@@ -96,6 +116,17 @@ export function isExternalHref(href: string): boolean {
 }
 
 const YT_ID = /^[A-Za-z0-9_-]{11}$/
+const YT_CHANNEL = /^UC[A-Za-z0-9_-]{22}$/
+
+/** Whether `id` is a well-formed YouTube video id (11 characters of [A-Za-z0-9_-]). */
+export function isYouTubeVideoId(id: unknown): id is string {
+  return typeof id === 'string' && YT_ID.test(id)
+}
+
+/** Whether `id` is a well-formed YouTube channel id (`UC` + 22 characters of [A-Za-z0-9_-]). */
+export function isYouTubeChannelId(id: unknown): id is string {
+  return typeof id === 'string' && YT_CHANNEL.test(id)
+}
 const YT_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'])
 
 /**

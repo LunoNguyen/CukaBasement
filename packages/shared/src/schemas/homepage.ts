@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { GALLERY_LAYOUTS, HOME_LIMITS as L, isSafeHref, parseYouTubeId, RELEASE_SOURCES, SITE_PAGES, unsafeMarkdownLinks } from '../homepage'
+import { DU_CA_CHANNEL_ID, GALLERY_LAYOUTS, HOME_LIMITS as L, isSafeHref, isYouTubeChannelId, parseYouTubeId, RELEASE_SOURCES, SITE_PAGES, unsafeMarkdownLinks } from '../homepage'
 import { SOCIAL_PLATFORMS } from '../social'
 
 /** Control characters other than tab and newline. */
@@ -215,6 +215,54 @@ export const vibeDataSchema = z.strictObject({
   cta: homeCtaSchema.nullable().default(null),
 })
 
+/** A calendar day `YYYY-MM-DD` that exists. */
+const isoDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+  .refine((v) => {
+    const d = new Date(`${v}T00:00:00Z`)
+    return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v)
+  }, 'Not a date')
+
+/**
+ * One hand-picked video of the music section: a YouTube link, and what to show instead of what YouTube says (a
+ * title, the date, the view count); left empty, the server fills them in from YouTube.
+ */
+export const musicItemSchema = z.strictObject({
+  url: httpUrl.refine((u) => parseYouTubeId(u) !== null, 'Not a YouTube video link'),
+  title: localized(L.headingMax),
+  date: z.union([z.literal(''), isoDay]).default(''),
+  views: z.number().int().min(0).max(L.musicViewsMax).nullable().default(null),
+})
+
+/**
+ * A tab of the music section: its label (empty: the default "MV mới" / "MV phổ biến" / "Video kênh"), the
+ * hand-picked videos shown first, and whether the server adds videos on its own (`auto`; see musicDataSchema).
+ */
+const musicGroupShape = (autoDefault: boolean) => ({
+  label: localized(L.labelMax),
+  auto: z.boolean().default(autoDefault),
+  items: z.array(musicItemSchema).max(L.musicItemsMax).default([]),
+})
+const newestGroup = z.strictObject({ ...musicGroupShape(false), keyword: text(L.musicKeywordMax).default('') }).prefault({ label: { vi: '' } })
+const popularGroup = z.strictObject(musicGroupShape(false)).prefault({ label: { vi: '' } })
+const channelGroup = z.strictObject(musicGroupShape(true)).prefault({ label: { vi: '' } })
+
+/**
+ * "Âm nhạc / MV": three tabs of YouTube videos from Du Ca's channel. `newest` features the newest MV, `popular`
+ * ranks the most watched, `channel` is a row of the channel's latest uploads. With `auto`, the channel tab follows
+ * the channel's public feed (no API key needed); the other two follow the YouTube Data API, so only when the server
+ * has a YOUTUBE_API_KEY (`newest` may keep only titles containing `keyword`, e.g. "MV"). Hand-picked videos come
+ * first in every tab. Visitors load nothing from YouTube until they press play: thumbnails are copied to our storage.
+ */
+export const musicDataSchema = z.strictObject({
+  ...heading,
+  channelId: z.string().trim().refine(isYouTubeChannelId, 'Not a YouTube channel id (UC…)').default(DU_CA_CHANNEL_ID),
+  newest: newestGroup,
+  popular: popularGroup,
+  channel: channelGroup,
+})
+
 /** The landing page's closing screen: logo, a note, site links, contact e-mail, social links and the copyright line. */
 export const footerDataSchema = z.strictObject({
   note: localized(L.subtitleMax),
@@ -230,6 +278,7 @@ const section = <T extends string, D extends z.ZodType>(type: T, data: D) =>
 export const homeSectionSchema = z.discriminatedUnion('type', [
   section('heroVideo', heroVideoDataSchema),
   section('releases', releasesDataSchema),
+  section('music', musicDataSchema),
   section('spotlight', spotlightDataSchema),
   section('vibe', vibeDataSchema),
   section('footer', footerDataSchema),
@@ -291,6 +340,8 @@ export type SpotlightItem = z.output<typeof spotlightItemSchema>
 export type SpotlightData = z.output<typeof spotlightDataSchema>
 export type VibeData = z.output<typeof vibeDataSchema>
 export type FooterData = z.output<typeof footerDataSchema>
+export type MusicItem = z.output<typeof musicItemSchema>
+export type MusicData = z.output<typeof musicDataSchema>
 
 /**
  * Every media file id the sections reference: images (hero slides, about/profile/timeline/banner images, gallery,
