@@ -62,8 +62,8 @@ async function submit(body: CreatePostBody) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl">
-    <h1 class="mb-5 font-display text-3xl font-semibold tracking-tight">{{ t('upload.editTitle') }}</h1>
+  <div class="mx-auto max-w-[760px]">
+    <h1 class="mb-6 text-2xl font-bold">{{ t('upload.editTitle') }}</h1>
     <EmptyState v-if="loadError">{{ loadError }}</EmptyState>
     <div v-else-if="!post" class="flex justify-center py-10"><Spinner /></div>
     <EmptyState v-else-if="!isOwner">{{ t('forbidden.body') }}</EmptyState>

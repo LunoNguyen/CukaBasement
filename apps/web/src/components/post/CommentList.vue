@@ -114,7 +114,7 @@ async function confirmPending() {
 
 <template>
   <section class="flex flex-col gap-3">
-    <h2 class="font-display text-xl font-semibold">{{ t('comments.title') }}</h2>
+    <h2 class="text-base font-bold">{{ t('comments.title') }}</h2>
 
     <form v-if="canWrite" data-test="comment-form" class="flex flex-col gap-2" @submit.prevent="submitTop">
       <textarea

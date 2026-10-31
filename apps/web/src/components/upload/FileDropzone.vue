@@ -29,7 +29,7 @@ function onDrop(e: DragEvent) {
 
 <template>
   <div
-    class="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center text-sm"
+    class="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-[var(--c-surface-2)] p-8 text-center text-sm"
     :class="depth > 0 ? 'border-[var(--c-accent)]' : 'border-[var(--c-border)]'"
     @dragenter.prevent="depth++"
     @dragover.prevent

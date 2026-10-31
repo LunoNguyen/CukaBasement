@@ -87,50 +87,56 @@ function onFollow(s: { following: boolean; followerCount: number }) {
     <p class="mb-2 text-[var(--c-muted)]">{{ errorText(failure) }}</p>
     <Btn variant="secondary" @click="load()">{{ t('common.retry') }}</Btn>
   </div>
-  <div v-else-if="user" class="flex flex-col gap-4">
+  <div v-else-if="user" class="flex flex-col gap-5">
     <!-- 4:1 like the worker's banner render (1600×400), so the whole crop shows at every width. -->
-    <div data-test="banner-box" class="aspect-[4/1] w-full overflow-hidden rounded-2xl bg-[var(--c-surface-2)]">
+    <div data-test="banner-box" class="aspect-[4/1] w-full overflow-hidden rounded-lg bg-[var(--c-surface-2)]">
       <img v-if="user.bannerUrl" :src="user.bannerUrl" alt="" class="h-full w-full object-cover" data-test="banner" />
     </div>
-    <div class="-mt-12 flex flex-wrap items-end gap-3 px-2 sm:-mt-16">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
       <img
         v-if="user.avatarUrl"
         :src="user.avatarUrl"
         alt=""
         data-test="avatar-img"
-        class="h-20 w-20 shrink-0 rounded-full border-4 border-[var(--c-bg)] object-cover sm:h-28 sm:w-28"
+        class="-mt-14 h-24 w-24 shrink-0 rounded-full border-4 border-[var(--c-bg)] bg-[var(--c-surface-2)] object-cover sm:-mt-12"
       />
       <span
         v-else
         data-test="avatar"
-        class="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-4 border-[var(--c-bg)] bg-[var(--c-border)] text-3xl font-bold sm:h-28 sm:w-28"
+        class="-mt-14 flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-[var(--c-bg)] bg-[var(--c-surface-2)] text-3xl font-bold sm:-mt-12"
         aria-hidden="true"
         >{{ (user.displayName || user.username).charAt(0).toUpperCase() }}</span
       >
-      <div class="min-w-0 flex-1">
-        <h1 class="truncate font-display text-3xl font-semibold tracking-tight">{{ user.displayName || user.username }}</h1>
-        <p class="truncate text-sm text-[var(--c-muted)]">@{{ user.username }}</p>
+      <div class="flex min-w-0 flex-1 flex-col gap-2">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div class="min-w-0">
+            <h1 class="truncate text-xl font-bold">{{ user.displayName || user.username }}</h1>
+            <p class="truncate text-[13px] text-[var(--c-muted)]">@{{ user.username }}</p>
+          </div>
+          <div class="sm:ml-auto">
+            <FollowButton v-if="!isSelf" :username="user.username" :following="user.isFollowing" @change="onFollow" />
+            <Btn v-else to="/settings" variant="secondary">{{ t('profile.edit') }}</Btn>
+          </div>
+        </div>
+        <dl class="flex gap-5 text-[13px]">
+          <div data-test="stat-followers"><dd class="inline font-bold">{{ user.stats.followerCount }}</dd> <dt class="inline text-[var(--c-muted)]">{{ t('profile.followers') }}</dt></div>
+          <div data-test="stat-following"><dd class="inline font-bold">{{ user.stats.followingCount }}</dd> <dt class="inline text-[var(--c-muted)]">{{ t('profile.following') }}</dt></div>
+          <div data-test="stat-posts"><dd class="inline font-bold">{{ user.stats.postCount }}</dd> <dt class="inline text-[var(--c-muted)]">{{ t('profile.postCount') }}</dt></div>
+        </dl>
+        <p v-if="user.bio" class="max-w-2xl text-sm whitespace-pre-line">{{ user.bio }}</p>
+        <ul v-if="socials.length" class="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+          <li v-for="s in socials" :key="s.key">
+            <a :href="s.url" data-test="social-link" target="_blank" rel="noopener noreferrer nofollow" class="inline-flex min-h-8 items-center gap-1 text-[var(--c-muted)] hover:text-[var(--c-text)] hover:underline">
+              <svg v-if="s.generic" data-test="link-icon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+                <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+              </svg>
+              {{ s.label }}
+            </a>
+          </li>
+        </ul>
       </div>
-      <FollowButton v-if="!isSelf" :username="user.username" :following="user.isFollowing" @change="onFollow" />
-      <RouterLink v-else to="/settings" class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:border-[var(--c-muted)]">{{ t('profile.edit') }}</RouterLink>
     </div>
-    <p v-if="user.bio" class="px-2 whitespace-pre-line">{{ user.bio }}</p>
-    <ul v-if="socials.length" class="flex flex-wrap gap-3 px-2 text-sm">
-      <li v-for="s in socials" :key="s.key">
-        <a :href="s.url" data-test="social-link" target="_blank" rel="noopener noreferrer nofollow" class="link inline-flex min-h-8 items-center gap-1">
-          <svg v-if="s.generic" data-test="link-icon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
-            <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
-          </svg>
-          {{ s.label }}
-        </a>
-      </li>
-    </ul>
-    <dl class="flex gap-6 px-2 text-sm">
-      <div data-test="stat-followers"><dt class="eyebrow inline">{{ t('profile.followers') }}</dt> <dd class="inline font-semibold">{{ user.stats.followerCount }}</dd></div>
-      <div data-test="stat-following"><dt class="eyebrow inline">{{ t('profile.following') }}</dt> <dd class="inline font-semibold">{{ user.stats.followingCount }}</dd></div>
-      <div data-test="stat-posts"><dt class="eyebrow inline">{{ t('profile.postCount') }}</dt> <dd class="inline font-semibold">{{ user.stats.postCount }}</dd></div>
-    </dl>
     <Tabs v-model="tab" :tabs="tabs" />
     <PostFeed
       :key="user.username + tab"

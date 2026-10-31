@@ -184,7 +184,7 @@ function cancel() {
 }
 
 const title = computed(() => t(props.shape === 'avatar' ? 'cropper.titleAvatar' : 'cropper.titleBanner'))
-const control = 'inline-flex min-h-9 items-center rounded-full border border-[var(--c-border)] px-3 text-sm hover:bg-[var(--c-surface-2)]'
+const control = 'inline-flex min-h-9 items-center rounded border border-[var(--c-border)] px-3 text-sm hover:bg-[var(--c-surface-2)]'
 </script>
 
 <template>
@@ -195,7 +195,7 @@ const control = 'inline-flex min-h-9 items-center rounded-full border border-[va
         tabindex="0"
         role="group"
         :aria-label="t('cropper.stage')"
-        class="h-[min(60vh,24rem)] w-full overflow-hidden rounded-xl bg-[var(--c-surface-2)] focus:outline-2 focus:outline-[var(--c-accent-strong)]"
+        class="h-[min(60vh,24rem)] w-full overflow-hidden rounded-lg bg-[var(--c-surface-2)] focus:outline-2 focus:outline-[var(--c-accent-strong)]"
         :class="{ 'crop-round': shape === 'avatar' }"
         @keydown="onStageKey"
       >

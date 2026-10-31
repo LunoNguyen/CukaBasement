@@ -318,11 +318,12 @@ async function confirmDelete() {
 <template>
   <div v-if="loading" class="flex justify-center py-10"><Spinner /></div>
   <EmptyState v-else-if="error" art>{{ errorText(error) }}</EmptyState>
-  <article v-else-if="post" class="flex flex-col gap-6">
-    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <MediaViewer :post="post" />
+  <article v-else-if="post" class="flex flex-col gap-10">
+    <!-- Phones: picture, details, comments. Wide screens: picture and comments left, details in a 360px column. -->
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-x-8">
+      <MediaViewer :post="post" class="min-w-0" />
 
-      <div class="flex min-w-0 flex-col gap-4">
+      <div class="flex min-w-0 flex-col gap-5 lg:row-span-2">
         <div class="flex flex-col gap-3">
           <div class="flex flex-wrap items-center gap-2">
             <span data-test="type-badge" class="badge badge-outline">{{ t(`post.type.${post.type}`) }}</span>
@@ -336,8 +337,8 @@ async function confirmDelete() {
               {{ t('post.hiddenBadge') }}
             </p>
           </div>
-          <h1 class="font-display text-3xl leading-tight font-semibold tracking-tight break-words">{{ post.title }}</h1>
-          <CreditCard :credit="post.credit" :author="post.author" />
+          <h1 class="text-xl leading-snug font-bold break-words">{{ post.title }}</h1>
+          <UserCard v-if="author" :user="author" @change="author = $event" />
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -348,7 +349,7 @@ async function confirmDelete() {
               :class="{ 'text-[var(--c-accent)]': post.viewerState.liked }"
               :fill="post.viewerState.liked ? 'currentColor' : 'none'"
               stroke="currentColor"
-              stroke-width="2"
+              stroke-width="1.5"
               stroke-linejoin="round"
               aria-hidden="true"
             >
@@ -365,7 +366,7 @@ async function confirmDelete() {
                 :class="{ 'text-[var(--c-accent)]': post.viewerState.bookmarked }"
                 :fill="post.viewerState.bookmarked ? 'currentColor' : 'none'"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="1.5"
                 stroke-linejoin="round"
                 aria-hidden="true"
               >
@@ -400,9 +401,7 @@ async function confirmDelete() {
           </Btn>
           <Btn v-if="!isOwner" data-test="report" variant="secondary" @click="openReport">{{ t('post.report') }}</Btn>
           <template v-if="isOwner">
-            <RouterLink data-test="edit-post" :to="`/posts/${post.id}/edit`" class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:border-[var(--c-muted)]">{{
-              t('post.edit')
-            }}</RouterLink>
+            <Btn data-test="edit-post" :to="`/posts/${post.id}/edit`" variant="secondary">{{ t('post.edit') }}</Btn>
             <Btn data-test="delete-post" variant="danger" @click="deleteOpen = true">{{ t('post.delete') }}</Btn>
           </template>
           <template v-if="auth.isStaff">
@@ -412,18 +411,18 @@ async function confirmDelete() {
         </div>
 
         <p v-if="post.description" class="text-sm leading-relaxed break-words whitespace-pre-line">{{ post.description }}</p>
-        <div v-if="post.tags.length" class="flex flex-wrap gap-2">
-          <RouterLink v-for="tag in post.tags" :key="tag" :to="`/tags/${encodeURIComponent(tag)}`" class="chip"><span class="text-[var(--c-accent-strong)]" aria-hidden="true">#</span>{{ tag }}</RouterLink>
+        <div v-if="post.tags.length" class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          <RouterLink v-for="tag in post.tags" :key="tag" :to="`/tags/${encodeURIComponent(tag)}`" class="text-[var(--c-accent-strong)] hover:underline">#{{ tag }}</RouterLink>
         </div>
 
-        <UserCard v-if="author" :user="author" @change="author = $event" />
-
-        <CommentList :key="post.id" :post-id="post.id" />
+        <CreditCard :credit="post.credit" :author="post.author" />
       </div>
+
+      <CommentList :key="post.id" :post-id="post.id" class="min-w-0" />
     </div>
 
-    <section v-if="more.length" data-test="more-by-author" class="flex flex-col gap-3">
-      <h2 class="font-display text-xl font-semibold">{{ t('post.moreByAuthor') }}</h2>
+    <section v-if="more.length" data-test="more-by-author" class="flex flex-col gap-4 border-t border-[var(--c-border)] pt-6">
+      <h2 class="text-base font-bold">{{ t('post.moreByAuthor') }}</h2>
       <PostGrid :items="more" />
     </section>
 
@@ -431,7 +430,7 @@ async function confirmDelete() {
     <Modal v-model:open="loginPrompt" :title="t('post.reportTitle')">
       <div data-test="login-prompt" class="flex flex-col gap-3 text-sm">
         <p>{{ t('post.reportLogin') }}</p>
-        <RouterLink :to="loginNext" class="self-start inline-flex min-h-11 items-center rounded-full bg-[var(--c-accent-strong)] px-4 font-semibold text-[var(--c-bg)]">{{ t('auth.login') }}</RouterLink>
+        <Btn :to="loginNext" class="self-start">{{ t('auth.login') }}</Btn>
       </div>
     </Modal>
     <Modal v-model:open="deleteOpen" :title="t('post.deleteTitle')">

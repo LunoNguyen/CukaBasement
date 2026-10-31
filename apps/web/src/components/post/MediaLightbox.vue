@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             data-test="zoom-level"
-            class="lightbox-btn inline-flex h-11 min-w-14 items-center justify-center rounded-full px-2 text-xs tabular-nums"
+            class="lightbox-btn inline-flex h-11 min-w-14 items-center justify-center rounded px-2 text-xs tabular-nums"
             :aria-label="t('post.zoomReset')"
             @click="reset"
           >
@@ -251,7 +251,7 @@ onBeforeUnmount(() => {
             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M8 11h6M11 8v6M20 20l-3.5-3.5" /></svg>
           </button>
           <button type="button" data-test="lightbox-original" class="icon-btn lightbox-btn" :aria-label="t('post.openOriginal', { name })" @click="emit('original', current)">
-            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
           </button>
           <button ref="closeBtn" type="button" data-test="lightbox-close" class="icon-btn lightbox-btn" :aria-label="t('common.close')" @click="open = false">
             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
@@ -288,10 +288,10 @@ onBeforeUnmount(() => {
 
         <template v-if="many">
           <button type="button" data-test="lightbox-prev" class="icon-btn lightbox-btn lightbox-nav left-2 sm:left-4" :aria-label="t('post.prevImage')" @click.stop="go(-1)">
-            <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+            <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
           </button>
           <button type="button" data-test="lightbox-next" class="icon-btn lightbox-btn lightbox-nav right-2 sm:right-4" :aria-label="t('post.nextImage')" @click.stop="go(1)">
-            <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+            <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>
         </template>
       </div>

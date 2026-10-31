@@ -237,7 +237,7 @@ async function loginAgain() {
       <p class="text-sm text-[var(--c-muted)]">{{ t('admin.backups.intro') }}</p>
       <div class="flex flex-wrap items-center gap-3">
         <Btn data-test="backup-create" :loading="creating" :disabled="running" @click="createBackup">{{ t('admin.backups.create') }}</Btn>
-        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-[var(--c-border)] px-4 text-sm font-semibold" :class="{ 'pointer-events-none opacity-60': uploading || running }">
+        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded border border-[var(--c-border)] px-4 text-sm font-semibold" :class="{ 'pointer-events-none opacity-60': uploading || running }">
           <input data-test="backup-upload" type="file" accept=".gz,.tgz,application/gzip" class="sr-only" :disabled="uploading || running" @change="onUpload" />
           {{ uploading ? t('admin.backups.uploading', { n: Math.round(uploadProgress * 100) }) : t('admin.backups.upload') }}
         </label>
@@ -261,7 +261,7 @@ async function loginAgain() {
           <div class="min-w-0">
             <p class="break-all font-semibold">
               {{ b.name }}
-              <span v-if="b.scheduled" class="ml-1 rounded-full border border-[var(--c-border)] px-2 text-xs font-normal">{{ t('admin.backups.scheduledBadge') }}</span>
+              <span v-if="b.scheduled" class="ml-1 rounded border border-[var(--c-border)] px-1.5 text-xs font-normal">{{ t('admin.backups.scheduledBadge') }}</span>
             </p>
             <p class="text-xs text-[var(--c-muted)]">{{ when(b.createdAt) }} · {{ formatBytes(b.sizeBytes) }}</p>
           </div>

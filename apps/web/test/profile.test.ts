@@ -67,6 +67,10 @@ describe('Profile page', () => {
     expect(box.classes()).toContain('w-full')
     expect(box.classes().some((c) => /^(sm:)?h-\d/.test(c))).toBe(false)
     expect(w.get('[data-test="banner"]').attributes('src')).toBe('http://cdn/b.webp?v=3')
+    // pixiv-style: 8px corners on the cover, a 96px round avatar, the name in the UI font.
+    expect(box.classes()).toContain('rounded-lg')
+    expect(w.get('[data-test="avatar"]').classes()).toEqual(expect.arrayContaining(['h-24', 'w-24', 'rounded-full']))
+    expect(w.get('h1').classes()).not.toContain('font-display')
   })
 
   it('renders stats and follow button (hidden on own profile)', async () => {

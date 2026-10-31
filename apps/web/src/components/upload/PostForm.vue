@@ -73,9 +73,9 @@ const input = 'w-full field'
 </script>
 
 <template>
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="submit">
-    <section class="card flex flex-col gap-2 p-4 sm:p-5">
-      <h2 class="eyebrow">{{ t('upload.sections.files') }}</h2>
+  <form class="flex flex-col gap-8" novalidate @submit.prevent="submit">
+    <section class="flex flex-col gap-2 border-t border-[var(--c-border)] pt-5">
+      <h2 class="text-base font-bold">{{ t('upload.sections.files') }}</h2>
       <FileDropzone @files="uploader.add" />
       <ul v-if="queue.length" class="flex flex-col gap-2">
         <FileQueueItem
@@ -94,9 +94,9 @@ const input = 'w-full field'
       <p v-if="filesChanged" data-test="files-changed" class="badge badge-accent self-start">{{ t('upload.filesChanged') }}</p>
     </section>
 
-    <section class="card flex flex-col gap-5 p-4 sm:p-5">
-      <h2 class="eyebrow">{{ t('upload.sections.details') }}</h2>
-      <!-- Type chips from the board (09): the chosen one filled cocoa, the rest outlined. -->
+    <section class="flex flex-col gap-5 border-t border-[var(--c-border)] pt-5">
+      <h2 class="text-base font-bold">{{ t('upload.sections.details') }}</h2>
+      <!-- Type chips: the chosen one tinted pink. -->
       <fieldset data-test="type" class="flex flex-col gap-1 text-sm">
         <legend class="mb-1">{{ t('upload.type') }}</legend>
         <div class="flex flex-wrap gap-2">
@@ -133,8 +133,8 @@ const input = 'w-full field'
       </fieldset>
     </section>
 
-    <section class="card flex flex-col gap-4 p-4 sm:p-5">
-      <h2 class="eyebrow">{{ t('upload.sections.credit') }}</h2>
+    <section class="flex flex-col gap-4 border-t border-[var(--c-border)] pt-5">
+      <h2 class="text-base font-bold">{{ t('upload.sections.credit') }}</h2>
       <CreditFields v-model="credit" />
       <label class="flex items-start gap-2 border-t border-dashed border-[var(--c-muted)] pt-4 text-sm">
         <input v-model="form.ai" data-test="ai-declaration" type="checkbox" class="mt-1" />

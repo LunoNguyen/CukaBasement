@@ -130,7 +130,7 @@ const busy = () => saving.value || up.queue.value.some((q) => q.status === 'queu
       </div>
       <button
         type="button"
-        class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 font-semibold hover:border-[var(--c-muted)] disabled:opacity-60"
+        class="inline-flex min-h-11 items-center rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-4 font-semibold hover:bg-[var(--c-surface-2)] disabled:opacity-60"
         :data-test="testId + '-choose'"
         :aria-label="t('settings.chooseImage') + ': ' + label"
         :disabled="busy()"

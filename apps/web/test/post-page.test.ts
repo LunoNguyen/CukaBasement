@@ -463,7 +463,7 @@ describe('Post page — gallery and lightbox', () => {
 })
 
 describe('Post page — credit and owner tools', () => {
-  it('repost credit card: ART BY, the artist, "@funo_yun · X", the repost and no-AI chips; own work shows © @username', async () => {
+  it('compact credit block: "Art by Funo · @funo_yun · X", the repost and no-AI chips; own work shows © @username; no sticker', async () => {
     const repost = postDto({
       credit: { isOwnWork: false, artistName: 'Funo', artistHandle: 'funo_yun', platform: 'x', sourceUrl: 'https://x.com/funo_yun/status/1', permissionNote: 'đã hỏi qua DM' },
     })
@@ -472,7 +472,12 @@ describe('Post page — credit and owner tools', () => {
     const credit = w.get('[data-test="credit"]')
     expect(credit.attributes('aria-labelledby')).toBe(credit.get('h2').attributes('id'))
     expect(credit.get('h2').text()).toBe('Nguồn tác phẩm')
-    expect(credit.text()).toContain('Art by')
+    expect(credit.get('[data-test="credit-line"]').text()).toBe('Art by Funo · @funo_yun · X')
+    expect(credit.get('[data-test="credit-name"]').element.tagName).toBe('STRONG')
+    // The old hang-tag sticker is gone: no logo, no shadow, no display font.
+    expect(credit.find('svg[viewBox="0 0 100 100"]').exists()).toBe(false)
+    expect(credit.classes().some((c) => c.startsWith('shadow'))).toBe(false)
+    expect(credit.html()).not.toContain('font-display')
     expect(credit.get('[data-test="credit-name"]').text()).toBe('Funo')
     expect(credit.get('[data-test="credit-handle"]').text()).toBe('@funo_yun · X')
     expect(credit.get('[data-test="credit-kind"]').text()).toBe('Đăng lại · đã xin phép')
@@ -486,7 +491,8 @@ describe('Post page — credit and owner tools', () => {
     ;({ w } = await mountPost())
     const own = w.get('[data-test="credit"]')
     expect(own.get('[data-test="credit-name"]').text()).toBe('Cuka')
-    expect(own.get('[data-test="credit-handle"]').text()).toBe('© @cuka · CukaBasement')
+    expect(own.get('[data-test="credit-handle"]').text()).toBe('© @cuka')
+    expect(own.get('[data-test="credit-line"]').text()).toBe('Art by Cuka · © @cuka')
     expect(own.get('[data-test="credit-handle"] a').attributes('href')).toBe('/u/cuka')
     expect(own.get('[data-test="credit-kind"]').text()).toBe('Tác phẩm gốc')
     expect(own.find('[data-test="no-ai"]').exists()).toBe(true)
@@ -501,6 +507,7 @@ describe('Post page — credit and owner tools', () => {
     const { w } = await mountPost()
     expect(w.get('[data-test="credit-name"]').text()).toBe('Ruri')
     expect(w.get('[data-test="credit-handle"]').text()).toBe('pixiv')
+    expect(w.get('[data-test="credit-line"]').text()).toBe('Art by Ruri · pixiv')
   })
 
   it('shows type and rating badges; R18 uses the pink tint', async () => {

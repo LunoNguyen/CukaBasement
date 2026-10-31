@@ -151,10 +151,10 @@ function onPlaying(m: PostMediaDto) {
         <RouterLink
           v-if="!auth.isLoggedIn"
           :to="{ path: '/login', query: { next: route.fullPath } }"
-          class="inline-flex min-h-11 items-center rounded-full bg-[var(--c-accent)] px-4 text-sm font-semibold text-[#17110e]"
+          class="inline-flex min-h-11 items-center rounded bg-[var(--c-accent-strong)] px-4 text-sm font-semibold text-[var(--c-on-primary)]"
           >{{ t('post.r18Login') }}</RouterLink
         >
-        <RouterLink v-else to="/settings" class="inline-flex min-h-11 items-center rounded-full bg-[var(--c-accent)] px-4 text-sm font-semibold text-[#17110e]">{{ t('post.r18Settings') }}</RouterLink>
+        <RouterLink v-else to="/settings" class="inline-flex min-h-11 items-center rounded bg-[var(--c-accent-strong)] px-4 text-sm font-semibold text-[var(--c-on-primary)]">{{ t('post.r18Settings') }}</RouterLink>
       </div>
     </div>
 
@@ -176,7 +176,7 @@ function onPlaying(m: PostMediaDto) {
       </template>
 
       <div v-else-if="main" role="group" data-test="gallery" :aria-label="t('post.gallery')" class="flex min-w-0 flex-col gap-3" @keydown="onGalleryKey">
-        <div class="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-[var(--c-surface-2)]">
+        <div class="relative flex min-h-[320px] w-full items-center justify-center overflow-hidden rounded-lg bg-[var(--c-surface-2)]">
           <button
             v-if="main.thumbMdUrl"
             type="button"
@@ -192,16 +192,16 @@ function onPlaying(m: PostMediaDto) {
           <template v-if="images.length > 1">
             <p
               data-test="page-indicator"
-              class="pointer-events-none absolute top-2 right-2 rounded-full bg-[#141414]/75 px-2.5 py-1 text-xs text-[#ededed] tabular-nums"
+              class="pointer-events-none absolute top-2 right-2 rounded bg-black/60 px-2 py-0.5 text-xs text-[#ededed] tabular-nums"
               :aria-label="t('post.pageOf', { n: selected + 1, total: images.length })"
             >
               {{ selected + 1 }} / {{ images.length }}
             </p>
             <button type="button" data-test="media-prev" class="icon-btn media-nav left-2" :aria-label="t('post.prevImage')" @click="go(-1)">
-              <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+              <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
             </button>
             <button type="button" data-test="media-next" class="icon-btn media-nav right-2" :aria-label="t('post.nextImage')" @click="go(1)">
-              <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+              <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
             </button>
           </template>
         </div>
@@ -213,7 +213,7 @@ function onPlaying(m: PostMediaDto) {
               :key="m.fileId"
               type="button"
               data-test="gallery-thumb"
-              class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2"
+              class="h-16 w-16 shrink-0 overflow-hidden rounded border-2"
               :class="i === selected ? 'border-[var(--c-accent)]' : 'border-transparent opacity-80 hover:opacity-100'"
               :aria-label="t('post.pageAlt', { title: post.title, n: i + 1 })"
               :aria-current="i === selected ? 'true' : undefined"
@@ -227,11 +227,11 @@ function onPlaying(m: PostMediaDto) {
             v-if="main.thumbMdUrl"
             type="button"
             data-test="open-original"
-            class="ml-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm hover:border-[var(--c-muted)]"
+            class="ml-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:bg-[var(--c-surface-2)]"
             :aria-label="t('post.openOriginal', { name: mainName })"
             @click="openFile(main)"
           >
-            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
             {{ t('post.original') }}
           </button>
         </div>
@@ -272,7 +272,7 @@ function onPlaying(m: PostMediaDto) {
           :key="m.fileId"
           type="button"
           data-test="download"
-          class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm hover:border-[var(--c-muted)]"
+          class="inline-flex min-h-11 items-center rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:bg-[var(--c-surface-2)]"
           @click="openFile(m)"
         >
           ⬇ {{ t('post.download') }}
@@ -291,7 +291,7 @@ function onPlaying(m: PostMediaDto) {
   top: 50%;
   transform: translateY(-50%);
   background: color-mix(in srgb, var(--c-bg) 85%, transparent);
-  box-shadow: 0 2px 8px rgb(23 17 14 / 0.18);
+  box-shadow: var(--shadow-pop);
   backdrop-filter: blur(4px);
 }
 .media-nav:hover {

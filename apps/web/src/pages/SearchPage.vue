@@ -40,7 +40,7 @@ const toggleType = (x: PostType) => go({ q: q.value, type: type.value === x ? un
         :placeholder="t('search.placeholder')"
         :aria-label="t('nav.search')"
         maxlength="100"
-        class="field min-w-0 flex-1 rounded-full px-4"
+        class="field min-w-0 flex-1"
       />
       <Btn type="submit">{{ t('nav.search') }}</Btn>
     </form>
