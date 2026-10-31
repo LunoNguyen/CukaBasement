@@ -10,6 +10,10 @@ async function bootstrap(): Promise<void> {
   const config = app.get<Config>(CONFIG)
   configureApp(app, config)
   app.enableShutdownHooks()
+  // Behind a reverse proxy (the Docker stack's nginx) req.ip would be the proxy for every client, so rate limits keyed
+  // on it would lump everyone together. TRUST_PROXY is the number of proxy hops to trust (Express 'trust proxy').
+  const hops = Number(process.env.TRUST_PROXY)
+  if (Number.isInteger(hops) && hops > 0) app.getHttpAdapter().getInstance().set('trust proxy', hops)
   // Node's 5-minute default would cut off uploading a multi-GB backup from the admin page.
   app.getHttpServer().requestTimeout = 2 * 60 * 60 * 1000
   await app.listen(config.apiPort)
