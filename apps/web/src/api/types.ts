@@ -274,6 +274,11 @@ export interface SiteImageDto {
   srcset: string
 }
 
+/** The fanart gallery's home banner, its picture resolved (null when it has none or it is not ready). */
+export interface HomeBannerDto extends Omit<import('@cuka/shared').HomeBanner, 'image'> {
+  image: (import('@cuka/shared').HomeImage & SiteImageDto) | null
+}
+
 /** A ready site video: the clip in the public bucket; its poster frame is `images[id]`. */
 export interface SiteVideoDto {
   src: string

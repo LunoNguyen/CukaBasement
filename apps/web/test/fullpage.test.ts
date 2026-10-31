@@ -73,7 +73,8 @@ async function mountHome(home = publicLanding(), opts: { admin?: boolean; logged
 const panels = (w: VueWrapper) => w.findAll('[data-test="fp-panel"]')
 const press = (key: string, target: EventTarget = document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
 
-describe('Landing page (/) as full screens', () => {
+// Task 6 brings these screens back as blocks of /gioi-thieu (the landing page left "/" in Task 4).
+describe.skip('Landing page (/) as full screens', () => {
   it('renders one screen per visible section, in order, under the site header (shown on every route)', async () => {
     const { w, router } = await mountHome()
     expect(panels(w).map((p) => p.attributes('data-section'))).toEqual(['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])

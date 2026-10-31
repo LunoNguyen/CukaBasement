@@ -259,7 +259,12 @@ export default {
     title: 'Không có quyền truy cập',
     body: 'Bạn không có quyền xem trang này.',
   },
-  home: { title: 'CukaBasement', latest: 'Mới nhất', following: 'Đang theo dõi', empty: 'Chưa có bài đăng nào', emptyFollowing: 'Bạn chưa theo dõi ai, hoặc họ chưa đăng bài.' },
+  home: {
+    title: 'CukaBasement', latest: 'Mới nhất', following: 'Đang theo dõi', empty: 'Chưa có bài đăng nào', emptyFollowing: 'Bạn chưa theo dõi ai, hoặc họ chưa đăng bài.',
+    all: 'Tất cả', typeFilter: 'Loại tác phẩm', featuredTags: 'Tag nổi bật', ranking: 'Xếp hạng', seeAll: 'Xem tất cả',
+    periods: { day: 'Ngày', week: 'Tuần', month: 'Tháng' }, rankingEmpty: 'Chưa có tác phẩm nào được xếp hạng trong khoảng thời gian này.',
+    rankingError: 'Chưa tải được bảng xếp hạng.', works: 'Tác phẩm', rankingTitle: 'Xếp hạng {period}',
+  },
   tag: { empty: 'Chưa có bài đăng với thẻ này' },
   search: { placeholder: 'Tìm bài đăng...', empty: 'Không tìm thấy kết quả' },
   post: {
@@ -294,6 +299,7 @@ export default {
     deleteConfirm: 'Xóa bài đăng này? Thao tác không thể hoàn tác.',
     deleted: 'Đã xóa bài đăng',
     like: 'Thích',
+    unlike: 'Bỏ thích',
     bookmark: 'Lưu',
     bookmarkMenu: 'Tùy chọn lưu',
     bookmarkPrivate: 'Lưu riêng tư',

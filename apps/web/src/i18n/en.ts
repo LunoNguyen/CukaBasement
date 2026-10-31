@@ -215,7 +215,12 @@ const en: typeof vi = {
     title: 'Access denied',
     body: 'You do not have permission to view this page.',
   },
-  home: { title: 'CukaBasement', latest: 'Latest', following: 'Following', empty: 'No posts yet', emptyFollowing: 'You are not following anyone yet, or they have not posted.' },
+  home: {
+    title: 'CukaBasement', latest: 'Latest', following: 'Following', empty: 'No posts yet', emptyFollowing: 'You are not following anyone yet, or they have not posted.',
+    all: 'All', typeFilter: 'Type of work', featuredTags: 'Featured tags', ranking: 'Ranking', seeAll: 'See all',
+    periods: { day: 'Daily', week: 'Weekly', month: 'Monthly' }, rankingEmpty: 'Nothing has been ranked in this period yet.',
+    rankingError: 'Could not load the ranking.', works: 'Works', rankingTitle: '{period} ranking',
+  },
   tag: { empty: 'No posts with this tag' },
   search: { placeholder: 'Search posts...', empty: 'No results found' },
   post: {
@@ -250,6 +255,7 @@ const en: typeof vi = {
     deleteConfirm: 'Delete this post? This cannot be undone.',
     deleted: 'Post deleted',
     like: 'Like',
+    unlike: 'Unlike',
     bookmark: 'Save',
     bookmarkMenu: 'Save options',
     bookmarkPrivate: 'Save privately',

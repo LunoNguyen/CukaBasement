@@ -157,7 +157,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
           <p v-if="!item.fileId" class="text-xs text-[var(--c-danger)]">{{ t('admin.home.pickRequired') }}</p>
         </template>
       </ItemList>
-      <ItemList v-model="s.data.ctas" :label="t('admin.home.f.ctas')" :max="L.ctasMax" :add-label="t('admin.home.addCta')" :create="() => ({ label: lt(), href: '/posts' })">
+      <ItemList v-model="s.data.ctas" :label="t('admin.home.f.ctas')" :max="L.ctasMax" :add-label="t('admin.home.addCta')" :create="() => ({ label: lt(), href: '/' })">
         <template #default="{ item }">
           <LocalizedInput v-model="item.label" :label="t('admin.home.f.ctaLabel')" :max="L.labelMax" required />
           <label class="flex flex-col gap-1.5 text-sm font-medium">
@@ -267,7 +267,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
       <LocalizedInput v-model="s.data.attribution" :label="t('admin.home.f.attribution')" :max="L.labelMax" />
       <SiteImageField v-model="s.data.image" :label="t('admin.home.f.image')" />
       <label class="flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" :checked="!!s.data.cta" @change="s.data.cta = ($event.target as HTMLInputElement).checked ? { label: lt(), href: '/posts' } : null" />
+        <input type="checkbox" :checked="!!s.data.cta" @change="s.data.cta = ($event.target as HTMLInputElement).checked ? { label: lt(), href: '/' } : null" />
         {{ t('admin.home.f.withCta') }}
       </label>
       <template v-if="s.data.cta">

@@ -12,7 +12,7 @@ onMounted(() => void list.loadMore())
 </script>
 
 <template>
-  <div>
+  <div data-test="feed">
     <PostGrid :items="list.items.value" />
     <ListFooter :list="list" :empty-text="emptyText" auto art />
   </div>

@@ -208,7 +208,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     const { w, router } = await mountEditor()
     await w.get('[data-test="f-title"]').setValue('Chưa lưu')
     const ask = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    await router.push('/posts').catch(() => {})
+    await router.push('/search').catch(() => {})
     await flushPromises()
     expect(ask).toHaveBeenCalled()
     expect(router.currentRoute.value.path).toBe('/admin')
@@ -216,8 +216,8 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     await router.replace({ query: { tab: 'logs' } }).catch(() => {})
     expect(router.currentRoute.value.query.tab).toBe('home')
     ask.mockReturnValue(true)
-    await router.push('/posts')
-    expect(router.currentRoute.value.path).toBe('/posts')
+    await router.push('/search')
+    expect(router.currentRoute.value.path).toBe('/search')
   })
 
   it('image picker: choose from the library, alt text required unless decorative', async () => {

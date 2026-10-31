@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
 import type { Role } from '@cuka/shared'
-import LandingPage from '@/pages/LandingPage.vue'
+import HomePage from '@/pages/HomePage.vue'
+import RankingPage from '@/pages/RankingPage.vue'
 import IntroPage from '@/pages/IntroPage.vue'
-import PostsPage from '@/pages/PostsPage.vue'
 import TagPage from '@/pages/TagPage.vue'
 import SearchPage from '@/pages/SearchPage.vue'
 import PostPage from '@/pages/PostPage.vue'
@@ -37,12 +37,14 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({
     history,
     routes: [
-      { path: '/', name: 'home', component: LandingPage, meta: { fullBleed: true } },
+      // The fanart gallery: banner, tags, type filter, ranking and the latest / following feed.
+      { path: '/', name: 'home', component: HomePage },
+      { path: '/ranking', name: 'ranking', component: RankingPage },
       { path: '/gioi-thieu', name: 'intro', component: IntroPage, meta: { fullBleed: true } },
       { path: '/intro', redirect: '/gioi-thieu' },
-      // The feed (latest / following) that used to be the home page.
-      { path: '/posts', name: 'posts', component: PostsPage },
-      { path: '/feed', redirect: '/posts' },
+      // The old feed addresses: the feed is part of "/" now (the type filter carries over).
+      { path: '/posts', redirect: (to) => ({ path: '/', query: to.query }) },
+      { path: '/feed', redirect: (to) => ({ path: '/', query: to.query }) },
       { path: '/403', name: 'forbidden', component: ForbiddenPage },
       { path: '/login', component: LoginPage },
       { path: '/register', component: RegisterPage },

@@ -1,10 +1,12 @@
 import type { HomeSection, SitePage } from '@cuka/shared'
 import { request } from '../client'
-import type { AdminSiteImageDto, HomeDraftDto, MusicStatusDto, Page, PostCardDto, PublicHomeDto } from '../types'
+import type { AdminSiteImageDto, HomeBannerDto, HomeDraftDto, MusicStatusDto, Page, PostCardDto, PublicHomeDto } from '../types'
 
 /** A published page: `home` (the landing page at "/") or `intro` (the Introduction page). */
 export const publicPage = (page: SitePage) => request<PublicHomeDto>(`/site/pages/${page}`)
 export const publicHome = () => publicPage('home')
+/** The fanart gallery's home banner (null when the admin cleared it). */
+export const homeBanner = () => request<{ banner: HomeBannerDto | null }>('/site/banner')
 export const fanartShowcase = (limit: number) => request<Page<PostCardDto>>('/feed/showcase', { query: { limit } })
 
 export const pageDraft = (page: SitePage) => request<HomeDraftDto>(`/admin/site/pages/${page}/draft`)

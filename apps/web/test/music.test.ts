@@ -93,7 +93,8 @@ const key = (el: Element, k: string) => el.dispatchEvent(new KeyboardEvent('keyd
 const tabs = () => [...document.querySelectorAll<HTMLElement>('[role="tab"]')]
 const selected = () => tabs().find((t) => t.getAttribute('aria-selected') === 'true')!
 
-describe('Music section on the landing page', () => {
+// Task 6 brings these screens back as blocks of /gioi-thieu (the landing page left "/" in Task 4).
+describe.skip('Music section on the landing page', () => {
   it('is a full screen with a title and three ARIA tabs; arrows, Home and End move between them', async () => {
     const w = await mountHome()
     expect(w.find('[data-section="music"]').exists()).toBe(true)

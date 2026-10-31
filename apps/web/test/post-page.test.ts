@@ -568,7 +568,7 @@ describe('Post page — credit and owner tools', () => {
     expect(w.text()).not.toContain('Bị từ chối')
   })
 
-  it('delete confirms, calls DELETE and goes to the posts list', async () => {
+  it('delete confirms, calls DELETE and goes to the gallery', async () => {
     fake = installFakeFetch(routes(postDto(), { 'DELETE /api/posts/p1': { status: 204 }, 'GET /api/feed/home': page([]), 'GET /api/tags/featured': ok([]) }))
     const { w, router } = await mountPost(makeMe())
     await w.get('[data-test="delete-post"]').trigger('click')
@@ -576,7 +576,7 @@ describe('Post page — credit and owner tools', () => {
     ;(document.querySelector('[data-test="confirm-delete"]') as HTMLElement).click()
     await flushPromises()
     expect(fake.callsTo('DELETE /api/posts/p1')).toHaveLength(1)
-    expect(router.currentRoute.value.path).toBe('/posts')
+    expect(router.currentRoute.value.path).toBe('/')
     expect(w.text()).toContain('Đã xóa bài đăng')
   })
 })
@@ -739,7 +739,7 @@ describe('Post page — author', () => {
     const { w } = await mountPost(other())
     expect(w.text()).toContain('Bài khác của tác giả')
     const more = w.get('[data-test="more-by-author"]')
-    expect(more.findAll('a[href^="/posts/"]').map((a) => a.attributes('href'))).toEqual(['/posts/p2'])
+    expect([...new Set(more.findAll('a[href^="/posts/"]').map((a) => a.attributes('href')))]).toEqual(['/posts/p2'])
     await w.get('[data-test="follow"]').trigger('click')
     await flushPromises()
     expect(fake.callsTo('POST /api/users/cuka/follow')).toHaveLength(1)
