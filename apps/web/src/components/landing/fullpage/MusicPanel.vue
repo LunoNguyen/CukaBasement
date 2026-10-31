@@ -82,12 +82,12 @@ const open = (v: MusicVideo) => (playing.value = v)
   <section data-test="fp-music" :aria-labelledby="headingId" class="relative isolate flex flex-1 flex-col gap-5 overflow-hidden px-5 pt-24 pb-8 max-md:max-h-[var(--fp-h,100svh)] text-[var(--c-text)] sm:px-10 md:gap-7 md:pr-20 md:pb-12 lg:pr-24">
     <header class="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
       <div class="flex min-w-0 flex-col gap-3">
-        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 font-mono text-[11px] tracking-[0.2em] text-[var(--c-muted)] uppercase">
+        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 text-[11px] text-[var(--c-muted)]">
           <span class="h-px w-8 bg-[var(--c-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
         </p>
-        <h2 :id="headingId" class="font-display text-[clamp(2.6rem,7cqw,7.25rem)] leading-[0.9] font-semibold tracking-[-0.045em] uppercase">{{ tx(data.heading) }}</h2>
+        <h2 :id="headingId" class="font-display text-[clamp(2.6rem,7cqw,7.25rem)] leading-[0.9] font-semibold tracking-[-0.045em]">{{ tx(data.heading) }}</h2>
       </div>
-      <div v-if="tabs.length" role="tablist" :aria-label="t('landing.music.tabsLabel')" class="-mx-1 flex max-w-full gap-1 overflow-x-auto rounded-full border border-[var(--c-border)] bg-[var(--c-surface)]/70 p-1 [scrollbar-width:none]" data-test="music-tabs">
+      <div v-if="tabs.length" role="tablist" :aria-label="t('landing.music.tabsLabel')" class="-mx-1 flex max-w-full gap-1 overflow-x-auto rounded-full border border-[var(--c-border)] bg-[var(--c-bg)]/70 p-1 [scrollbar-width:none]" data-test="music-tabs">
         <button
           v-for="(g, i) in tabs"
           :id="`${baseId}-tab-${g}`"
@@ -99,12 +99,12 @@ const open = (v: MusicVideo) => (playing.value = v)
           :aria-controls="`${baseId}-panel`"
           :tabindex="current === g ? 0 : -1"
           class="min-h-11 shrink-0 rounded-full px-3 text-[13px] font-semibold whitespace-nowrap transition-colors sm:px-5 sm:text-sm"
-          :class="current === g ? 'bg-[var(--c-primary)] text-[var(--c-bg)]' : 'text-[var(--c-muted)] hover:text-[var(--c-text)]'"
+          :class="current === g ? 'bg-[var(--c-accent-strong)] text-[var(--c-bg)]' : 'text-[var(--c-muted)] hover:text-[var(--c-text)]'"
           :data-test="`music-tab-${g}`"
           @click="select(g)"
           @keydown="onTabKey($event, i)"
         >
-          {{ label(g) }}<span class="ml-1.5 hidden font-mono sm:inline text-[10px] opacity-70" aria-hidden="true">{{ String(lists[g].length).padStart(2, '0') }}</span>
+          {{ label(g) }}<span class="ml-1.5 hidden sm:inline text-[10px] opacity-70" aria-hidden="true">{{ String(lists[g].length).padStart(2, '0') }}</span>
         </button>
       </div>
     </header>
@@ -121,24 +121,24 @@ const open = (v: MusicVideo) => (playing.value = v)
         <button type="button" class="group flex min-w-0 flex-col gap-3 text-left" :aria-label="t('landing.music.play', { title: featured!.title })" data-test="music-featured" @click="open(featured!)">
           <span class="relative block w-full max-w-[calc((100svh-21rem)*16/9)] min-w-0">
             <MusicThumb :video="featured!" sizes="(min-width: 768px) 60vw, 100vw" play="lg" eager>
-              <span class="absolute top-3 left-3 rounded-full bg-[var(--c-accent)] px-3 py-1 font-mono text-[10px] font-semibold tracking-[0.16em] text-white uppercase">{{ t('landing.music.latest') }}</span>
+              <span class="absolute top-3 left-3 rounded-full bg-[var(--c-accent)] px-3 py-1 text-[10px] font-semibold text-white">{{ t('landing.music.latest') }}</span>
             </MusicThumb>
           </span>
           <span class="flex flex-col gap-1">
-            <span v-if="meta(featured!)" class="font-mono text-[11px] tracking-[0.12em] text-[var(--c-muted)]">{{ meta(featured!) }}</span>
+            <span v-if="meta(featured!)" class="text-[11px] text-[var(--c-muted)]">{{ meta(featured!) }}</span>
             <span class="line-clamp-2 font-display text-[clamp(1.35rem,2.4cqw,2.4rem)] leading-tight font-semibold text-balance">{{ featured!.title }}</span>
           </span>
         </button>
         <div v-if="rest.length" class="flex min-w-0 flex-col gap-3">
-          <p class="hidden font-mono text-[11px] tracking-[0.2em] text-[var(--c-muted)] uppercase md:block">{{ t('landing.music.upNext') }}</p>
+          <p class="hidden text-[11px] text-[var(--c-muted)] md:block">{{ t('landing.music.upNext') }}</p>
           <ul class="flex flex-col gap-2 md:gap-3">
             <!-- Phones show two, so the screen still fits. -->
             <li v-for="(v, i) in rest" :key="v.id" :class="i >= 2 ? 'max-md:hidden' : ''">
-              <button type="button" class="group grid w-full grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-xl p-1.5 text-left hover:bg-[var(--c-soft)] md:grid-cols-[9.5rem_minmax(0,1fr)]" :aria-label="t('landing.music.play', { title: v.title })" data-test="music-item" @click="open(v)">
+              <button type="button" class="group grid w-full grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 rounded-xl p-1.5 text-left hover:bg-[var(--c-surface-2)] md:grid-cols-[9.5rem_minmax(0,1fr)]" :aria-label="t('landing.music.play', { title: v.title })" data-test="music-item" @click="open(v)">
                 <MusicThumb :video="v" sizes="160px" />
                 <span class="flex min-w-0 flex-col gap-1">
                   <span class="line-clamp-2 text-sm leading-snug font-semibold md:text-base">{{ v.title }}</span>
-                  <span v-if="meta(v)" class="font-mono text-[10px] tracking-[0.08em] text-[var(--c-muted)]">{{ meta(v) }}</span>
+                  <span v-if="meta(v)" class="text-[10px] text-[var(--c-muted)]">{{ meta(v) }}</span>
                 </span>
               </button>
             </li>
@@ -156,7 +156,7 @@ const open = (v: MusicVideo) => (playing.value = v)
             </MusicThumb>
             <span class="flex min-w-0 flex-col gap-1">
               <span class="line-clamp-2 text-sm leading-snug font-semibold md:text-base">{{ v.title }}</span>
-              <span v-if="views(v) || date(v)" class="font-mono text-[10px] tracking-[0.08em] text-[var(--c-muted)]">{{ views(v) || date(v) }}</span>
+              <span v-if="views(v) || date(v)" class="text-[10px] text-[var(--c-muted)]">{{ views(v) || date(v) }}</span>
             </span>
           </button>
         </li>
@@ -170,19 +170,19 @@ const open = (v: MusicVideo) => (playing.value = v)
               <MusicThumb :video="v" sizes="(min-width: 1024px) 26rem, (min-width: 640px) 42vw, 78vw" />
               <span class="flex flex-col gap-1">
                 <span class="line-clamp-2 text-base leading-snug font-semibold">{{ v.title }}</span>
-                <span v-if="meta(v)" class="font-mono text-[10px] tracking-[0.08em] text-[var(--c-muted)]">{{ meta(v) }}</span>
+                <span v-if="meta(v)" class="text-[10px] text-[var(--c-muted)]">{{ meta(v) }}</span>
               </span>
             </button>
           </li>
         </ul>
         <div class="flex items-center gap-3">
-          <button type="button" class="flex size-11 items-center justify-center rounded-full border border-[var(--c-border)] hover:border-[var(--c-primary)]" :aria-label="t('landing.prev')" data-test="music-prev" @click="scrollRow(-1)">
+          <button type="button" class="flex size-11 items-center justify-center rounded-full border border-[var(--c-border)] hover:border-[var(--c-accent-strong)]" :aria-label="t('landing.prev')" data-test="music-prev" @click="scrollRow(-1)">
             <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6" /></svg>
           </button>
-          <button type="button" class="flex size-11 items-center justify-center rounded-full border border-[var(--c-border)] hover:border-[var(--c-primary)]" :aria-label="t('landing.next')" data-test="music-next" @click="scrollRow(1)">
+          <button type="button" class="flex size-11 items-center justify-center rounded-full border border-[var(--c-border)] hover:border-[var(--c-accent-strong)]" :aria-label="t('landing.next')" data-test="music-next" @click="scrollRow(1)">
             <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
           </button>
-          <a v-if="data.channelId" :href="`https://www.youtube.com/channel/${data.channelId}`" target="_blank" rel="noopener noreferrer" class="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--c-border)] px-5 text-sm font-semibold hover:border-[var(--c-primary)]" data-test="music-channel-link">
+          <a v-if="data.channelId" :href="`https://www.youtube.com/channel/${data.channelId}`" target="_blank" rel="noopener noreferrer" class="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--c-border)] px-5 text-sm font-semibold hover:border-[var(--c-accent-strong)]" data-test="music-channel-link">
             {{ t('landing.music.channel') }}
             <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
             <span class="sr-only">{{ t('landing.fp.newTab') }}</span>
@@ -190,7 +190,7 @@ const open = (v: MusicVideo) => (playing.value = v)
         </div>
       </div>
     </div>
-    <p class="font-mono text-[10px] tracking-[0.14em] text-[var(--c-muted)] uppercase">{{ t('landing.music.privacy') }}</p>
+    <p class="text-[10px] text-[var(--c-muted)]">{{ t('landing.music.privacy') }}</p>
 
     <MusicLightbox :video="playing" :locale="locale" @close="playing = null" />
   </section>

@@ -33,7 +33,7 @@ watch(() => props.data.count, load)
 <template>
   <LandingSection data-test="landing-fanart" :tone="tone" :index="index" :eyebrow="tx(data.eyebrow)" :heading="tx(data.heading)">
     <template #aside>
-      <RouterLink to="/posts" data-test="fanart-all" class="group inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--c-primary)] px-5 text-sm font-semibold text-[var(--c-primary)] hover:bg-[var(--c-primary)] hover:text-[var(--c-bg)]">
+      <RouterLink to="/posts" data-test="fanart-all" class="group inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--c-accent-strong)] px-5 text-sm font-semibold text-[var(--c-accent-strong)] hover:bg-[var(--c-accent-strong)] hover:text-[var(--c-bg)]">
         {{ t('landing.seeAll') }}
         <svg viewBox="0 0 24 24" class="size-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
       </RouterLink>

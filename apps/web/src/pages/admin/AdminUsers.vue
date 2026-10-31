@@ -131,7 +131,7 @@ async function confirm() {
           <textarea v-model="note" :maxlength="LIMITS.adminNoteMax" rows="3" class="field" />
         </label>
         <div class="flex justify-end gap-2">
-          <Btn variant="ghost" @click="open = false">{{ t('common.cancel') }}</Btn>
+          <Btn variant="secondary" @click="open = false">{{ t('common.cancel') }}</Btn>
           <Btn type="submit" :variant="pending.kind === 'status' && pending.value !== 'active' ? 'danger' : 'primary'" :loading="busy">{{ t('admin.users.confirm') }}</Btn>
         </div>
       </form>

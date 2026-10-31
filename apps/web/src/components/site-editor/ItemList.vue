@@ -21,11 +21,11 @@ const update = (i: number, v: T) => (items.value = items.value.map((x, k) => (k 
 <template>
   <fieldset class="flex flex-col gap-3" :data-test="testId">
     <legend class="mb-2 flex w-full items-center justify-between text-sm font-semibold">
-      {{ label }}<span class="font-mono text-xs font-normal text-[var(--c-muted)]">{{ items.length }}/{{ max }}</span>
+      {{ label }}<span class="text-xs font-normal text-[var(--c-muted)]">{{ items.length }}/{{ max }}</span>
     </legend>
     <div v-for="(item, i) in items" :key="i" class="flex flex-col gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-bg)] p-3" data-test="item-row">
       <div class="flex items-center gap-1">
-        <span class="mr-auto font-mono text-xs text-[var(--c-muted)]">#{{ i + 1 }}</span>
+        <span class="mr-auto text-xs text-[var(--c-muted)]">#{{ i + 1 }}</span>
         <button type="button" class="icon-btn size-9" :disabled="i === 0" :aria-label="t('admin.home.moveUp')" data-test="item-up" @click="move(i, -1)">
           <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
         </button>
@@ -41,7 +41,7 @@ const update = (i: number, v: T) => (items.value = items.value.map((x, k) => (k 
     <button
       v-if="items.length < max"
       type="button"
-      class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--c-border)] text-sm font-semibold text-[var(--c-muted)] hover:border-[var(--c-latte)] hover:text-[var(--c-text)]"
+      class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--c-border)] text-sm font-semibold text-[var(--c-muted)] hover:border-[var(--c-muted)] hover:text-[var(--c-text)]"
       data-test="item-add"
       @click="add"
     >

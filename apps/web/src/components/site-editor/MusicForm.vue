@@ -74,15 +74,15 @@ function setAuto(g: MusicGroup, on: boolean) {
   <div class="flex flex-col gap-5" data-test="music-form">
     <label class="flex flex-col gap-1.5 text-sm font-medium">
       {{ t('admin.home.music.channelId') }}
-      <input v-model.trim="data.channelId" class="field font-mono" type="text" maxlength="24" placeholder="UC…" :aria-invalid="!channelOk || undefined" data-test="f-channel-id" />
+      <input v-model.trim="data.channelId" class="field" type="text" maxlength="24" placeholder="UC…" :aria-invalid="!channelOk || undefined" data-test="f-channel-id" />
       <span v-if="!channelOk" class="text-xs font-normal text-[var(--c-danger)]">{{ t('admin.home.music.channelIdInvalid') }}</span>
       <span class="text-xs font-normal text-[var(--c-muted)]">{{ t('admin.home.music.channelIdHint') }}</span>
     </label>
 
-    <section class="flex flex-col gap-2 rounded-xl border border-[var(--c-border)] bg-[var(--c-soft)] p-3 text-sm" data-test="music-sync">
+    <section class="flex flex-col gap-2 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface-2)] p-3 text-sm" data-test="music-sync">
       <div class="flex flex-wrap items-center gap-2">
         <h3 class="mr-auto font-semibold">{{ t('admin.home.music.syncTitle') }}</h3>
-        <Btn size="sm" variant="ghost" :loading="refreshing" data-test="music-refresh" @click="refresh">{{ t('admin.home.music.refresh') }}</Btn>
+        <Btn size="sm" variant="secondary" :loading="refreshing" data-test="music-refresh" @click="refresh">{{ t('admin.home.music.refresh') }}</Btn>
       </div>
       <p class="text-xs text-[var(--c-muted)]">{{ t('admin.home.music.syncHint') }}</p>
       <p v-if="statusFailed" class="text-xs text-[var(--c-danger)]">{{ t('admin.home.music.statusError') }}</p>
@@ -116,18 +116,18 @@ function setAuto(g: MusicGroup, on: boolean) {
         <template #default="{ item }">
           <label class="flex flex-col gap-1.5 text-sm font-medium">
             {{ t('admin.home.music.url') }}
-            <input v-model.trim="item.url" class="field font-mono" type="url" :maxlength="L.urlMax" placeholder="https://www.youtube.com/watch?v=…" :aria-invalid="!parseYouTubeId(item.url) || undefined" data-test="f-music-url" />
+            <input v-model.trim="item.url" class="field" type="url" :maxlength="L.urlMax" placeholder="https://www.youtube.com/watch?v=…" :aria-invalid="!parseYouTubeId(item.url) || undefined" data-test="f-music-url" />
             <span v-if="item.url && !parseYouTubeId(item.url)" class="text-xs font-normal text-[var(--c-danger)]">{{ t('admin.home.notYoutube') }}</span>
           </label>
           <LocalizedInput v-model="item.title" :label="t('admin.home.music.titleOverride')" :max="L.headingMax" test-id="f-music-title" />
           <div class="grid grid-cols-2 gap-3">
             <label class="flex flex-col gap-1.5 text-sm font-medium">
               {{ t('admin.home.music.date') }}
-              <input v-model="item.date" class="field font-mono" type="date" data-test="f-music-date" />
+              <input v-model="item.date" class="field" type="date" data-test="f-music-date" />
             </label>
             <label class="flex flex-col gap-1.5 text-sm font-medium">
               {{ t('admin.home.music.views') }}
-              <input :value="item.views ?? ''" class="field font-mono" type="number" min="0" step="1" inputmode="numeric" :aria-invalid="!viewsOk(item.views) || undefined" data-test="f-music-views" @input="setViews(item, ($event.target as HTMLInputElement).value)" />
+              <input :value="item.views ?? ''" class="field" type="number" min="0" step="1" inputmode="numeric" :aria-invalid="!viewsOk(item.views) || undefined" data-test="f-music-views" @input="setViews(item, ($event.target as HTMLInputElement).value)" />
               <span v-if="!viewsOk(item.views)" class="text-xs font-normal text-[var(--c-danger)]">{{ t('admin.home.music.viewsInvalid') }}</span>
             </label>
           </div>

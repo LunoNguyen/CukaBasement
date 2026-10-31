@@ -30,6 +30,20 @@ async function mountHeader(avatarUrl: string | null) {
 }
 
 describe('header avatar', () => {
+  it('logged in: upload is a primary button; language and theme live in the account menu', async () => {
+    const { w } = await mountHeader(null)
+    const upload = w.get('[data-test="header-upload"]')
+    expect(upload.attributes('href')).toBe('/upload')
+    expect(upload.classes().some((c) => c.includes('--c-accent-strong'))).toBe(true)
+    expect(w.find('[data-test="lang-en"]').exists()).toBe(false)
+    expect(w.find('[data-test="header-more"]').exists()).toBe(false)
+    await w.get('[data-test="account-menu-button"]').trigger('click')
+    const menu = w.get('[data-test="account-menu"]')
+    expect(menu.find('[data-test="lang-en"]').exists()).toBe(true)
+    expect(menu.find('[data-test="theme-toggle"]').exists()).toBe(true)
+    w.unmount()
+  })
+
   it('shows the avatar image when the user has a published avatar', async () => {
     const { w } = await mountHeader('http://cdn/u1/a/thumb_md.webp')
     const img = w.get('[data-test="account-menu-button"] img[data-test="account-avatar"]')

@@ -3,62 +3,58 @@
 @theme {
   --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Fraunces', Georgia, serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
+/*
+ * Design tokens (spec §3): a white gallery with one accent, Du Ca's hair pink. `accent` marks hearts, the active
+ * tab, rank numbers and focus; small pink text and primary buttons use `accent-strong` (4.5:1 or better).
+ */
 :root {
   color-scheme: light;
-  --c-bg: #fbf7f4;
-  --c-surface: #ffffff;
-  --c-text: #2a1d16;
-  --c-muted: #7a6a60;
-  --c-primary: #5b3a29;
-  --c-accent: #e85d75;
-  --c-border: #e6dcd5;
-  /* Tinted fills behind small text: accent at text contrast, and a quiet neutral. */
-  --c-accent-soft: #fde4e8;
-  --c-accent-text: #a3304a;
-  --c-soft: #f3ebe6;
-  --c-latte: #c79a80;
-  --c-danger: #b42318;
-  /* The credit card's paper: cream on the cream page (with a shadow), the dark surface at night. */
-  --c-paper: #fbf7f4;
-  /* "Hầm": the basement panels (hero, footer, empty-state art) stay dark in both themes. */
-  --c-cellar: #17110e;
-  --c-cellar-deep: #0f0b09;
-  --c-cellar-surface: #231a15;
-  --c-cellar-text: #f3ebe6;
-  --c-cellar-muted: #a89a90;
-  --c-cellar-line: #3a2d26;
-  --c-cellar-accent: #e85d75;
+  --c-bg: #ffffff;
+  --c-surface-2: #f5f5f5;
+  --c-border: #e5e5e5;
+  --c-text: #1f1f1f;
+  --c-muted: #6b6b6b;
+  --c-accent: #e8577a;
+  --c-accent-strong: #c2365a;
+  --c-accent-soft: #fdecf1;
+  --c-danger: #d92d20;
+  /* Text on a primary (accent-strong) or danger fill. */
+  --c-on-primary: #ffffff;
+  /* Dimmed backdrop behind dialogs and the lightbox. */
+  --c-scrim: rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 4px 16px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.06);
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --c-bg: #17110e;
-  --c-surface: #231a15;
-  --c-text: #f3ebe6;
-  --c-muted: #a89a90;
-  --c-primary: #c79a80;
-  --c-accent: #ff7a90;
-  --c-border: #3a2d26;
-  --c-accent-soft: #3d1d25;
-  --c-accent-text: #ff9aac;
-  --c-soft: #2e221c;
-  --c-latte: #c79a80;
+  --c-bg: #141414;
+  --c-surface-2: #1f1f1f;
+  --c-border: #2e2e2e;
+  --c-text: #ededed;
+  --c-muted: #a3a3a3;
+  --c-accent: #ff7d9a;
+  --c-accent-strong: #ff9db3;
+  --c-accent-soft: #3a1f27;
   --c-danger: #ff8a80;
-  --c-paper: #231a15;
-  --c-cellar: #0f0b09;
-  --c-cellar-surface: #231a15;
-  --c-cellar-accent: #ff7a90;
+  --c-on-primary: #141414;
+  --c-scrim: rgb(0 0 0 / 0.7);
+  --shadow-pop: 0 4px 16px rgb(0 0 0 / 0.5);
 }
 
-/* In the base layer so utilities like text-[var(--c-bg)] on links still win. */
+/* In the base layer so utilities still win. */
 @layer base {
   html,
   body {
     background: var(--c-bg);
     color: var(--c-text);
+  }
+
+  body {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
   }
 
   a {
@@ -72,7 +68,7 @@
 
   input[type='checkbox'],
   input[type='radio'] {
-    accent-color: var(--c-primary);
+    accent-color: var(--c-accent-strong);
   }
 }
 
@@ -262,12 +258,12 @@ html.fp-dialog-open {
 }
 
 @layer components {
-  /* Text input, select and textarea. */
+  /* Text input, select and textarea: a grey well with a hairline; the accent marks focus. */
   .field {
     min-height: 2.5rem;
     border: 1px solid var(--c-border);
-    border-radius: 0.625rem;
-    background: var(--c-surface);
+    border-radius: 4px;
+    background: var(--c-surface-2);
     padding: 0.5rem 0.75rem;
     color: var(--c-text);
     font-size: 0.875rem;
@@ -277,43 +273,44 @@ html.fp-dialog-open {
     color: var(--c-muted);
   }
   .field:hover {
-    border-color: var(--c-latte);
+    border-color: var(--c-muted);
   }
   .field:focus {
-    border-color: var(--c-primary);
+    border-color: var(--c-accent);
     outline: none;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-primary) 18%, transparent);
   }
   .field:disabled {
     opacity: 0.6;
   }
 
-  /* Rounded filter/tag pill; pressed or active state fills with the primary colour. */
+  /* Filter / tag chip; the selected one is tinted pink. */
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
     min-height: 2rem;
-    border: 1px solid var(--c-border);
-    border-radius: 9999px;
-    background: var(--c-surface);
-    padding: 0.25rem 0.875rem;
-    font-size: 0.875rem;
-    font-weight: 500;
+    border-radius: 4px;
+    background: var(--c-surface-2);
+    padding: 0.25rem 0.75rem;
+    color: var(--c-text);
+    font-size: 0.8125rem;
+    font-weight: 400;
     white-space: nowrap;
     transition:
-      border-color 0.15s,
-      background-color 0.15s;
+      background-color 0.15s,
+      color 0.15s;
   }
   .chip:hover {
-    border-color: var(--c-latte);
+    background: var(--c-border);
   }
+  .chip-active,
   .chip[aria-pressed='true'],
+  .chip[aria-selected='true'],
   .chip.is-active,
   .chip:has(> input:checked) {
-    border-color: var(--c-primary);
-    background: var(--c-primary);
-    color: var(--c-bg);
+    background: var(--c-accent-soft);
+    color: var(--c-accent-strong);
+    font-weight: 600;
   }
 
   /* A radio option drawn as a chip: the input stays in the label for keyboard and screen readers. */
@@ -325,77 +322,75 @@ html.fp-dialog-open {
     outline-offset: 2px;
   }
 
-  /* Small status/credit label. */
+  /* Small status / credit label. */
   .badge {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    border-radius: 0.375rem;
-    background: var(--c-soft);
-    padding: 0.125rem 0.5rem;
-    color: var(--c-primary);
+    border-radius: 4px;
+    background: var(--c-surface-2);
+    padding: 0 0.375rem;
+    color: var(--c-muted);
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1.25rem;
   }
   .badge-accent {
     background: var(--c-accent-soft);
-    color: var(--c-accent-text);
+    color: var(--c-accent-strong);
   }
-  /* Rating "Mọi lứa tuổi" and other neutral facts: outlined, body-coloured. */
   .badge-outline {
     border: 1px solid var(--c-border);
     background: transparent;
     color: var(--c-text);
-    font-weight: 500;
+    font-weight: 400;
   }
-  /* R18 on the board is bold on the pink tint. */
+  /* R18: the one upper-case label, white on red like pixiv's. */
   .badge-r18 {
-    background: var(--c-accent-soft);
-    color: var(--c-accent-text);
+    background: var(--c-danger);
+    color: var(--c-on-primary);
     font-weight: 700;
   }
 
-  /* Review status: a latte dot and muted text ("Đang chờ duyệt"). */
+  /* Review status: a dot and muted text ("Đang chờ duyệt"). */
   .status {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
     color: var(--c-muted);
     font-size: 0.75rem;
-    font-weight: 500;
     line-height: 1.25rem;
   }
   .status::before {
     content: '';
-    width: 0.5rem;
-    height: 0.5rem;
+    width: 0.375rem;
+    height: 0.375rem;
     flex-shrink: 0;
     border-radius: 9999px;
-    background: var(--c-latte);
+    background: var(--c-muted);
   }
 
-  /* Credit "sticker" chips on the credit card: filled for the credit, outlined for the pledge. */
+  /* Credit facts on the post page: plain chips. */
   .tag-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.3125rem;
-    border: 1px solid var(--c-primary);
-    border-radius: 9999px;
-    padding: 0.3125rem 0.625rem;
-    color: var(--c-primary);
+    gap: 0.25rem;
+    border-radius: 4px;
+    background: var(--c-surface-2);
+    padding: 0.125rem 0.5rem;
+    color: var(--c-text);
     font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1rem;
+    line-height: 1.25rem;
   }
   .tag-pill-filled {
-    background: var(--c-primary);
-    color: var(--c-bg);
+    background: var(--c-accent-soft);
+    color: var(--c-accent-strong);
+    font-weight: 600;
   }
 
-  /* Inline text link: cocoa, as on the board (the pink accent is too light for small text). */
+  /* Inline text link. */
   .link {
-    color: var(--c-primary);
+    color: var(--c-accent-strong);
     font-weight: 600;
     text-underline-offset: 2px;
   }
@@ -403,66 +398,79 @@ html.fp-dialog-open {
     text-decoration: underline;
   }
 
-  /* Monospace section label, as on the brand board. */
+  /* Small section label (sentence case, not mono). */
   .eyebrow {
     color: var(--c-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 600;
   }
 
-  /* The CukaBasement wordmark: "Cuka" bold, "Basement" regular. */
-  .wordmark {
-    color: var(--c-primary);
-    font-family: var(--font-display);
-    font-weight: 400;
-    letter-spacing: -0.02em;
-  }
-  .wordmark > b {
-    font-weight: 700;
-  }
-
+  /* Bordered block: panels, cards, frames. */
+  .panel,
   .card {
     border: 1px solid var(--c-border);
-    border-radius: 0.875rem;
-    background: var(--c-surface);
+    border-radius: 8px;
+    background: var(--c-bg);
   }
 
   /* Dropdown menu panel and its rows. */
   .menu {
     border: 1px solid var(--c-border);
-    border-radius: 0.75rem;
-    background: var(--c-surface);
+    border-radius: 8px;
+    background: var(--c-bg);
     padding: 0.25rem;
-    box-shadow: 0 12px 32px rgb(23 17 14 / 0.14);
+    box-shadow: var(--shadow-pop);
   }
   .menu-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     width: 100%;
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    min-height: 2.25rem;
+    border-radius: 4px;
+    padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
     text-align: left;
     white-space: nowrap;
   }
   .menu-item:hover {
-    background: var(--c-soft);
+    background: var(--c-surface-2);
+  }
+  .menu-sep {
+    margin: 0.25rem 0;
+    border-top: 1px solid var(--c-border);
   }
 
-  /* Round icon-only button in the header and toolbars. */
+  /* Square icon-only button in the header and toolbars (44px touch target on touch screens). */
   .icon-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 9999px;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 4px;
     color: var(--c-text);
     transition: background-color 0.15s;
   }
   .icon-btn:hover {
-    background: var(--c-soft);
+    background: var(--c-surface-2);
+  }
+  @media (pointer: coarse) {
+    .icon-btn {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
+
+  /* A small control keeps a 44px touch target on touch screens without growing visually. */
+  .touch-pad {
+    position: relative;
+  }
+  @media (pointer: coarse) {
+    .touch-pad::after {
+      content: '';
+      position: absolute;
+      inset: -6px 0;
+    }
   }
 }

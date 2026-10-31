@@ -54,20 +54,18 @@ describe('Posts (the feed that used to be the home page)', () => {
     const { w } = await mountAt('/posts')
     expect(w.get('h1').text()).toBe('Bài đăng')
     expect(w.find('[data-test="home-hero"]').exists()).toBe(false)
-    expect(w.get('[data-test="footer"]').text()).toContain('Nơi chia sẻ fanart Hibiki Du Ca')
+    expect(w.get('[data-test="footer"]').text()).toContain('CukaBasement')
     expect(w.get('[data-test="empty-art"]').attributes('aria-hidden')).toBe('true')
     w.unmount()
   })
 
-  it('header: "Trang chủ" links to the landing page and "Bài đăng" to /posts; /feed redirects', async () => {
+  it('header: "Trang chủ" links to "/"; /feed redirects', async () => {
     fake = installFakeFetch({ 'GET /api/tags/featured': { status: 200, body: [] }, 'GET /api/feed/home': ok([]) })
     const { w, router } = await mountAt('/feed')
     expect(router.currentRoute.value.path).toBe('/posts')
     expect(w.get('[data-test="nav-home"]').attributes('href')).toBe('/')
     expect(w.get('[data-test="nav-home"]').text()).toBe('Trang chủ')
-    expect(w.get('[data-test="nav-posts"]').attributes('href')).toBe('/posts')
-    expect(w.get('[data-test="nav-posts"]').text()).toBe('Bài đăng')
-    expect(w.get('[data-test="nav-posts"]').classes()).toContain('text-[var(--c-text)]')
+    expect(w.find('[data-test="nav-posts"]').exists()).toBe(false)
     w.unmount()
   })
 

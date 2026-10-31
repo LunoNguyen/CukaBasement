@@ -21,8 +21,8 @@ const num = computed(() => (props.index > 0 ? String(props.index).padStart(2, '0
     class="relative isolate overflow-hidden"
     :class="{
       'bg-[var(--c-bg)] text-[var(--c-text)]': tone === 'cream',
-      'bg-[var(--c-soft)] text-[var(--c-text)]': tone === 'soft',
-      'bg-[var(--c-cellar)] text-[var(--c-cellar-text)]': tone === 'cellar',
+      'bg-[var(--c-surface-2)] text-[var(--c-text)]': tone === 'soft',
+      'bg-[#141414] text-[#ededed]': tone === 'cellar',
     }"
   >
     <slot name="decor" />
@@ -31,11 +31,11 @@ const num = computed(() => (props.index > 0 ? String(props.index).padStart(2, '0
         <div class="flex max-w-3xl flex-col gap-4">
           <p
             v-if="eyebrow || num"
-            class="flex items-center gap-3 font-mono text-xs tracking-[0.14em] uppercase"
-            :class="tone === 'cellar' ? 'text-[var(--c-cellar-muted)]' : 'text-[var(--c-muted)]'"
+            class="flex items-center gap-3 text-xs"
+            :class="tone === 'cellar' ? 'text-[#a3a3a3]' : 'text-[var(--c-muted)]'"
           >
-            <span v-if="num" :class="tone === 'cellar' ? 'text-[var(--c-cellar-accent)]' : 'text-[var(--c-accent-text)]'">{{ num }}</span>
-            <span v-if="num && eyebrow" aria-hidden="true" class="h-px w-8" :class="tone === 'cellar' ? 'bg-[var(--c-cellar-line)]' : 'bg-[var(--c-border)]'" />
+            <span v-if="num" :class="tone === 'cellar' ? 'text-[var(--c-accent)]' : 'text-[var(--c-accent-strong)]'">{{ num }}</span>
+            <span v-if="num && eyebrow" aria-hidden="true" class="h-px w-8" :class="tone === 'cellar' ? 'bg-[#2e2e2e]' : 'bg-[var(--c-border)]'" />
             <span v-if="eyebrow">{{ eyebrow }}</span>
           </p>
           <h2 :id="headingId" class="font-display text-[clamp(2.25rem,5vw,3.75rem)] leading-[1.02] font-semibold tracking-[-0.03em] text-balance">{{ heading }}</h2>

@@ -222,14 +222,14 @@ onBeforeUnmount(() => {
       tabindex="-1"
       data-test="lightbox"
       :aria-label="t('post.lightbox', { name: title })"
-      class="fixed inset-0 z-50 flex flex-col bg-[var(--c-cellar-deep)]/95 text-[var(--c-cellar-text)] outline-none backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex flex-col bg-[#0a0a0a]/95 text-[#ededed] outline-none backdrop-blur-sm"
       @keydown="onKeydown"
     >
       <div class="flex shrink-0 items-center gap-1 px-2 py-2 sm:px-4">
         <p
           v-if="many"
           data-test="lightbox-indicator"
-          class="min-w-0 px-2 font-mono text-sm text-[var(--c-cellar-muted)] tabular-nums"
+          class="min-w-0 px-2 text-sm text-[#a3a3a3] tabular-nums"
           :aria-label="t('post.pageOf', { n: pos + 1, total: images.length })"
         >
           {{ pos + 1 }} / {{ images.length }}
@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             data-test="zoom-level"
-            class="lightbox-btn inline-flex h-11 min-w-14 items-center justify-center rounded-full px-2 font-mono text-xs tabular-nums"
+            class="lightbox-btn inline-flex h-11 min-w-14 items-center justify-center rounded-full px-2 text-xs tabular-nums"
             :aria-label="t('post.zoomReset')"
             @click="reset"
           >
@@ -302,11 +302,11 @@ onBeforeUnmount(() => {
 <style scoped>
 /* icon-btn's text and hover are for the page; on the cellar backdrop it is light on dark. */
 .lightbox-btn {
-  color: var(--c-cellar-text);
+  color: #ededed;
   transition: background-color 0.15s;
 }
 .lightbox-btn:hover:not(:disabled) {
-  background: var(--c-cellar-line);
+  background: #2e2e2e;
 }
 .lightbox-btn:disabled {
   opacity: 0.4;
@@ -315,6 +315,6 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: color-mix(in srgb, var(--c-cellar-surface) 80%, transparent);
+  background: color-mix(in srgb, #1f1f1f 80%, transparent);
 }
 </style>

@@ -18,7 +18,7 @@ const { tx } = useLanding()
         <RichText :source="tx(data.body)" />
       </div>
       <figure v-reveal class="relative mx-auto w-full max-w-md" :class="data.imageSide === 'left' ? 'md:order-1' : ''">
-        <div class="aspect-[4/5] overflow-hidden rounded-t-full rounded-b-[2rem] border border-[var(--c-border)] bg-[var(--c-cellar)]">
+        <div class="aspect-[4/5] overflow-hidden rounded-t-full rounded-b-[2rem] border border-[var(--c-border)] bg-[#141414]">
           <SiteImage :image="data.image" sizes="(min-width: 768px) 28rem, 90vw" img-class="h-full w-full object-cover">
             <template #fallback><ArchArt /></template>
           </SiteImage>

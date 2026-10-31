@@ -25,7 +25,7 @@ const bad = computed(() => props.item.status === 'invalid' || props.item.status 
 </script>
 
 <template>
-  <li data-test="queue-item" class="flex items-center gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface)] p-2 text-sm">
+  <li data-test="queue-item" class="flex items-center gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-bg)] p-2 text-sm">
     <div class="h-12 w-12 shrink-0 overflow-hidden rounded">
       <img v-if="item.thumbUrl" :src="item.thumbUrl" alt="" class="h-full w-full object-cover" />
       <MediaPlaceholder v-else />

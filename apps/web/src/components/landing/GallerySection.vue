@@ -56,7 +56,7 @@ function scroll(dir: -1 | 1) {
           'w-[78%] shrink-0 snap-start sm:w-[46%] lg:w-[31%]': data.layout === 'carousel',
         }"
       >
-        <component :is="item.href ? SmartLink : 'div'" v-bind="item.href ? { href: item.href } : {}" class="block overflow-hidden rounded-2xl bg-[var(--c-soft)]">
+        <component :is="item.href ? SmartLink : 'div'" v-bind="item.href ? { href: item.href } : {}" class="block overflow-hidden rounded-2xl bg-[var(--c-surface-2)]">
           <SiteImage
             :image="item.image"
             :sizes="data.layout === 'carousel' ? '(min-width: 1024px) 31vw, (min-width: 640px) 46vw, 78vw' : '(min-width: 768px) 33vw, 50vw'"
@@ -65,7 +65,7 @@ function scroll(dir: -1 | 1) {
               data.layout === 'masonry' ? 'h-auto' : 'aspect-[4/5] object-cover',
             ].join(' ')"
           >
-            <template #fallback><div class="aspect-[4/5] w-full bg-[var(--c-soft)]" aria-hidden="true" /></template>
+            <template #fallback><div class="aspect-[4/5] w-full bg-[var(--c-surface-2)]" aria-hidden="true" /></template>
           </SiteImage>
         </component>
         <figcaption v-if="tx(item.caption)" class="mt-2 text-sm text-[var(--c-muted)]">{{ tx(item.caption) }}</figcaption>

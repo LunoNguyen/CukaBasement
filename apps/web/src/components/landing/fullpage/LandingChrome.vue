@@ -30,14 +30,14 @@ async function restoreFocus() {
         ref="button"
         type="button"
         class="fp-burger pointer-events-auto flex min-h-12 items-center gap-3 rounded-full py-1 pr-1 pl-4 transition-colors"
-        :class="tone === 'dark' ? 'bg-[#0f0b09]/25 backdrop-blur-sm hover:bg-[#0f0b09]/45' : 'bg-[var(--c-surface)]/70 backdrop-blur-sm hover:bg-[var(--c-surface)]'"
+        :class="tone === 'dark' ? 'bg-[#0f0b09]/25 backdrop-blur-sm hover:bg-[#0f0b09]/45' : 'bg-[var(--c-bg)]/70 backdrop-blur-sm hover:bg-[var(--c-bg)]'"
         :aria-expanded="open"
         aria-controls="landing-menu"
         :aria-label="t('landing.menu.open')"
         data-test="menu-button"
         @click="open = true"
       >
-        <span class="hidden font-mono text-[11px] tracking-[0.2em] uppercase sm:inline" aria-hidden="true">{{ t('landing.menu.label') }}</span>
+        <span class="hidden text-[11px] sm:inline" aria-hidden="true">{{ t('landing.menu.label') }}</span>
         <span class="flex size-10 flex-col items-center justify-center gap-[5px] rounded-full border border-current/40" aria-hidden="true">
           <i class="block h-[1.5px] w-4 bg-current" /><i class="block h-[1.5px] w-4 bg-current" /><i class="block h-[1.5px] w-2.5 translate-x-[-3px] bg-current" />
         </span>

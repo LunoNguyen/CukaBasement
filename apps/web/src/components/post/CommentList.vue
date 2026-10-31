@@ -157,7 +157,7 @@ async function confirmPending() {
             class="field text-sm"
           />
           <div class="flex justify-end gap-2">
-            <Btn variant="ghost" @click="replyTo = null">{{ t('common.cancel') }}</Btn>
+            <Btn variant="secondary" @click="replyTo = null">{{ t('common.cancel') }}</Btn>
             <Btn type="submit" :loading="busy" :disabled="busy || !replyBody.trim()">{{ t('comments.reply') }}</Btn>
           </div>
         </form>
@@ -166,16 +166,16 @@ async function confirmPending() {
 
     <div v-if="list.error.value" class="text-center">
       <p class="mb-2 text-sm text-[var(--c-muted)]">{{ errorText(list.error.value) }}</p>
-      <Btn variant="ghost" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
+      <Btn variant="secondary" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
     </div>
     <div v-else-if="list.loading.value" class="flex justify-center"><Spinner /></div>
     <p v-else-if="list.done.value && list.items.value.length === 0" class="text-sm text-[var(--c-muted)]">{{ t('comments.empty') }}</p>
-    <div v-else-if="!list.done.value" class="flex justify-center"><Btn variant="ghost" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn></div>
+    <div v-else-if="!list.done.value" class="flex justify-center"><Btn variant="secondary" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn></div>
 
     <Modal v-model:open="confirmOpen" :title="pending?.kind === 'hide' ? t('comments.hideTitle') : t('comments.deleteTitle')">
       <p class="mb-4 text-sm">{{ pending?.kind === 'hide' ? t('comments.hideConfirm') : t('comments.deleteConfirm') }}</p>
       <div class="flex justify-end gap-2">
-        <Btn variant="ghost" @click="pending = null">{{ t('common.cancel') }}</Btn>
+        <Btn variant="secondary" @click="pending = null">{{ t('common.cancel') }}</Btn>
         <Btn data-test="confirm-comment" variant="danger" :loading="acting" @click="confirmPending">
           {{ pending?.kind === 'hide' ? t('mod.hide') : t('comments.delete') }}
         </Btn>

@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
       <div v-if="video" class="fixed inset-0 z-50 flex items-center justify-center bg-[#0f0b09]/90 p-3 backdrop-blur-sm sm:p-8" data-test="music-lightbox" @click.self="emit('close')">
         <div ref="dialog" role="dialog" aria-modal="true" :aria-labelledby="titleId" class="flex w-full max-w-[min(72rem,calc((100svh-12rem)*16/9))] flex-col gap-4 text-[#f3ebe6]">
           <div class="flex items-center justify-between gap-4">
-            <p class="font-mono text-[11px] tracking-[0.18em] text-[#a89a90] uppercase">{{ t('landing.music.player') }}</p>
+            <p class="text-[11px] text-[#a89a90]">{{ t('landing.music.player') }}</p>
             <button type="button" class="flex size-11 items-center justify-center rounded-full border border-[#f3ebe6]/35 hover:border-[#f3ebe6]" :aria-label="t('landing.music.close')" data-test="music-close" @click="emit('close')">
               <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
           <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div class="flex min-w-0 flex-col gap-1">
               <h2 :id="titleId" class="font-display text-xl leading-tight font-semibold text-balance sm:text-2xl">{{ video.title }}</h2>
-              <p v-if="meta" class="font-mono text-xs tracking-[0.08em] text-[#a89a90]">{{ meta }}</p>
+              <p v-if="meta" class="text-xs text-[#a89a90]">{{ meta }}</p>
             </div>
             <a :href="video.watchUrl" target="_blank" rel="noopener noreferrer" class="group inline-flex min-h-11 items-center gap-2 rounded-full bg-[#fbf7f4] px-5 text-sm font-semibold text-[#5b3a29] hover:bg-white" data-test="music-watch">
               {{ t('landing.music.watchOnYoutube') }}

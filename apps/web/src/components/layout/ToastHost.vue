@@ -2,7 +2,7 @@
 import { useToast } from '@/stores/toast'
 
 const toast = useToast()
-const color = { error: 'var(--c-accent)', success: '#2f9e6b', info: 'var(--c-primary)' }
+const color = { error: 'var(--c-danger)', success: '#2f9e6b', info: 'var(--c-muted)' }
 </script>
 
 <template>
@@ -11,7 +11,7 @@ const color = { error: 'var(--c-accent)', success: '#2f9e6b', info: 'var(--c-pri
       v-for="t in toast.toasts"
       :key="t.id"
       role="status"
-      class="cursor-pointer rounded-xl border border-l-4 border-[var(--c-border)] bg-[var(--c-surface)] px-4 py-3 text-sm shadow-lg"
+      class="cursor-pointer rounded-lg border border-l-[3px] border-[var(--c-border)] bg-[var(--c-bg)] px-4 py-3 text-sm shadow-[var(--shadow-pop)]"
       :style="{ borderLeftColor: color[t.kind] }"
       @click="toast.dismiss(t.id)"
     >

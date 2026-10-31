@@ -142,27 +142,27 @@ function onTouchEnd(e: TouchEvent) {
 </script>
 
 <template>
-  <section data-test="fp-releases" :aria-labelledby="headingId" class="relative isolate flex flex-1 flex-col justify-center gap-8 overflow-hidden bg-[var(--c-cellar)] px-5 pt-24 pb-10 text-[var(--c-cellar-text)] sm:px-10 md:gap-10 md:pr-20 md:pb-14 lg:pr-24">
+  <section data-test="fp-releases" :aria-labelledby="headingId" class="relative isolate flex flex-1 flex-col justify-center gap-8 overflow-hidden bg-[#141414] px-5 pt-24 pb-10 text-[#ededed] sm:px-10 md:gap-10 md:pr-20 md:pb-14 lg:pr-24">
     <header class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
       <div class="flex min-w-0 flex-col gap-3">
-        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 font-mono text-[11px] tracking-[0.2em] text-[var(--c-cellar-muted)] uppercase">
-          <span class="h-px w-8 bg-[var(--c-cellar-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
+        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 text-[11px] text-[#a3a3a3]">
+          <span class="h-px w-8 bg-[var(--c-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
         </p>
-        <h2 :id="headingId" class="font-display text-[clamp(2.9rem,8.6cqw,9rem)] leading-[0.95] md:leading-[0.86] font-semibold tracking-[-0.045em] uppercase [word-spacing:0.1em]">{{ tx(data.heading) }}</h2>
+        <h2 :id="headingId" class="font-display text-[clamp(2.9rem,8.6cqw,9rem)] leading-[0.95] md:leading-[0.86] font-semibold tracking-[-0.045em] [word-spacing:0.1em]">{{ tx(data.heading) }}</h2>
       </div>
       <div class="flex items-center gap-5">
-        <span v-if="n" class="hidden font-mono text-xs tracking-[0.16em] text-[var(--c-cellar-muted)] md:inline" aria-hidden="true">{{ active === null ? '—' : pad(active) }} / {{ String(n).padStart(2, '0') }}</span>
-        <RouterLink v-if="data.source === 'latestFanart'" to="/posts" data-test="releases-all" class="group inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--c-cellar-text)]/35 px-5 text-sm font-semibold hover:border-[var(--c-cellar-text)]">
+        <span v-if="n" class="hidden text-xs text-[#a3a3a3] md:inline" aria-hidden="true">{{ active === null ? '—' : pad(active) }} / {{ String(n).padStart(2, '0') }}</span>
+        <RouterLink v-if="data.source === 'latestFanart'" to="/posts" data-test="releases-all" class="group inline-flex min-h-11 items-center gap-2 rounded-full border border-[#ededed]/35 px-5 text-sm font-semibold hover:border-[#ededed]">
           {{ t('landing.seeAll') }}
           <svg viewBox="0 0 24 24" class="size-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </RouterLink>
       </div>
     </header>
 
-    <div v-if="state === 'loading'" class="flex justify-center py-16 text-[var(--c-cellar-muted)]"><Spinner /></div>
-    <div v-else-if="!n" class="flex flex-col items-start gap-4 rounded-[1.75rem] border border-dashed border-[var(--c-cellar-line)] p-8" data-test="releases-empty">
+    <div v-if="state === 'loading'" class="flex justify-center py-16 text-[#a3a3a3]"><Spinner /></div>
+    <div v-else-if="!n" class="flex flex-col items-start gap-4 rounded-[1.75rem] border border-dashed border-[#2e2e2e] p-8" data-test="releases-empty">
       <p class="font-display text-2xl font-semibold">{{ t(state === 'error' ? 'landing.fanartError' : 'landing.fanartEmpty') }}</p>
-      <RouterLink to="/upload" class="font-semibold text-[var(--c-cellar-accent)] underline-offset-4 hover:underline">{{ t('landing.fanartShare') }}</RouterLink>
+      <RouterLink to="/upload" class="font-semibold text-[var(--c-accent)] underline-offset-4 hover:underline">{{ t('landing.fanartShare') }}</RouterLink>
     </div>
 
     <template v-else>
@@ -178,20 +178,20 @@ function onTouchEnd(e: TouchEvent) {
         <li
           v-for="(c, i) in cards"
           :key="c.key"
-          class="relative min-w-0 basis-0 overflow-hidden rounded-[2px] bg-[var(--c-cellar-surface)] transition-[flex-grow] duration-700 ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none"
+          class="relative min-w-0 basis-0 overflow-hidden rounded-[2px] bg-[#1f1f1f] transition-[flex-grow] duration-700 ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none"
           :style="{ flexGrow: active === i ? openGrow : 1 }"
           :data-active="active === i ? 'true' : undefined"
           data-test="release-item"
         >
           <SmartLink :href="c.href" class="group absolute inset-0 block focus-visible:outline-offset-[-4px]" @mouseenter="active = i" @focus="active = i">
             <img v-if="c.cover" :src="c.cover.src" :srcset="c.cover.srcset" sizes="(min-width: 768px) 40vw, 100vw" :alt="c.cover.alt" loading="lazy" decoding="async" class="absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-700 motion-reduce:transition-none" :class="active === i && c.wide ? 'scale-[1.04] opacity-0' : 'opacity-100'" />
-            <span v-else class="absolute inset-0 flex items-center justify-center font-display text-7xl text-[var(--c-cellar-accent)] italic" aria-hidden="true">{{ c.title.charAt(0) }}</span>
+            <span v-else class="absolute inset-0 flex items-center justify-center font-display text-7xl text-[var(--c-accent)] italic" aria-hidden="true">{{ c.title.charAt(0) }}</span>
             <img v-if="c.wide && c.wide !== c.cover" :src="c.wide.src" :srcset="c.wide.srcset" sizes="60vw" alt="" loading="lazy" decoding="async" aria-hidden="true" class="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 motion-reduce:transition-none" :class="active === i ? 'opacity-100' : 'opacity-0'" />
             <span class="absolute inset-0 bg-[#0f0b09] transition-opacity duration-500" :class="active !== null && active !== i ? 'opacity-60' : active === i ? 'opacity-25' : 'opacity-0'" aria-hidden="true" />
-            <span class="absolute top-4 left-4 font-mono text-[11px] tracking-[0.16em] text-[#f3ebe6]/90" aria-hidden="true">{{ pad(i) }}</span>
+            <span class="absolute top-4 left-4 text-[11px] text-[#f3ebe6]/90" aria-hidden="true">{{ pad(i) }}</span>
             <span class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-[#f3ebe6] transition-[opacity,transform] duration-500 motion-reduce:transition-none" :class="active === i ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'">
               <span class="flex min-w-0 flex-col gap-1">
-                <span v-if="c.date" class="font-mono text-[11px] tracking-[0.14em] opacity-80">{{ c.date }}</span>
+                <span v-if="c.date" class="text-[11px] opacity-80">{{ c.date }}</span>
                 <span class="font-display text-[clamp(1.25rem,2cqw,2rem)] leading-tight font-semibold">{{ c.title }}</span>
               </span>
               <svg viewBox="0 0 24 24" class="size-6 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
@@ -207,7 +207,7 @@ function onTouchEnd(e: TouchEvent) {
           <div
             v-for="(c, i) in cards"
             :key="c.key"
-            class="absolute top-0 left-1/2 aspect-square h-full overflow-hidden rounded-[2px] bg-[var(--c-cellar-surface)] shadow-[0_24px_60px_rgb(0_0_0/0.45)] transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none"
+            class="absolute top-0 left-1/2 aspect-square h-full overflow-hidden rounded-[2px] bg-[#1f1f1f] shadow-[0_24px_60px_rgb(0_0_0/0.45)] transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none"
             :style="flowStyle(i)"
             :aria-hidden="i === cur ? undefined : 'true'"
             data-test="flow-card"
@@ -222,18 +222,18 @@ function onTouchEnd(e: TouchEvent) {
           </div>
         </div>
         <div class="flex flex-col items-center gap-1 text-center">
-          <p v-if="cards[cur]?.date" class="font-mono text-[11px] tracking-[0.14em] text-[var(--c-cellar-muted)]">{{ cards[cur]!.date }}</p>
+          <p v-if="cards[cur]?.date" class="text-[11px] text-[#a3a3a3]">{{ cards[cur]!.date }}</p>
           <p class="font-display text-2xl leading-tight font-semibold" aria-hidden="true">{{ cards[cur]?.title }}</p>
         </div>
         <div class="flex items-center gap-4">
-          <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-full border border-[var(--c-cellar-text)]/35" :aria-label="t('landing.prev')" data-test="flow-prev" @click="prev">
+          <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ededed]/35" :aria-label="t('landing.prev')" data-test="flow-prev" @click="prev">
             <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6" /></svg>
           </button>
-          <div class="h-px flex-1 bg-[var(--c-cellar-line)]" aria-hidden="true">
-            <div class="h-full bg-[var(--c-cellar-accent)] transition-[width] duration-500 motion-reduce:transition-none" :style="{ width: `${((cur + 1) / n) * 100}%` }" data-test="flow-progress" />
+          <div class="h-px flex-1 bg-[#2e2e2e]" aria-hidden="true">
+            <div class="h-full bg-[var(--c-accent)] transition-[width] duration-500 motion-reduce:transition-none" :style="{ width: `${((cur + 1) / n) * 100}%` }" data-test="flow-progress" />
           </div>
-          <span class="font-mono text-xs tracking-[0.14em] text-[var(--c-cellar-muted)]" aria-live="polite" data-test="flow-count">{{ pad(cur) }} / {{ String(n).padStart(2, '0') }}</span>
-          <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-full border border-[var(--c-cellar-text)]/35" :aria-label="t('landing.next')" data-test="flow-next" @click="next">
+          <span class="text-xs text-[#a3a3a3]" aria-live="polite" data-test="flow-count">{{ pad(cur) }} / {{ String(n).padStart(2, '0') }}</span>
+          <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ededed]/35" :aria-label="t('landing.next')" data-test="flow-next" @click="next">
             <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
           </button>
         </div>

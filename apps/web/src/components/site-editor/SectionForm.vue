@@ -50,7 +50,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
         <LocalizedInput v-model="s.data.link.label" :label="t('admin.home.f.linkText')" :max="L.labelMax" required test-id="f-link-label" />
         <label class="flex flex-col gap-1.5 text-sm font-medium">
           {{ t('admin.home.f.href') }}
-          <input v-model="s.data.link.href" class="field font-mono" type="text" :maxlength="L.urlMax" placeholder="https://www.youtube.com/watch?v=…" :aria-invalid="!s.data.link.href || !isHref(s.data.link.href) || undefined" data-test="f-link-href" />
+          <input v-model="s.data.link.href" class="field" type="text" :maxlength="L.urlMax" placeholder="https://www.youtube.com/watch?v=…" :aria-invalid="!s.data.link.href || !isHref(s.data.link.href) || undefined" data-test="f-link-href" />
           <span class="text-xs font-normal text-[var(--c-muted)]">{{ t('admin.home.hrefHint') }}</span>
         </label>
       </template>
@@ -69,7 +69,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
         <span class="text-xs font-normal text-[var(--c-muted)]">{{ t('admin.home.fanartHint') }}</span>
       </label>
       <template v-else>
-        <p class="text-xs text-[var(--c-muted)]" :class="s.data.items.length < L.releasesMin ? 'text-[var(--c-accent-text)]' : ''" data-test="releases-hint">{{ t('admin.home.releasesHint', { min: L.releasesMin, max: L.releasesMax }) }}</p>
+        <p class="text-xs text-[var(--c-muted)]" :class="s.data.items.length < L.releasesMin ? 'text-[var(--c-accent-strong)]' : ''" data-test="releases-hint">{{ t('admin.home.releasesHint', { min: L.releasesMin, max: L.releasesMax }) }}</p>
         <ItemList v-model="s.data.items" :label="t('admin.home.f.releases')" :max="L.releasesMax" :add-label="t('admin.home.addRelease')" :create="() => ({ title: lt(), cover: newImage(''), wide: null, href: '', date: '' })" test-id="release-items">
           <template #default="{ item }">
             <LocalizedInput v-model="item.title" :label="t('admin.home.f.title')" :max="L.headingMax" required />
@@ -77,10 +77,10 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
             <p v-if="!item.cover.fileId" class="text-xs text-[var(--c-danger)]">{{ t('admin.home.pickRequired') }}</p>
             <SiteImageField v-model="item.wide" :label="t('admin.home.f.wide')" />
             <label class="flex flex-col gap-1.5 text-sm font-medium">
-              {{ t('admin.home.f.href') }}<input v-model="item.href" class="field font-mono" type="text" :maxlength="L.urlMax" placeholder="https://open.spotify.com/…" :aria-invalid="!item.href || !isHref(item.href) || undefined" />
+              {{ t('admin.home.f.href') }}<input v-model="item.href" class="field" type="text" :maxlength="L.urlMax" placeholder="https://open.spotify.com/…" :aria-invalid="!item.href || !isHref(item.href) || undefined" />
             </label>
             <label class="flex flex-col gap-1.5 text-sm font-medium">
-              {{ t('admin.home.f.dateOptional') }}<input v-model="item.date" class="field font-mono" type="text" :maxlength="L.dateMax" placeholder="2026.10.21" />
+              {{ t('admin.home.f.dateOptional') }}<input v-model="item.date" class="field" type="text" :maxlength="L.dateMax" placeholder="2026.10.21" />
             </label>
           </template>
         </ItemList>
@@ -102,7 +102,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
           <SiteImageField v-model="item.background" :label="t('admin.home.f.background')" />
           <SiteImageField v-model="item.thumb" :label="t('admin.home.f.thumb')" />
           <label class="flex flex-col gap-1.5 text-sm font-medium">
-            {{ t('admin.home.f.hrefOptional') }}<input v-model="item.href" class="field font-mono" type="text" :maxlength="L.urlMax" :aria-invalid="!isHref(item.href) || undefined" />
+            {{ t('admin.home.f.hrefOptional') }}<input v-model="item.href" class="field" type="text" :maxlength="L.urlMax" :aria-invalid="!isHref(item.href) || undefined" />
           </label>
         </template>
       </ItemList>
@@ -119,7 +119,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
       <template v-if="s.data.cta">
         <LocalizedInput v-model="s.data.cta.label" :label="t('admin.home.f.ctaLabel')" :max="L.labelMax" required />
         <label class="flex flex-col gap-1.5 text-sm font-medium">
-          {{ t('admin.home.f.href') }}<input v-model="s.data.cta.href" class="field font-mono" type="text" :maxlength="L.urlMax" :aria-invalid="!isHref(s.data.cta.href) || undefined" />
+          {{ t('admin.home.f.href') }}<input v-model="s.data.cta.href" class="field" type="text" :maxlength="L.urlMax" :aria-invalid="!isHref(s.data.cta.href) || undefined" />
         </label>
       </template>
     </template>
@@ -128,7 +128,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
       <LocalizedInput v-model="s.data.note" :label="t('admin.home.f.note')" :max="L.subtitleMax" multiline :rows="2" />
       <label class="flex flex-col gap-1.5 text-sm font-medium">
         {{ t('admin.home.f.email') }}
-        <input v-model="s.data.email" class="field font-mono" type="email" :maxlength="L.emailMax" placeholder="lienhe@…" :aria-invalid="!isEmail(s.data.email) || undefined" data-test="f-email" />
+        <input v-model="s.data.email" class="field" type="email" :maxlength="L.emailMax" placeholder="lienhe@…" :aria-invalid="!isEmail(s.data.email) || undefined" data-test="f-email" />
       </label>
       <ItemList v-model="s.data.links" :label="t('admin.home.f.socialLinks')" :max="L.linksMax" :add-label="t('admin.home.addLink')" :create="() => ({ platform: 'youtube' as const, label: lt(), url: '' })" test-id="footer-links">
         <template #default="{ item }">
@@ -140,7 +140,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
           </label>
           <LocalizedInput v-model="item.label" :label="t('admin.home.f.linkLabel')" :max="L.labelMax" />
           <label class="flex flex-col gap-1.5 text-sm font-medium">
-            URL<input v-model="item.url" class="field font-mono" type="url" :maxlength="L.urlMax" placeholder="https://" :aria-invalid="(item.url && !isUrl(item.url)) || undefined" />
+            URL<input v-model="item.url" class="field" type="url" :maxlength="L.urlMax" placeholder="https://" :aria-invalid="(item.url && !isUrl(item.url)) || undefined" />
           </label>
         </template>
       </ItemList>
@@ -162,7 +162,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
           <LocalizedInput v-model="item.label" :label="t('admin.home.f.ctaLabel')" :max="L.labelMax" required />
           <label class="flex flex-col gap-1.5 text-sm font-medium">
             {{ t('admin.home.f.href') }}
-            <input v-model="item.href" class="field font-mono" type="text" :maxlength="L.urlMax" placeholder="/posts" :aria-invalid="!isHref(item.href) || undefined" />
+            <input v-model="item.href" class="field" type="text" :maxlength="L.urlMax" placeholder="/posts" :aria-invalid="!isHref(item.href) || undefined" />
             <span class="text-xs font-normal text-[var(--c-muted)]">{{ t('admin.home.hrefHint') }}</span>
           </label>
         </template>
@@ -195,7 +195,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
       <ItemList v-model="s.data.items" :label="t('admin.home.f.milestones')" :max="L.timelineMax" :add-label="t('admin.home.addMilestone')" :create="() => ({ date: '', title: lt(), text: lt(), image: null })" test-id="milestones">
         <template #default="{ item }">
           <label class="flex flex-col gap-1.5 text-sm font-medium">
-            {{ t('admin.home.f.date') }}<input v-model="item.date" class="field font-mono" type="text" :maxlength="L.dateMax" placeholder="08/08/2021" />
+            {{ t('admin.home.f.date') }}<input v-model="item.date" class="field" type="text" :maxlength="L.dateMax" placeholder="08/08/2021" />
           </label>
           <LocalizedInput v-model="item.title" :label="t('admin.home.f.title')" :max="L.headingMax" required />
           <LocalizedInput v-model="item.text" :label="t('admin.home.f.text')" :max="L.shortTextMax" multiline :rows="2" />
@@ -217,7 +217,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
           <p v-if="!item.image.fileId" class="text-xs text-[var(--c-danger)]">{{ t('admin.home.pickRequired') }}</p>
           <LocalizedInput v-model="item.caption" :label="t('admin.home.f.caption')" :max="L.subtitleMax" />
           <label class="flex flex-col gap-1.5 text-sm font-medium">
-            {{ t('admin.home.f.hrefOptional') }}<input v-model="item.href" class="field font-mono" type="text" :maxlength="L.urlMax" :aria-invalid="!isHref(item.href) || undefined" />
+            {{ t('admin.home.f.hrefOptional') }}<input v-model="item.href" class="field" type="text" :maxlength="L.urlMax" :aria-invalid="!isHref(item.href) || undefined" />
           </label>
         </template>
       </ItemList>
@@ -228,7 +228,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
         <template #default="{ item }">
           <label class="flex flex-col gap-1.5 text-sm font-medium">
             {{ t('admin.home.f.youtube') }}
-            <input v-model="item.url" class="field font-mono" type="url" :maxlength="L.urlMax" placeholder="https://www.youtube.com/watch?v=…" :aria-invalid="(item.url && !parseYouTubeId(item.url)) || undefined" />
+            <input v-model="item.url" class="field" type="url" :maxlength="L.urlMax" placeholder="https://www.youtube.com/watch?v=…" :aria-invalid="(item.url && !parseYouTubeId(item.url)) || undefined" />
             <span v-if="item.url && !parseYouTubeId(item.url)" class="text-xs font-normal text-[var(--c-danger)]">{{ t('admin.home.notYoutube') }}</span>
           </label>
           <LocalizedInput v-model="item.title" :label="t('admin.home.f.titleOptional')" :max="L.headingMax" />
@@ -247,7 +247,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
           </label>
           <LocalizedInput v-model="item.label" :label="t('admin.home.f.linkLabel')" :max="L.labelMax" />
           <label class="flex flex-col gap-1.5 text-sm font-medium">
-            URL<input v-model="item.url" class="field font-mono" type="url" :maxlength="L.urlMax" placeholder="https://" :aria-invalid="(item.url && !isUrl(item.url)) || undefined" />
+            URL<input v-model="item.url" class="field" type="url" :maxlength="L.urlMax" placeholder="https://" :aria-invalid="(item.url && !isUrl(item.url)) || undefined" />
           </label>
         </template>
       </ItemList>
@@ -273,7 +273,7 @@ const OWN_TITLE = new Set(['hero', 'banner', 'heroVideo', 'vibe', 'footer'])
       <template v-if="s.data.cta">
         <LocalizedInput v-model="s.data.cta.label" :label="t('admin.home.f.ctaLabel')" :max="L.labelMax" required />
         <label class="flex flex-col gap-1.5 text-sm font-medium">
-          {{ t('admin.home.f.href') }}<input v-model="s.data.cta.href" class="field font-mono" type="text" :maxlength="L.urlMax" :aria-invalid="!isHref(s.data.cta.href) || undefined" />
+          {{ t('admin.home.f.href') }}<input v-model="s.data.cta.href" class="field" type="text" :maxlength="L.urlMax" :aria-invalid="!isHref(s.data.cta.href) || undefined" />
         </label>
       </template>
     </template>

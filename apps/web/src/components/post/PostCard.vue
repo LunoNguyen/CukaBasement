@@ -34,14 +34,14 @@ const mediaType = computed(() => (props.post.type === 'video' || props.post.type
 
 <template>
   <RouterLink :to="`/posts/${post.id}`" class="group mb-4 block break-inside-avoid">
-    <div class="relative overflow-hidden rounded-xl bg-[var(--c-soft)] ring-[var(--c-accent)] transition group-hover:ring-2" :style="{ aspectRatio: aspect }">
+    <div class="relative overflow-hidden rounded-xl bg-[var(--c-surface-2)] ring-[var(--c-accent)] transition group-hover:ring-2" :style="{ aspectRatio: aspect }">
       <img v-if="thumb" :src="thumb" :alt="post.title" loading="lazy" class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
       <template v-else>
         <MediaPlaceholder />
         <span v-if="coverStatus" data-test="card-status" class="absolute inset-x-0 bottom-2 text-center text-xs text-[var(--c-muted)]">{{ coverStatus }}</span>
       </template>
       <span v-if="blurred" class="badge badge-r18 absolute top-2 left-2">R18</span>
-      <span v-if="post.pageCount > 1" class="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md bg-[#17110e]/70 px-1.5 font-mono text-[11px] leading-5 text-white">
+      <span v-if="post.pageCount > 1" class="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md bg-[#17110e]/70 px-1.5 text-[11px] leading-5 text-white">
         <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="3" width="13" height="15" rx="2" /><path d="M16 21H5a2 2 0 0 1-2-2V7" /></svg>
         <span data-test="pages">{{ post.pageCount }}</span>
       </span>
@@ -57,7 +57,7 @@ const mediaType = computed(() => (props.post.type === 'video' || props.post.type
       </span>
     </div>
     <div class="flex flex-col gap-0.5 px-0.5 pt-2 text-sm">
-      <div class="truncate font-semibold group-hover:text-[var(--c-primary)]">{{ post.title }}</div>
+      <div class="truncate font-semibold group-hover:text-[var(--c-accent-strong)]">{{ post.title }}</div>
       <div v-if="creditText" data-test="card-credit" class="truncate text-xs text-[var(--c-muted)]">{{ creditText }}</div>
       <div class="flex items-center justify-between gap-2 text-xs text-[var(--c-muted)]">
         <span class="truncate">{{ post.author.displayName || post.author.username }}</span>

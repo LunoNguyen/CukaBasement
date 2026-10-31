@@ -11,7 +11,7 @@ withDefaults(defineProps<{ video: MusicVideo; sizes?: string; play?: 'lg' | 'sm'
 </script>
 
 <template>
-  <span class="relative block aspect-video overflow-hidden rounded-[0.6rem] bg-[var(--c-cellar)]" aria-hidden="true">
+  <span class="relative block aspect-video overflow-hidden rounded-[0.6rem] bg-[#141414]" aria-hidden="true">
     <img
       v-if="video.thumb"
       :src="video.thumb.src"

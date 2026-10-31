@@ -20,11 +20,11 @@ if (props.auto) useInfiniteTrigger(sentinel, () => void props.list.autoLoadMore(
 <template>
   <div v-if="list.error.value" class="py-6 text-center">
     <p class="mb-2 text-[var(--c-muted)]">{{ errorText(list.error.value) }}</p>
-    <Btn variant="ghost" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
+    <Btn variant="secondary" @click="list.loadMore()">{{ t('common.retry') }}</Btn>
   </div>
   <div v-else-if="list.loading.value" class="flex justify-center py-6"><Spinner /></div>
   <EmptyState v-else-if="list.done.value && list.items.value.length === 0" :art="art">{{ emptyText }}</EmptyState>
   <div v-else-if="!list.done.value" :key="list.items.value.length" ref="sentinel" class="flex justify-center py-6">
-    <Btn variant="ghost" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn>
+    <Btn variant="secondary" @click="list.loadMore()">{{ t('common.loadMore') }}</Btn>
   </div>
 </template>

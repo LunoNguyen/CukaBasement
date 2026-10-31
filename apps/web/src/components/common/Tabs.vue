@@ -11,7 +11,7 @@ const model = defineModel<string>({ required: true })
 <template>
   <div
     role="tablist"
-    class="flex gap-5 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--c-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    class="flex gap-6 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--c-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
   >
     <button
       v-for="tab in tabs"
@@ -19,8 +19,8 @@ const model = defineModel<string>({ required: true })
       type="button"
       role="tab"
       :aria-selected="model === tab.key"
-      class="border-b-2 py-2.5 text-sm whitespace-nowrap transition-colors"
-      :class="model === tab.key ? 'border-[var(--c-accent)] font-semibold text-[var(--c-text)]' : 'border-transparent text-[var(--c-muted)] hover:text-[var(--c-text)]'"
+      class="min-h-11 border-b-2 py-2.5 text-sm whitespace-nowrap transition-colors"
+      :class="model === tab.key ? 'border-[var(--c-accent)] font-semibold text-[var(--c-text)]' : 'border-transparent font-semibold text-[var(--c-muted)] hover:text-[var(--c-text)]'"
       @click="model = tab.key"
     >
       {{ tab.label }}

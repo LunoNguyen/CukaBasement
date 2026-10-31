@@ -176,7 +176,7 @@ function onPlaying(m: PostMediaDto) {
       </template>
 
       <div v-else-if="main" role="group" data-test="gallery" :aria-label="t('post.gallery')" class="flex min-w-0 flex-col gap-3" @keydown="onGalleryKey">
-        <div class="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-[var(--c-soft)]">
+        <div class="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-[var(--c-surface-2)]">
           <button
             v-if="main.thumbMdUrl"
             type="button"
@@ -192,7 +192,7 @@ function onPlaying(m: PostMediaDto) {
           <template v-if="images.length > 1">
             <p
               data-test="page-indicator"
-              class="pointer-events-none absolute top-2 right-2 rounded-full bg-[var(--c-cellar)]/75 px-2.5 py-1 font-mono text-xs text-[var(--c-cellar-text)] tabular-nums"
+              class="pointer-events-none absolute top-2 right-2 rounded-full bg-[#141414]/75 px-2.5 py-1 text-xs text-[#ededed] tabular-nums"
               :aria-label="t('post.pageOf', { n: selected + 1, total: images.length })"
             >
               {{ selected + 1 }} / {{ images.length }}
@@ -227,7 +227,7 @@ function onPlaying(m: PostMediaDto) {
             v-if="main.thumbMdUrl"
             type="button"
             data-test="open-original"
-            class="ml-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm hover:border-[var(--c-latte)]"
+            class="ml-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm hover:border-[var(--c-muted)]"
             :aria-label="t('post.openOriginal', { name: mainName })"
             @click="openFile(main)"
           >
@@ -272,7 +272,7 @@ function onPlaying(m: PostMediaDto) {
           :key="m.fileId"
           type="button"
           data-test="download"
-          class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm hover:border-[var(--c-latte)]"
+          class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm hover:border-[var(--c-muted)]"
           @click="openFile(m)"
         >
           ⬇ {{ t('post.download') }}
@@ -290,11 +290,11 @@ function onPlaying(m: PostMediaDto) {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: color-mix(in srgb, var(--c-surface) 85%, transparent);
+  background: color-mix(in srgb, var(--c-bg) 85%, transparent);
   box-shadow: 0 2px 8px rgb(23 17 14 / 0.18);
   backdrop-filter: blur(4px);
 }
 .media-nav:hover {
-  background: var(--c-surface);
+  background: var(--c-bg);
 }
 </style>

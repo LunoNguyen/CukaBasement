@@ -14,7 +14,7 @@ const { tx } = useLanding()
     <ol class="relative ml-1.5 border-l border-[var(--c-border)] md:ml-[11.5rem]">
       <li v-for="(item, i) in data.items" :key="i" v-reveal data-test="timeline-item" class="relative pb-12 pl-8 last:pb-0 md:pl-12">
         <span aria-hidden="true" class="absolute top-2.5 -left-[6.5px] size-3 rounded-full bg-[var(--c-accent)]" />
-        <p class="mb-2 font-mono text-sm tracking-[0.06em] text-[var(--c-accent-text)] md:absolute md:top-1 md:-left-[11.5rem] md:mb-0 md:w-36 md:text-right">{{ item.date }}</p>
+        <p class="mb-2 text-sm text-[var(--c-accent-strong)] md:absolute md:top-1 md:-left-[11.5rem] md:mb-0 md:w-36 md:text-right">{{ item.date }}</p>
         <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div class="flex-1">
             <h3 class="font-display text-2xl leading-tight font-semibold tracking-[-0.02em] sm:text-3xl">{{ tx(item.title) }}</h3>

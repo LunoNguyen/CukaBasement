@@ -103,7 +103,7 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
 </script>
 
 <template>
-  <section ref="root" data-test="fp-hero" :aria-labelledby="nameId" class="fp-hero relative isolate flex flex-1 flex-col overflow-hidden bg-[var(--c-cellar-deep)] text-[#f3ebe6]">
+  <section ref="root" data-test="fp-hero" :aria-labelledby="nameId" class="fp-hero relative isolate flex flex-1 flex-col overflow-hidden bg-[#0a0a0a] text-[#f3ebe6]">
     <!-- Background -->
     <div class="absolute inset-0 -z-10" aria-hidden="true">
       <video
@@ -142,20 +142,20 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
       <div class="absolute inset-x-0 bottom-0 h-2/3 bg-linear-to-t from-[#0f0b09]/70 to-transparent" />
     </div>
 
-    <p v-if="tx(data.eyebrow)" class="fp-fade pointer-events-none absolute top-6 left-1/2 hidden -translate-x-1/2 items-center gap-3 font-mono text-[11px] tracking-[0.22em] whitespace-nowrap text-[#f3ebe6]/85 uppercase sm:top-8 md:flex">
-      <span class="size-1.5 rounded-full bg-[var(--c-cellar-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
+    <p v-if="tx(data.eyebrow)" class="fp-fade pointer-events-none absolute top-6 left-1/2 hidden -translate-x-1/2 items-center gap-3 text-[11px] whitespace-nowrap text-[#f3ebe6]/85 sm:top-8 md:flex">
+      <span class="size-1.5 rounded-full bg-[var(--c-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
     </p>
 
     <div class="relative mt-auto grid gap-8 px-5 pt-28 pb-7 sm:px-10 sm:pb-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-12">
       <div class="flex min-w-0 flex-col gap-5">
-        <p v-if="tx(data.eyebrow)" class="fp-fade flex items-center gap-2 font-mono text-[11px] tracking-[0.2em] text-[#f3ebe6]/85 uppercase md:hidden">
-          <span class="size-1.5 rounded-full bg-[var(--c-cellar-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
+        <p v-if="tx(data.eyebrow)" class="fp-fade flex items-center gap-2 text-[11px] text-[#f3ebe6]/85 md:hidden">
+          <span class="size-1.5 rounded-full bg-[var(--c-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
         </p>
         <component
           :is="level === 1 ? 'h1' : 'h2'"
           :id="nameId"
           data-test="fp-hero-name"
-          class="font-display text-[clamp(2.6rem,11.5cqw,12.5rem)] leading-[0.84] font-semibold tracking-[-0.045em] uppercase [word-spacing:0.12em] [overflow-wrap:anywhere]"
+          class="font-display text-[clamp(2.6rem,11.5cqw,12.5rem)] leading-[0.84] font-semibold tracking-[-0.045em] [word-spacing:0.12em] [overflow-wrap:anywhere]"
         >
           <template v-for="(w, i) in words" :key="i"
             ><span class="fp-word inline-block overflow-hidden pb-[0.06em] align-bottom"
@@ -176,7 +176,7 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
         >
           <span class="fp-eq flex h-5 items-end gap-[3px]" aria-hidden="true"><i /><i /><i /><i /></span>
           <span class="flex flex-col leading-tight">
-            <span v-if="tx(data.link.kicker)" class="font-mono text-[10px] tracking-[0.2em] uppercase opacity-80">{{ tx(data.link.kicker) }}</span>
+            <span v-if="tx(data.link.kicker)" class="text-[10px] opacity-80">{{ tx(data.link.kicker) }}</span>
             <span class="font-display text-lg font-semibold whitespace-nowrap sm:text-xl">{{ tx(data.link.label) }}</span>
           </span>
           <svg viewBox="0 0 24 24" class="size-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
@@ -185,7 +185,7 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
           v-if="animated"
           type="button"
           data-test="fp-hero-toggle"
-          class="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[#f3ebe6]/40 bg-[#0f0b09]/30 px-3 text-xs font-semibold tracking-[0.08em] whitespace-nowrap text-[#f3ebe6] uppercase backdrop-blur-sm hover:border-[#f3ebe6] sm:px-4"
+          class="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[#f3ebe6]/40 bg-[#0f0b09]/30 px-3 text-xs font-semibold whitespace-nowrap text-[#f3ebe6] backdrop-blur-sm hover:border-[#f3ebe6] sm:px-4"
           :aria-pressed="!wanted"
           @click="toggle"
         >
@@ -196,7 +196,7 @@ const words = computed(() => tx(props.data.name).split(/\s+/).filter(Boolean))
       </div>
     </div>
 
-    <div class="fp-fade pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 font-mono text-[10px] tracking-[0.24em] text-[#f3ebe6]/70 uppercase xl:flex" style="animation-delay: 900ms" aria-hidden="true">
+    <div class="fp-fade pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-[10px] text-[#f3ebe6]/70 xl:flex" style="animation-delay: 900ms" aria-hidden="true">
       {{ t('landing.fp.scroll') }}<span class="fp-scrollline block h-10 w-px bg-[#f3ebe6]/50" />
     </div>
   </section>

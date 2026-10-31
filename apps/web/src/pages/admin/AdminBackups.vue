@@ -266,8 +266,8 @@ async function loginAgain() {
             <p class="text-xs text-[var(--c-muted)]">{{ when(b.createdAt) }} · {{ formatBytes(b.sizeBytes) }}</p>
           </div>
           <div class="flex flex-wrap gap-2">
-            <Btn size="sm" variant="ghost" data-test="backup-download" @click="download(b.name)">{{ t('admin.backups.download') }}</Btn>
-            <Btn size="sm" variant="ghost" data-test="backup-restore" :disabled="running" @click="askRestore(b.name)">{{ t('admin.backups.restore') }}</Btn>
+            <Btn size="sm" variant="secondary" data-test="backup-download" @click="download(b.name)">{{ t('admin.backups.download') }}</Btn>
+            <Btn size="sm" variant="secondary" data-test="backup-restore" :disabled="running" @click="askRestore(b.name)">{{ t('admin.backups.restore') }}</Btn>
             <Btn size="sm" variant="danger" data-test="backup-delete" :disabled="running" @click="deleteTarget = b.name">{{ t('admin.backups.delete') }}</Btn>
           </div>
         </li>
@@ -328,7 +328,7 @@ async function loginAgain() {
           <input v-model="confirmText" data-test="restore-confirm" class="field" autocomplete="off" spellcheck="false" />
         </label>
         <div class="flex justify-end gap-2">
-          <Btn variant="ghost" @click="restoreTarget = null">{{ t('common.cancel') }}</Btn>
+          <Btn variant="secondary" @click="restoreTarget = null">{{ t('common.cancel') }}</Btn>
           <Btn type="submit" variant="danger" data-test="restore-submit" :loading="restoring" :disabled="!canRestore">{{ t('admin.backups.restoreSubmit') }}</Btn>
         </div>
       </form>
@@ -338,7 +338,7 @@ async function loginAgain() {
       <form class="flex flex-col gap-3 text-sm" @submit.prevent="confirmDelete">
         <p>{{ t('admin.backups.deleteConfirm', { name: deleteTarget }) }}</p>
         <div class="flex justify-end gap-2">
-          <Btn variant="ghost" @click="deleteTarget = null">{{ t('common.cancel') }}</Btn>
+          <Btn variant="secondary" @click="deleteTarget = null">{{ t('common.cancel') }}</Btn>
           <Btn type="submit" variant="danger" data-test="delete-submit" :loading="deleting">{{ t('admin.backups.delete') }}</Btn>
         </div>
       </form>

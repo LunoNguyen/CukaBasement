@@ -36,7 +36,7 @@ async function toggle() {
 </script>
 
 <template>
-  <Btn data-test="follow" :variant="following ? 'ghost' : 'primary'" :loading="busy" :aria-pressed="following" @click="toggle">{{
+  <Btn data-test="follow" :variant="following ? 'secondary' : 'primary'" :loading="busy" :aria-pressed="following" @click="toggle">{{
     following ? t('user.following') : t('user.follow')
   }}</Btn>
 </template>

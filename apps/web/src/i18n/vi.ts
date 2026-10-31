@@ -57,7 +57,7 @@ export default {
   brand: {
     heroTitle: 'Nơi chia sẻ fanart Hibiki Du Ca',
     heroBody: 'Đăng tranh, truyện tranh, video và âm thanh — mỗi tác phẩm đều ghi rõ ai đã làm ra nó, và không dùng AI.',
-    footerNote: 'Nơi chia sẻ fanart Hibiki Du Ca',
+    footerNote: 'Trang của fan, không chính thức',
   },
   landing: {
     slide: 'Ảnh {n} trên {total}', pause: 'Tạm dừng trình chiếu', play: 'Tiếp tục trình chiếu', prev: 'Trước', next: 'Tiếp',
@@ -241,6 +241,10 @@ export default {
     intro: 'Giới thiệu',
     language: 'Ngôn ngữ',
     theme: 'Đổi giao diện sáng/tối',
+    themeDark: 'Giao diện tối',
+    themeLight: 'Giao diện sáng',
+    more: 'Thêm',
+    main: 'Điều hướng chính',
   },
   notFound: {
     title: 'Không tìm thấy trang',

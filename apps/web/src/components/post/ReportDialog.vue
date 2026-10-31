@@ -58,7 +58,7 @@ async function submit() {
         <textarea v-model="detail" :maxlength="LIMITS.reportDetailMax" rows="3" class="field" />
       </label>
       <div class="flex justify-end gap-2">
-        <Btn variant="ghost" @click="open = false">{{ t('common.cancel') }}</Btn>
+        <Btn variant="secondary" @click="open = false">{{ t('common.cancel') }}</Btn>
         <Btn type="submit" :loading="busy" :disabled="!reason || busy">{{ t('post.reportSubmit') }}</Btn>
       </div>
     </form>

@@ -61,7 +61,7 @@ watch(
 </script>
 
 <template>
-  <section data-test="landing-hero" :aria-labelledby="titleId" class="relative isolate overflow-hidden bg-[var(--c-cellar)] text-[var(--c-cellar-text)]">
+  <section data-test="landing-hero" :aria-labelledby="titleId" class="relative isolate overflow-hidden bg-[#141414] text-[#ededed]">
     <!-- Background -->
     <div v-if="slides.length" class="absolute inset-0 -z-10">
       <div
@@ -83,14 +83,14 @@ watch(
 
     <div class="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-16 pb-24 sm:px-6 md:min-h-[min(88svh,860px)] md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] md:pt-24">
       <div class="flex flex-col gap-7">
-        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 font-mono text-xs tracking-[0.16em] text-[var(--c-cellar-text)]/85 uppercase">
-          <span class="size-2 rounded-full bg-[var(--c-cellar-accent)]" aria-hidden="true" />
+        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 text-xs text-[#ededed]/85">
+          <span class="size-2 rounded-full bg-[var(--c-accent)]" aria-hidden="true" />
           {{ tx(data.eyebrow) }}
         </p>
         <component :is="level === 1 ? 'h1' : 'h2'" :id="titleId" class="font-display text-[clamp(3.25rem,11vw,8.5rem)] leading-[0.9] font-semibold tracking-[-0.045em] text-balance">
           {{ tx(data.title) }}
         </component>
-        <p v-if="tx(data.subtitle)" class="max-w-xl text-lg leading-relaxed text-[var(--c-cellar-text)]/90 sm:text-xl">{{ tx(data.subtitle) }}</p>
+        <p v-if="tx(data.subtitle)" class="max-w-xl text-lg leading-relaxed text-[#ededed]/90 sm:text-xl">{{ tx(data.subtitle) }}</p>
         <div v-if="data.ctas.length" class="flex flex-wrap gap-3 pt-1">
           <SmartLink
             v-for="(cta, i) in data.ctas"
@@ -101,7 +101,7 @@ watch(
             :class="
               i === 0
                 ? 'bg-[#fbf7f4] text-[#5b3a29] hover:bg-white'
-                : 'border border-[var(--c-cellar-text)]/35 text-[var(--c-cellar-text)] hover:border-[var(--c-cellar-text)]'
+                : 'border border-[#ededed]/35 text-[#ededed] hover:border-[#ededed]'
             "
           >
             {{ tx(cta.label) }}
@@ -114,11 +114,11 @@ watch(
 
       <!-- No picture yet: the basement arch from the brand board. -->
       <div v-if="!slides.length" class="relative mx-auto hidden w-full max-w-sm md:block" aria-hidden="true">
-        <div class="relative aspect-[4/5] overflow-hidden rounded-t-full border border-[var(--c-cellar-line)] bg-[var(--c-cellar-deep)]">
+        <div class="relative aspect-[4/5] overflow-hidden rounded-t-full border border-[#2e2e2e] bg-[#0a0a0a]">
           <BasementArt class="absolute inset-0 h-full w-full" />
         </div>
-        <div class="absolute -bottom-5 -left-6 flex items-center gap-2 rounded-full border border-[var(--c-cellar-line)] bg-[var(--c-cellar-surface)] px-4 py-2 font-mono text-[11px] tracking-[0.14em] text-[var(--c-cellar-muted)] uppercase">
-          <span class="size-1.5 rounded-full bg-[var(--c-cellar-accent)]" />
+        <div class="absolute -bottom-5 -left-6 flex items-center gap-2 rounded-full border border-[#2e2e2e] bg-[#1f1f1f] px-4 py-2 text-[11px] text-[#a3a3a3]">
+          <span class="size-1.5 rounded-full bg-[var(--c-accent)]" />
           CukaBasement
         </div>
       </div>
@@ -134,12 +134,12 @@ watch(
         :aria-current="i === current ? 'true' : undefined"
         @click="go(i)"
       >
-        <span class="block h-1.5 rounded-full transition-all" :class="i === current ? 'w-7 bg-[var(--c-cellar-text)]' : 'w-1.5 bg-[var(--c-cellar-text)]/50'" />
+        <span class="block h-1.5 rounded-full transition-all" :class="i === current ? 'w-7 bg-[#ededed]' : 'w-1.5 bg-[#ededed]/50'" />
       </button>
       <button
         type="button"
         data-test="hero-pause"
-        class="flex size-11 items-center justify-center rounded-full border border-[var(--c-cellar-text)]/35 text-[var(--c-cellar-text)] hover:border-[var(--c-cellar-text)]"
+        class="flex size-11 items-center justify-center rounded-full border border-[#ededed]/35 text-[#ededed] hover:border-[#ededed]"
         :aria-label="playing ? t('landing.pause') : t('landing.play')"
         @click="toggle"
       >

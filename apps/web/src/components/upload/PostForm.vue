@@ -136,7 +136,7 @@ const input = 'w-full field'
     <section class="card flex flex-col gap-4 p-4 sm:p-5">
       <h2 class="eyebrow">{{ t('upload.sections.credit') }}</h2>
       <CreditFields v-model="credit" />
-      <label class="flex items-start gap-2 border-t border-dashed border-[var(--c-latte)] pt-4 text-sm">
+      <label class="flex items-start gap-2 border-t border-dashed border-[var(--c-muted)] pt-4 text-sm">
         <input v-model="form.ai" data-test="ai-declaration" type="checkbox" class="mt-1" />
         {{ t('upload.aiDeclaration') }}
       </label>

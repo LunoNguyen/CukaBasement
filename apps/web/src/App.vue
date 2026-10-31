@@ -10,7 +10,7 @@ import AppFooter from '@/components/layout/AppFooter.vue'
 import MaintenanceNotice from '@/components/layout/MaintenanceNotice.vue'
 import { useTheme } from '@/composables/useTheme'
 
-// The theme is applied here, not only by the header's toggle: the landing page has no header.
+// The theme is applied at start-up, before any menu holding the toggle is opened.
 useTheme()
 const auth = useAuth()
 const route = useRoute()
@@ -32,20 +32,14 @@ watch(
 </script>
 
 <template>
-  <!-- The landing page brings its own floating chrome (route meta `immersive`). -->
-  <main v-if="route.meta.immersive && !showMaintenance" class="w-full">
-    <RouterView />
-  </main>
-  <template v-else>
   <AppHeader />
   <VerifyBanner />
-  <div class="flex min-h-[calc(100dvh-4rem)] flex-col">
-    <main :class="route.meta.fullBleed && !showMaintenance ? 'w-full flex-1' : 'mx-auto w-full max-w-screen-2xl flex-1 px-4 py-5'">
+  <div class="flex min-h-[calc(100dvh-6.25rem)] flex-col">
+    <main :class="route.meta.fullBleed && !showMaintenance ? 'w-full flex-1' : 'mx-auto w-full max-w-[1280px] flex-1 px-4 py-6 sm:px-6'">
       <MaintenanceNotice v-if="showMaintenance" />
       <RouterView v-else />
     </main>
     <AppFooter />
   </div>
-  </template>
   <ToastHost />
 </template>

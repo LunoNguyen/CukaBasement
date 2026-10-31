@@ -87,8 +87,8 @@ async function submitCredit() {
       <div class="mt-auto flex flex-wrap gap-2 pt-2">
         <Btn :loading="busy" @click="approve">{{ t('mod.approve') }}</Btn>
         <Btn variant="danger" :disabled="busy" @click="openReject">{{ t('mod.reject') }}</Btn>
-        <Btn variant="ghost" :disabled="busy" @click="hide">{{ t('mod.hide') }}</Btn>
-        <Btn variant="ghost" :disabled="busy" @click="openCredit">{{ t('mod.editCredit') }}</Btn>
+        <Btn variant="secondary" :disabled="busy" @click="hide">{{ t('mod.hide') }}</Btn>
+        <Btn variant="secondary" :disabled="busy" @click="openCredit">{{ t('mod.editCredit') }}</Btn>
       </div>
     </div>
 
@@ -99,7 +99,7 @@ async function submitCredit() {
           <textarea v-model="reason" :maxlength="LIMITS.rejectReasonMax" rows="3" class="field" />
         </label>
         <div class="flex justify-end gap-2">
-          <Btn variant="ghost" @click="rejectOpen = false">{{ t('common.cancel') }}</Btn>
+          <Btn variant="secondary" @click="rejectOpen = false">{{ t('common.cancel') }}</Btn>
           <Btn type="submit" variant="danger" :loading="busy" :disabled="!reason.trim()">{{ t('mod.reject') }}</Btn>
         </div>
       </form>
@@ -109,7 +109,7 @@ async function submitCredit() {
       <form class="flex flex-col gap-3" @submit.prevent="submitCredit">
         <CreditFields v-model="creditForm" />
         <div class="flex justify-end gap-2">
-          <Btn variant="ghost" @click="creditOpen = false">{{ t('common.cancel') }}</Btn>
+          <Btn variant="secondary" @click="creditOpen = false">{{ t('common.cancel') }}</Btn>
           <Btn type="submit" :loading="busy" :disabled="!creditValid(creditForm)">{{ t('mod.saveCredit') }}</Btn>
         </div>
       </form>

@@ -1,20 +1,17 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import BrandMark from '@/components/brand/BrandMark.vue'
 
 const { t } = useI18n()
 </script>
 
 <template>
-  <footer data-test="footer" class="mt-12 bg-[var(--c-cellar)] text-[var(--c-cellar-text)]">
-    <div class="mx-auto flex max-w-screen-2xl flex-col gap-6 px-4 py-8 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex flex-col gap-2">
-        <RouterLink to="/" class="flex items-center gap-2" :aria-label="t('common.siteName')">
-          <BrandMark class="size-7 shrink-0" on-dark />
-          <span class="wordmark text-lg text-[var(--c-cellar-text)]" aria-hidden="true"><b>Cuka</b>Basement</span>
-        </RouterLink>
-        <p class="font-mono text-[11px] tracking-[0.08em] text-[var(--c-cellar-muted)] uppercase">{{ t('brand.footerNote') }}</p>
-      </div>
-    </div>
+  <footer data-test="footer" class="mt-16 border-t border-[var(--c-border)]">
+    <p class="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-2 gap-y-1 px-4 py-6 text-xs text-[var(--c-muted)] sm:px-6">
+      <span>© CukaBasement</span>
+      <span aria-hidden="true">·</span>
+      <span>{{ t('brand.footerNote') }}</span>
+      <span aria-hidden="true">·</span>
+      <RouterLink to="/gioi-thieu" class="hover:text-[var(--c-text)] hover:underline">{{ t('nav.intro') }}</RouterLink>
+    </p>
   </footer>
 </template>

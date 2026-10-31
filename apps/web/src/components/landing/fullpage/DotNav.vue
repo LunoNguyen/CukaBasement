@@ -29,8 +29,8 @@ const dark = () => props.items[props.active]?.tone !== 'page'
           @click="emit('go', i)"
         >
           <span
-            class="pointer-events-none absolute right-11 rounded-full px-3 py-1 font-mono text-[10px] tracking-[0.14em] whitespace-nowrap uppercase opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
-            :class="dark() ? 'bg-[#0f0b09]/70 text-[#f3ebe6]' : 'bg-[var(--c-surface)] text-[var(--c-text)] shadow'"
+            class="pointer-events-none absolute right-11 rounded-full px-3 py-1 text-[10px] whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+            :class="dark() ? 'bg-[#0f0b09]/70 text-[#f3ebe6]' : 'bg-[var(--c-bg)] text-[var(--c-text)] shadow'"
             aria-hidden="true"
           >{{ it.name }}</span>
           <span

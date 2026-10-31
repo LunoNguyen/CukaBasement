@@ -74,12 +74,11 @@ const panels = (w: VueWrapper) => w.findAll('[data-test="fp-panel"]')
 const press = (key: string, target: EventTarget = document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
 
 describe('Landing page (/) as full screens', () => {
-  it('renders one screen per visible section, in order, with no site header or footer', async () => {
+  it('renders one screen per visible section, in order, under the site header (shown on every route)', async () => {
     const { w, router } = await mountHome()
     expect(panels(w).map((p) => p.attributes('data-section'))).toEqual(['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])
     expect(w.text()).not.toContain('Bí mật')
-    expect(w.find('[data-test="brand"]').exists()).toBe(false)
-    expect(w.find('[data-test="footer"]').exists()).toBe(false)
+    expect(w.find('[data-test="brand"]').exists()).toBe(true)
     expect(w.find('[data-test="landing-chrome"]').exists()).toBe(true)
     expect(document.documentElement.classList.contains('fp-snap')).toBe(true)
     // One h1: the huge name. Landmarks: the floating header, main, the screen dots and the footer.
@@ -213,8 +212,7 @@ describe('Landing page (/) as full screens', () => {
     expect(pause).toHaveBeenCalled()
     expect(toggle.attributes('aria-pressed')).toBe('true')
     expect(toggle.text()).toBe('Phát video')
-    // The name is huge and uppercase by CSS only; "now playing" links out in a new tab.
-    expect(w.get('[data-test="fp-hero-name"]').classes()).toContain('uppercase')
+    // "Now playing" links out in a new tab.
     expect(w.get('[data-test="fp-now-playing"]').attributes()).toMatchObject({ href: 'https://www.youtube.com/@hibikiduca', target: '_blank', rel: 'noopener noreferrer' })
     expect(w.get('[data-test="fp-now-playing"]').classes()).toContain('mix-blend-difference')
   })

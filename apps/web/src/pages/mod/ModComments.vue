@@ -40,7 +40,7 @@ async function restore(c: HiddenCommentDto) {
           <RouterLink :to="`/posts/${c.post.id}`" class="underline">{{ c.post.title }}</RouterLink> ·
           <time :datetime="c.createdAt">{{ new Date(c.createdAt).toLocaleString(locale) }}</time>
         </p>
-        <div class="mt-2"><Btn variant="ghost" :loading="restoring === c.id" @click="restore(c)">{{ t('mod.restore') }}</Btn></div>
+        <div class="mt-2"><Btn variant="secondary" :loading="restoring === c.id" @click="restore(c)">{{ t('mod.restore') }}</Btn></div>
       </li>
     </ul>
     <ListFooter :list="list" :empty-text="t('mod.commentsEmpty')" />

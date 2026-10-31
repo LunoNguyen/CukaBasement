@@ -190,7 +190,7 @@ defineExpose({ goTo })
       :key="r.s.id"
       :ref="(el) => el && (panels[i] = el as HTMLElement)"
       class="fp-panel"
-      :class="[r.short ? 'fp-short' : '', r.tone === 'dark' ? 'bg-[var(--c-cellar)]' : r.band === 'soft' ? 'bg-[var(--c-soft)]' : 'bg-[var(--c-bg)]']"
+      :class="[r.short ? 'fp-short' : '', r.tone === 'dark' ? 'bg-[#141414]' : r.band === 'soft' ? 'bg-[var(--c-surface-2)]' : 'bg-[var(--c-bg)]']"
       :data-tone="r.tone"
       :data-section="r.s.type"
       :aria-current="!preview && i === active ? 'true' : undefined"

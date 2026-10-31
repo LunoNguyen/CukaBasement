@@ -13,13 +13,13 @@ onBeforeUnmount(() => store.stop())
 
 <template>
   <RouterLink to="/notifications" data-test="bell" class="icon-btn relative" :aria-label="t('notifications.bell', { n: store.count })">
-    <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+    <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
       <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0" />
     </svg>
     <span
       v-if="store.count > 0"
       data-test="bell-badge"
-      class="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-[var(--c-accent)] px-1 text-center text-[10px] font-bold leading-4 text-[var(--c-bg)] ring-2 ring-[var(--c-surface)]"
+      class="absolute top-1 right-1 min-w-4 rounded-full bg-[var(--c-accent-strong)] px-1 text-center text-[10px] font-bold leading-4 text-[var(--c-on-primary)] ring-2 ring-[var(--c-bg)]"
       aria-hidden="true"
     >{{ label }}</span>
   </RouterLink>

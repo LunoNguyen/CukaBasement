@@ -82,7 +82,7 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
 </script>
 
 <template>
-  <section ref="root" data-test="fp-spotlight" :aria-labelledby="headingId" class="relative isolate flex flex-1 flex-col overflow-hidden bg-[var(--c-cellar-deep)] text-[#f3ebe6]">
+  <section ref="root" data-test="fp-spotlight" :aria-labelledby="headingId" class="relative isolate flex flex-1 flex-col overflow-hidden bg-[#0a0a0a] text-[#f3ebe6]">
     <!-- Backgrounds -->
     <div class="absolute inset-0 -z-10" aria-hidden="true">
       <div
@@ -106,10 +106,10 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
 
     <div class="relative flex flex-1 flex-col justify-between gap-8 px-5 pt-24 pb-8 sm:px-10 sm:pb-10 md:pr-20 lg:pr-24">
       <header class="flex flex-col gap-3">
-        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 font-mono text-[11px] tracking-[0.2em] text-[#f3ebe6]/80 uppercase">
-          <span class="h-px w-8 bg-[var(--c-cellar-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
+        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 text-[11px] text-[#f3ebe6]/80">
+          <span class="h-px w-8 bg-[var(--c-accent)]" aria-hidden="true" />{{ tx(data.eyebrow) }}
         </p>
-        <h2 :id="headingId" class="font-display text-[clamp(2.2rem,5cqw,5rem)] leading-[1] md:leading-[0.92] font-semibold tracking-[-0.04em] uppercase [word-spacing:0.1em]">{{ tx(data.heading) }}</h2>
+        <h2 :id="headingId" class="font-display text-[clamp(2.2rem,5cqw,5rem)] leading-[1] md:leading-[0.92] font-semibold tracking-[-0.04em] [word-spacing:0.1em]">{{ tx(data.heading) }}</h2>
       </header>
 
       <div class="grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -127,14 +127,14 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
                 @focus="hold(i)"
                 @click="hold(i)"
               >
-                <span class="w-7 font-mono text-[11px] tracking-[0.14em]" :class="i === cur ? 'text-[var(--c-cellar-accent)]' : ''" aria-hidden="true">{{ pad(i) }}</span>
+                <span class="w-7 text-[11px]" :class="i === cur ? 'text-[var(--c-accent)]' : ''" aria-hidden="true">{{ pad(i) }}</span>
                 <span class="font-display text-[clamp(1.75rem,3.4cqw,3.5rem)] leading-[1.02] font-semibold tracking-[-0.03em]">{{ it.name }}</span>
               </button>
             </li>
           </ol>
           <p class="font-display text-[clamp(2.25rem,10cqw,3.5rem)] leading-none font-semibold tracking-[-0.03em] md:hidden" aria-hidden="true">{{ items[cur]?.name }}</p>
           <div class="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-2" aria-live="polite">
-            <p v-if="items[cur]?.caption" class="font-mono text-xs tracking-[0.12em] text-[#f3ebe6]/85 uppercase" data-test="spotlight-caption">{{ items[cur]!.caption }}</p>
+            <p v-if="items[cur]?.caption" class="text-xs text-[#f3ebe6]/85" data-test="spotlight-caption">{{ items[cur]!.caption }}</p>
             <SmartLink v-if="items[cur]?.href" :href="items[cur]!.href" class="group inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#f3ebe6] underline-offset-4 hover:underline" data-test="spotlight-link">
               {{ t('landing.fp.discover', { name: items[cur]!.name }) }}
               <svg viewBox="0 0 24 24" class="size-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -157,7 +157,7 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
               @click="hold(i)"
             >
               <img v-if="it.thumb" :src="it.thumb.src" :srcset="it.thumb.srcset" sizes="7rem" alt="" loading="lazy" decoding="async" class="h-full w-full object-cover transition-[filter] duration-500" :class="i === cur ? '' : 'grayscale'" />
-              <span v-else class="flex h-full w-full items-center justify-center bg-[#231a15] font-display text-2xl italic transition-colors" :class="i === cur ? 'text-[var(--c-cellar-accent)]' : 'text-[#a89a90]'">{{ it.name.charAt(0) }}</span>
+              <span v-else class="flex h-full w-full items-center justify-center bg-[#231a15] font-display text-2xl italic transition-colors" :class="i === cur ? 'text-[var(--c-accent)]' : 'text-[#a89a90]'">{{ it.name.charAt(0) }}</span>
             </button>
           </div>
           <div class="flex items-center gap-3">
@@ -165,9 +165,9 @@ const art = ['tr', 'bl', 'br', 'tl', 'c'] as const
               <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6" /></svg>
             </button>
             <div class="h-px w-full min-w-24 flex-1 bg-[#f3ebe6]/25 lg:w-56 lg:flex-none" aria-hidden="true">
-              <div :key="tick" class="h-full bg-[var(--c-cellar-accent)]" :class="running ? 'fp-fill' : ''" :style="running ? { animationDuration: `${data.intervalSec}s` } : { width: `${((cur + 1) / Math.max(n, 1)) * 100}%` }" data-test="spotlight-progress" />
+              <div :key="tick" class="h-full bg-[var(--c-accent)]" :class="running ? 'fp-fill' : ''" :style="running ? { animationDuration: `${data.intervalSec}s` } : { width: `${((cur + 1) / Math.max(n, 1)) * 100}%` }" data-test="spotlight-progress" />
             </div>
-            <span class="font-mono text-xs tracking-[0.14em] text-[#f3ebe6]/80" data-test="spotlight-count">{{ pad(cur) }} / {{ String(n).padStart(2, '0') }}</span>
+            <span class="text-xs text-[#f3ebe6]/80" data-test="spotlight-count">{{ pad(cur) }} / {{ String(n).padStart(2, '0') }}</span>
             <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#f3ebe6]/40 md:hidden" :aria-label="t('landing.next')" data-test="spotlight-next" @click="show(cur + 1)">
               <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
             </button>

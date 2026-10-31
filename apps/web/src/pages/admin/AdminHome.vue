@@ -243,7 +243,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
           :key="p"
           type="button"
           class="min-h-11 rounded-full px-5 text-sm font-semibold transition-colors"
-          :class="page === p ? 'bg-[var(--c-primary)] text-[var(--c-bg)]' : 'text-[var(--c-muted)] hover:text-[var(--c-text)]'"
+          :class="page === p ? 'bg-[var(--c-accent-strong)] text-[var(--c-bg)]' : 'text-[var(--c-muted)] hover:text-[var(--c-text)]'"
           :aria-pressed="page === p"
           :data-test="`page-${p}`"
           @click="switchPage(p)"
@@ -262,29 +262,29 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
       <div class="z-20 -mx-3 lg:sticky lg:top-[4.25rem] mb-4 flex flex-wrap items-center gap-3 border-b border-[var(--c-border)] bg-[var(--c-bg)]/95 px-3 py-3 backdrop-blur">
         <div class="mr-auto flex min-w-0 flex-col text-xs text-[var(--c-muted)]">
           <span class="flex items-center gap-2 text-sm font-semibold text-[var(--c-text)]" data-test="home-status">
-            <span class="size-2 rounded-full" :class="dirty ? 'bg-[var(--c-accent)]' : draft.unpublished ? 'bg-[var(--c-latte)]' : 'bg-emerald-600'" aria-hidden="true" />
+            <span class="size-2 rounded-full" :class="dirty ? 'bg-[var(--c-accent)]' : draft.unpublished ? 'bg-[var(--c-muted)]' : 'bg-emerald-600'" aria-hidden="true" />
             {{ dirty ? t('admin.home.unsaved') : draft.unpublished ? t('admin.home.draftAhead') : t('admin.home.upToDate') }}
           </span>
           <span>{{ t('admin.home.publishedAt', { at: fmt(draft.publishedAt), by: draft.publishedBy?.username ?? t('admin.logs.system') }) }}</span>
         </div>
         <div class="flex rounded-full border border-[var(--c-border)] p-0.5 text-xs font-semibold" role="group" :aria-label="t('admin.home.editLang')">
-          <button v-for="l in LANGS" :key="l" type="button" class="min-h-9 rounded-full px-3 uppercase" :class="lang === l ? 'bg-[var(--c-primary)] text-[var(--c-bg)]' : ''" :aria-pressed="lang === l" :data-test="`edit-lang-${l}`" @click="setLang(l)">
+          <button v-for="l in LANGS" :key="l" type="button" class="min-h-9 rounded-full px-3" :class="lang === l ? 'bg-[var(--c-accent-strong)] text-[var(--c-bg)]' : ''" :aria-pressed="lang === l" :data-test="`edit-lang-${l}`" @click="setLang(l)">
             {{ l }}
           </button>
         </div>
         <button type="button" class="chip lg:hidden" data-test="toggle-preview" :aria-pressed="view === 'preview'" @click="view = view === 'edit' ? 'preview' : 'edit'">
           {{ view === 'edit' ? t('admin.home.showPreview') : t('admin.home.showEditor') }}
         </button>
-        <Btn variant="ghost" :disabled="!draft.unpublished && !dirty" :loading="busy === 'discard'" data-test="home-discard" @click="confirm = 'discard'">{{ t('admin.home.discard') }}</Btn>
-        <Btn variant="ghost" :disabled="!dirty" :loading="busy === 'save'" data-test="home-save" @click="save">{{ t('admin.home.save') }}</Btn>
+        <Btn variant="secondary" :disabled="!draft.unpublished && !dirty" :loading="busy === 'discard'" data-test="home-discard" @click="confirm = 'discard'">{{ t('admin.home.discard') }}</Btn>
+        <Btn variant="secondary" :disabled="!dirty" :loading="busy === 'save'" data-test="home-save" @click="save">{{ t('admin.home.save') }}</Btn>
         <Btn :disabled="!dirty && !draft.unpublished" :loading="busy === 'publish'" data-test="home-publish" @click="confirm = 'publish'">{{ t('admin.home.publish') }}</Btn>
       </div>
 
       <div v-if="conflict" role="alert" class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--c-danger)] p-3 text-sm">
         {{ t('admin.home.conflict') }}
-        <Btn size="sm" variant="ghost" data-test="home-reload" @click="load">{{ t('admin.home.reload') }}</Btn>
+        <Btn size="sm" variant="secondary" data-test="home-reload" @click="load">{{ t('admin.home.reload') }}</Btn>
       </div>
-      <p v-if="problem" role="alert" data-test="home-problem" class="mb-4 rounded-xl bg-[var(--c-accent-soft)] p-3 text-sm text-[var(--c-accent-text)]">{{ problem }}</p>
+      <p v-if="problem" role="alert" data-test="home-problem" class="mb-4 rounded-xl bg-[var(--c-accent-soft)] p-3 text-sm text-[var(--c-accent-strong)]">{{ problem }}</p>
 
       <div class="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <!-- Editor -->
@@ -296,11 +296,11 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
                 v-for="(s, i) in sections"
                 :key="s.id"
                 class="flex items-center gap-1 rounded-lg pl-1"
-                :class="s.id === selectedId ? 'bg-[var(--c-soft)]' : ''"
+                :class="s.id === selectedId ? 'bg-[var(--c-surface-2)]' : ''"
                 data-test="section-row"
               >
                 <button type="button" class="flex min-h-11 min-w-0 flex-1 flex-col items-start justify-center px-2 text-left" :aria-current="s.id === selectedId ? 'true' : undefined" data-test="section-select" @click="selectedId = s.id">
-                  <span class="font-mono text-[10px] tracking-[0.1em] text-[var(--c-muted)] uppercase">{{ t(`admin.home.types.${s.type}`) }}</span>
+                  <span class="text-[10px] text-[var(--c-muted)]">{{ t(`admin.home.types.${s.type}`) }}</span>
                   <span class="w-full truncate text-sm font-medium" :class="s.visible ? '' : 'text-[var(--c-muted)] line-through'">{{ label(s) }}</span>
                 </button>
                 <button type="button" class="icon-btn size-9" :aria-label="s.visible ? t('admin.home.hide', { name: label(s) }) : t('admin.home.show', { name: label(s) })" :aria-pressed="!s.visible" data-test="section-visible" @click="s.visible = !s.visible">
@@ -322,15 +322,15 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
                   <option v-for="ty in g.types" :key="ty" :value="ty">{{ t(`admin.home.types.${ty}`) }}</option>
                 </optgroup>
               </select>
-              <Btn variant="ghost" :disabled="sections.length >= HOME_LIMITS.sectionsMax" data-test="add-section" @click="add">{{ t('admin.home.add') }}</Btn>
+              <Btn variant="secondary" :disabled="sections.length >= HOME_LIMITS.sectionsMax" data-test="add-section" @click="add">{{ t('admin.home.add') }}</Btn>
             </div>
           </section>
 
           <section v-if="selected" :key="selected.id" class="card flex flex-col gap-4 p-4" data-test="section-editor">
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="mr-auto font-display text-xl font-semibold">{{ t(`admin.home.types.${selected.type}`) }}</h2>
-              <Btn size="sm" variant="ghost" data-test="section-duplicate" @click="duplicate(selected)">{{ t('admin.home.duplicate') }}</Btn>
-              <Btn size="sm" variant="ghost" class="text-[var(--c-danger)]" data-test="section-delete" @click="confirm = 'delete'">{{ t('admin.home.delete') }}</Btn>
+              <Btn size="sm" variant="secondary" data-test="section-duplicate" @click="duplicate(selected)">{{ t('admin.home.duplicate') }}</Btn>
+              <Btn size="sm" variant="secondary" class="text-[var(--c-danger)]" data-test="section-delete" @click="confirm = 'delete'">{{ t('admin.home.delete') }}</Btn>
             </div>
             <label class="flex items-center gap-2 text-sm">
               <input v-model="selected.visible" type="checkbox" data-test="section-visible-check" />
@@ -361,21 +361,21 @@ const fmt = (iso: string) => new Date(iso).toLocaleString(locale.value === 'en' 
     <Modal :open="confirm === 'publish'" :title="t('admin.home.publishPageTitle', { page: t(`admin.home.pages.${page}`) })" @update:open="(v) => !v && (confirm = '')">
       <p class="text-sm">{{ t('admin.home.publishConfirm') }}</p>
       <div class="mt-5 flex justify-end gap-2">
-        <Btn variant="ghost" @click="confirm = ''">{{ t('common.cancel') }}</Btn>
+        <Btn variant="secondary" @click="confirm = ''">{{ t('common.cancel') }}</Btn>
         <Btn data-test="publish-confirm" @click="publish">{{ t('admin.home.publish') }}</Btn>
       </div>
     </Modal>
     <Modal :open="confirm === 'discard'" :title="t('admin.home.discardTitle')" @update:open="(v) => !v && (confirm = '')">
       <p class="text-sm">{{ t('admin.home.discardConfirm') }}</p>
       <div class="mt-5 flex justify-end gap-2">
-        <Btn variant="ghost" @click="confirm = ''">{{ t('common.cancel') }}</Btn>
+        <Btn variant="secondary" @click="confirm = ''">{{ t('common.cancel') }}</Btn>
         <Btn variant="danger" data-test="discard-confirm" @click="discard">{{ t('admin.home.discard') }}</Btn>
       </div>
     </Modal>
     <Modal :open="confirm === 'delete'" :title="t('admin.home.deleteTitle')" @update:open="(v) => !v && (confirm = '')">
       <p class="text-sm">{{ t('admin.home.deleteConfirm', { name: selected ? label(selected) : '' }) }}</p>
       <div class="mt-5 flex justify-end gap-2">
-        <Btn variant="ghost" @click="confirm = ''">{{ t('common.cancel') }}</Btn>
+        <Btn variant="secondary" @click="confirm = ''">{{ t('common.cancel') }}</Btn>
         <Btn variant="danger" data-test="delete-confirm" @click="removeSelected">{{ t('admin.home.delete') }}</Btn>
       </div>
     </Modal>

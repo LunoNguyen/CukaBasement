@@ -57,7 +57,7 @@ async function resolve(g: ReportGroupDto, decision: 'keep' | 'remove') {
   <div>
     <div class="mb-3 flex items-center justify-between gap-2">
       <p class="text-xs text-[var(--c-muted)]">{{ t('mod.keepHint') }}</p>
-      <Btn variant="ghost" :loading="loading" @click="load">{{ t('mod.reload') }}</Btn>
+      <Btn variant="secondary" :loading="loading" @click="load">{{ t('mod.reload') }}</Btn>
     </div>
     <ul class="flex flex-col gap-3">
       <li v-for="g in groups" :key="g.post.id" data-test="report-group" class="flex flex-col gap-3 card p-3 sm:flex-row">

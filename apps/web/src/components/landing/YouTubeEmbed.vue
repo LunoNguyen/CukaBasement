@@ -16,7 +16,7 @@ const src = computed(() => `https://www.youtube-nocookie.com/embed/${id.value}?a
 </script>
 
 <template>
-  <div v-if="id" class="relative aspect-video overflow-hidden rounded-2xl bg-[var(--c-cellar)]">
+  <div v-if="id" class="relative aspect-video overflow-hidden rounded-2xl bg-[#141414]">
     <iframe
       v-if="playing"
       :src="src"
@@ -31,7 +31,7 @@ const src = computed(() => `https://www.youtube-nocookie.com/embed/${id.value}?a
       v-else
       type="button"
       data-test="yt-play"
-      class="group absolute inset-0 flex flex-col items-start justify-end gap-3 p-5 text-left text-[var(--c-cellar-text)] sm:p-7"
+      class="group absolute inset-0 flex flex-col items-start justify-end gap-3 p-5 text-left text-[#ededed] sm:p-7"
       :aria-label="t('landing.playVideo', { title: title || t('landing.video') })"
       @click="playing = true"
     >
@@ -39,7 +39,7 @@ const src = computed(() => `https://www.youtube-nocookie.com/embed/${id.value}?a
       <span class="absolute top-1/2 left-1/2 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#fbf7f4] text-[#5b3a29] shadow-lg transition-transform group-hover:scale-105 sm:size-20">
         <svg viewBox="0 0 24 24" class="ml-1 size-7 sm:size-8" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
       </span>
-      <span class="relative font-mono text-[11px] tracking-[0.14em] text-[var(--c-cellar-muted)] uppercase">YouTube · {{ t('landing.loadsOnClick') }}</span>
+      <span class="relative text-[11px] text-[#a3a3a3]">YouTube · {{ t('landing.loadsOnClick') }}</span>
       <span v-if="title" class="relative font-display text-xl leading-tight font-semibold sm:text-2xl">{{ title }}</span>
     </button>
   </div>

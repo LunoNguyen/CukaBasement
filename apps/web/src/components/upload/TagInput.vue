@@ -63,7 +63,7 @@ function onKeydown(e: KeyboardEvent) {
 <template>
   <div class="flex flex-col gap-2 text-sm">
     <ul v-if="model.length" class="flex flex-wrap gap-1">
-      <li v-for="tag in model" :key="tag" data-test="tag-chip" class="flex items-center gap-1 rounded-full bg-[var(--c-soft)] py-1 pr-2 pl-3 text-[var(--c-primary)]">
+      <li v-for="tag in model" :key="tag" data-test="tag-chip" class="flex items-center gap-1 rounded-full bg-[var(--c-surface-2)] py-1 pr-2 pl-3 text-[var(--c-accent-strong)]">
         #{{ tag }}
         <button type="button" :aria-label="t('upload.removeTag', { tag })" @click="remove(tag)">✕</button>
       </li>

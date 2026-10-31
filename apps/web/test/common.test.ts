@@ -87,6 +87,24 @@ describe('a11y bits', () => {
     const w = mount(Spinner, { global: { plugins } })
     expect(w.attributes('aria-label')).toBe(i18n.global.t('common.loading'))
   })
+  it('Btn primary is filled with accent-strong and square-cornered, never a pill', () => {
+    const b = mount(Btn, { props: { variant: 'primary' }, global: { plugins } })
+    expect(b.classes().some((c) => c.includes('--c-accent-strong'))).toBe(true)
+    expect(b.classes()).not.toContain('rounded-full')
+    expect(b.classes()).toContain('rounded')
+  })
+  it('Btn secondary is outlined, ghost has no border, danger uses the danger colour', () => {
+    const sec = mount(Btn, { props: { variant: 'secondary' }, global: { plugins } })
+    expect(sec.classes()).toContain('border')
+    const ghost = mount(Btn, { props: { variant: 'ghost' }, global: { plugins } })
+    expect(ghost.classes()).not.toContain('border')
+    const danger = mount(Btn, { props: { variant: 'danger' }, global: { plugins } })
+    expect(danger.classes().some((c) => c.includes('--c-danger'))).toBe(true)
+  })
+  it('Btn sizes: sm is 32px, md 40px', () => {
+    expect(mount(Btn, { props: { size: 'sm' }, global: { plugins } }).classes()).toContain('h-8')
+    expect(mount(Btn, { global: { plugins } }).classes()).toContain('sm:h-10')
+  })
   it('Btn sets aria-busy when loading', () => {
     expect(mount(Btn, { props: { loading: true }, global: { plugins } }).attributes('aria-busy')).toBe('true')
     expect(mount(Btn, { global: { plugins } }).attributes('aria-busy')).toBeUndefined()

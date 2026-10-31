@@ -181,20 +181,21 @@ describe('account menu and banner', () => {
     w.unmount()
   })
 
-  it('header fits 360px: actions wrap, display name and upload label collapse below sm', async () => {
+  it('header fits 360px: the logo text and upload label collapse below sm; the display name lives in the menu', async () => {
     const { pinia, auth, router } = setup('user')
     auth.setUser(makeMe({ profile: { ...makeMe().profile, displayName: 'Một cái tên hiển thị rất là dài luôn đó nha' } }))
     auth.ready = true
     await router.push('/posts')
     const w = mount(App, { global: { plugins: [pinia, router, i18n] } })
     await flushPromises()
-    const actions = w.get('[data-test="header-actions"]').classes()
-    expect(actions).toEqual(expect.arrayContaining(['min-w-0', 'flex-wrap']))
-    const name = w.get('[data-test="account-name"]').classes()
-    expect(name).toEqual(expect.arrayContaining(['hidden', 'sm:inline']))
+    expect(w.get('[data-test="header-actions"]').classes()).toContain('min-w-0')
+    expect(w.get('[data-test="brand"] span').classes()).toEqual(expect.arrayContaining(['hidden', 'sm:inline']))
+    expect(w.find('[data-test="account-name"]').exists()).toBe(false)
+    await w.get('[data-test="account-menu-button"]').trigger('click')
+    expect(w.get('[data-test="account-name"]').classes()).toContain('truncate')
     const label = w.get('[data-test="upload-label"]')
     expect(label.text()).toBe('Đăng bài')
-    expect(label.classes()).toEqual(expect.arrayContaining(['sr-only', 'sm:not-sr-only']))
+    expect(label.classes()).toContain('max-sm:sr-only')
     w.unmount()
   })
 

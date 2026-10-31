@@ -85,11 +85,11 @@ function onFollow(s: { following: boolean; followerCount: number }) {
   <NotFoundPage v-else-if="failure?.code === 'NOT_FOUND'" />
   <div v-else-if="failure" class="py-10 text-center">
     <p class="mb-2 text-[var(--c-muted)]">{{ errorText(failure) }}</p>
-    <Btn variant="ghost" @click="load()">{{ t('common.retry') }}</Btn>
+    <Btn variant="secondary" @click="load()">{{ t('common.retry') }}</Btn>
   </div>
   <div v-else-if="user" class="flex flex-col gap-4">
     <!-- 4:1 like the worker's banner render (1600×400), so the whole crop shows at every width. -->
-    <div data-test="banner-box" class="aspect-[4/1] w-full overflow-hidden rounded-2xl bg-[var(--c-soft)]">
+    <div data-test="banner-box" class="aspect-[4/1] w-full overflow-hidden rounded-2xl bg-[var(--c-surface-2)]">
       <img v-if="user.bannerUrl" :src="user.bannerUrl" alt="" class="h-full w-full object-cover" data-test="banner" />
     </div>
     <div class="-mt-12 flex flex-wrap items-end gap-3 px-2 sm:-mt-16">
@@ -112,7 +112,7 @@ function onFollow(s: { following: boolean; followerCount: number }) {
         <p class="truncate text-sm text-[var(--c-muted)]">@{{ user.username }}</p>
       </div>
       <FollowButton v-if="!isSelf" :username="user.username" :following="user.isFollowing" @change="onFollow" />
-      <RouterLink v-else to="/settings" class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:border-[var(--c-latte)]">{{ t('profile.edit') }}</RouterLink>
+      <RouterLink v-else to="/settings" class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:border-[var(--c-muted)]">{{ t('profile.edit') }}</RouterLink>
     </div>
     <p v-if="user.bio" class="px-2 whitespace-pre-line">{{ user.bio }}</p>
     <ul v-if="socials.length" class="flex flex-wrap gap-3 px-2 text-sm">

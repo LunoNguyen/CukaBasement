@@ -397,6 +397,7 @@ describe('Settings page', () => {
     it('header switch persists when logged in; failure keeps the old locale', async () => {
       fake = installFakeFetch({ 'PATCH /api/me/settings': [err(500, 'INTERNAL'), ok(makeMe({ locale: 'en' }))] })
       const w = await mountSettings()
+      await w.get('[data-test="account-menu-button"]').trigger('click')
       await w.get('[data-test="lang-en"]').trigger('click')
       await flushPromises()
       expect(fake.callsTo('PATCH /api/me/settings')[0]!.body).toEqual({ locale: 'en' })

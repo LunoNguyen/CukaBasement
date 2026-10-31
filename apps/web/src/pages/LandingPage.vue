@@ -58,14 +58,14 @@ onBeforeUnmount(() => {
   <div data-test="landing">
     <LandingChrome :tone="tone" />
     <!-- Loading: the dark first screen, so nothing jumps when the content arrives. -->
-    <div v-if="!home && !failed" class="h-[100svh] bg-[var(--c-cellar-deep)]" aria-busy="true">
+    <div v-if="!home && !failed" class="h-[100svh] bg-[#0a0a0a]" aria-busy="true">
       <span class="sr-only">{{ t('common.loading') }}</span>
     </div>
-    <section v-else-if="failed" class="relative isolate flex min-h-[100svh] items-end overflow-hidden bg-[var(--c-cellar)] text-[var(--c-cellar-text)]">
+    <section v-else-if="failed" class="relative isolate flex min-h-[100svh] items-end overflow-hidden bg-[#141414] text-[#ededed]">
       <BasementArt class="absolute inset-0 -z-10 h-full w-full opacity-60" />
       <div class="flex w-full flex-col gap-6 px-5 pt-28 pb-16 sm:px-10">
         <h1 class="font-display text-[clamp(3rem,9vw,7rem)] leading-[0.9] font-semibold tracking-[-0.04em]">{{ t('common.siteName') }}</h1>
-        <p class="max-w-xl text-lg text-[var(--c-cellar-text)]/90">{{ t('brand.heroBody') }}</p>
+        <p class="max-w-xl text-lg text-[#ededed]/90">{{ t('brand.heroBody') }}</p>
         <RouterLink to="/posts" class="inline-flex min-h-12 w-fit items-center rounded-full bg-[#fbf7f4] px-6 text-sm font-semibold text-[#5b3a29] hover:bg-white">{{ t('landing.browsePosts') }}</RouterLink>
       </div>
     </section>

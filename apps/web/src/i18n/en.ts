@@ -13,7 +13,7 @@ const en: typeof vi = {
   brand: {
     heroTitle: 'A home for Hibiki Du Ca fanart',
     heroBody: 'A home for illustrations, comics, video and audio — every work says who made it, and none of it is AI.',
-    footerNote: 'A home for Hibiki Du Ca fanart',
+    footerNote: 'A fan site, not official',
   },
   landing: {
     slide: 'Picture {n} of {total}', pause: 'Pause slideshow', play: 'Play slideshow', prev: 'Previous', next: 'Next',
@@ -197,6 +197,10 @@ const en: typeof vi = {
     intro: 'Introduction',
     language: 'Language',
     theme: 'Toggle light/dark theme',
+    themeDark: 'Dark theme',
+    themeLight: 'Light theme',
+    more: 'More',
+    main: 'Main navigation',
   },
   notFound: {
     title: 'Page not found',

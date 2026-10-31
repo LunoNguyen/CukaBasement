@@ -341,7 +341,7 @@ async function confirmDelete() {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <Btn data-test="like" variant="ghost" :aria-pressed="post.viewerState.liked" :aria-label="`${t('post.like')} (${post.counts.likes})`" @click="toggleLike">
+          <Btn data-test="like" variant="secondary" :aria-pressed="post.viewerState.liked" :aria-label="`${t('post.like')} (${post.counts.likes})`" @click="toggleLike">
             <svg
               viewBox="0 0 24 24"
               class="h-4 w-4"
@@ -355,10 +355,10 @@ async function confirmDelete() {
               <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
             </svg>
             {{ t('post.like') }}
-            <span class="font-mono text-xs text-[var(--c-muted)] tabular-nums">{{ post.counts.likes }}</span>
+            <span class="text-xs text-[var(--c-muted)] tabular-nums">{{ post.counts.likes }}</span>
           </Btn>
           <div ref="bookmarkWrap" class="relative flex items-center">
-            <Btn data-test="bookmark" variant="ghost" :aria-pressed="post.viewerState.bookmarked" :aria-label="`${t('post.bookmark')} (${post.counts.bookmarks})`" @click="toggleBookmark()">
+            <Btn data-test="bookmark" variant="secondary" :aria-pressed="post.viewerState.bookmarked" :aria-label="`${t('post.bookmark')} (${post.counts.bookmarks})`" @click="toggleBookmark()">
               <svg
                 viewBox="0 0 24 24"
                 class="h-4 w-4"
@@ -372,7 +372,7 @@ async function confirmDelete() {
                 <path d="M7 4h10v16l-5-3.5L7 20z" />
               </svg>
               {{ t('post.bookmark') }}
-              <span class="font-mono text-xs text-[var(--c-muted)] tabular-nums">{{ post.counts.bookmarks }}</span>
+              <span class="text-xs text-[var(--c-muted)] tabular-nums">{{ post.counts.bookmarks }}</span>
             </Btn>
             <button
               v-if="!post.viewerState.bookmarked"
@@ -392,28 +392,28 @@ async function confirmDelete() {
               </button>
             </div>
           </div>
-          <Btn data-test="share" variant="ghost" @click="share">
+          <Btn data-test="share" variant="secondary" @click="share">
             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v12M8 7l4-4 4 4M5 13v6h14v-6" />
             </svg>
             {{ t('post.share') }}
           </Btn>
-          <Btn v-if="!isOwner" data-test="report" variant="ghost" @click="openReport">{{ t('post.report') }}</Btn>
+          <Btn v-if="!isOwner" data-test="report" variant="secondary" @click="openReport">{{ t('post.report') }}</Btn>
           <template v-if="isOwner">
-            <RouterLink data-test="edit-post" :to="`/posts/${post.id}/edit`" class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:border-[var(--c-latte)]">{{
+            <RouterLink data-test="edit-post" :to="`/posts/${post.id}/edit`" class="inline-flex min-h-11 items-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] px-4 text-sm font-semibold hover:border-[var(--c-muted)]">{{
               t('post.edit')
             }}</RouterLink>
             <Btn data-test="delete-post" variant="danger" @click="deleteOpen = true">{{ t('post.delete') }}</Btn>
           </template>
           <template v-if="auth.isStaff">
-            <Btn v-if="post.visibility === 'public'" data-test="mod-hide" variant="ghost" :loading="modBusy" @click="moderate('hide')">{{ t('mod.hide') }}</Btn>
-            <Btn v-else data-test="mod-restore" variant="ghost" :loading="modBusy" @click="moderate('restore')">{{ t('mod.restore') }}</Btn>
+            <Btn v-if="post.visibility === 'public'" data-test="mod-hide" variant="secondary" :loading="modBusy" @click="moderate('hide')">{{ t('mod.hide') }}</Btn>
+            <Btn v-else data-test="mod-restore" variant="secondary" :loading="modBusy" @click="moderate('restore')">{{ t('mod.restore') }}</Btn>
           </template>
         </div>
 
         <p v-if="post.description" class="text-sm leading-relaxed break-words whitespace-pre-line">{{ post.description }}</p>
         <div v-if="post.tags.length" class="flex flex-wrap gap-2">
-          <RouterLink v-for="tag in post.tags" :key="tag" :to="`/tags/${encodeURIComponent(tag)}`" class="chip"><span class="text-[var(--c-accent-text)]" aria-hidden="true">#</span>{{ tag }}</RouterLink>
+          <RouterLink v-for="tag in post.tags" :key="tag" :to="`/tags/${encodeURIComponent(tag)}`" class="chip"><span class="text-[var(--c-accent-strong)]" aria-hidden="true">#</span>{{ tag }}</RouterLink>
         </div>
 
         <UserCard v-if="author" :user="author" @change="author = $event" />
@@ -431,13 +431,13 @@ async function confirmDelete() {
     <Modal v-model:open="loginPrompt" :title="t('post.reportTitle')">
       <div data-test="login-prompt" class="flex flex-col gap-3 text-sm">
         <p>{{ t('post.reportLogin') }}</p>
-        <RouterLink :to="loginNext" class="self-start inline-flex min-h-11 items-center rounded-full bg-[var(--c-primary)] px-4 font-semibold text-[var(--c-bg)]">{{ t('auth.login') }}</RouterLink>
+        <RouterLink :to="loginNext" class="self-start inline-flex min-h-11 items-center rounded-full bg-[var(--c-accent-strong)] px-4 font-semibold text-[var(--c-bg)]">{{ t('auth.login') }}</RouterLink>
       </div>
     </Modal>
     <Modal v-model:open="deleteOpen" :title="t('post.deleteTitle')">
       <p class="mb-4 text-sm">{{ t('post.deleteConfirm') }}</p>
       <div class="flex justify-end gap-2">
-        <Btn variant="ghost" @click="deleteOpen = false">{{ t('common.cancel') }}</Btn>
+        <Btn variant="secondary" @click="deleteOpen = false">{{ t('common.cancel') }}</Btn>
         <Btn data-test="confirm-delete" variant="danger" :loading="deleting" @click="confirmDelete">{{ t('post.delete') }}</Btn>
       </div>
     </Modal>

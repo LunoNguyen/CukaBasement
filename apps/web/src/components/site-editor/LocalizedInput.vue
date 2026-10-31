@@ -31,8 +31,8 @@ const missing = computed(() => props.required && lang.value === 'vi' && !model.v
 <template>
   <div class="flex flex-col gap-1.5 text-sm">
     <label :for="id" class="flex items-center gap-2 font-medium">
-      {{ label }}<span v-if="required" class="text-[var(--c-accent-text)]" aria-hidden="true">*</span>
-      <span class="ml-auto font-mono text-[10px] tracking-[0.1em] text-[var(--c-muted)] uppercase">{{ lang }}</span>
+      {{ label }}<span v-if="required" class="text-[var(--c-accent-strong)]" aria-hidden="true">*</span>
+      <span class="ml-auto text-[10px] text-[var(--c-muted)]">{{ lang }}</span>
     </label>
     <textarea v-if="multiline" :id="id" v-model="value" :rows="rows" :maxlength="max" :placeholder="placeholder" class="field resize-y" :aria-invalid="missing || undefined" :data-test="testId" />
     <input v-else :id="id" v-model="value" type="text" :maxlength="max" :placeholder="placeholder" class="field" :aria-invalid="missing || undefined" :data-test="testId" />

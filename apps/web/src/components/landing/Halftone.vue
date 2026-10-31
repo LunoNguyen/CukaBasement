@@ -11,7 +11,7 @@ const ORIGIN = { tr: [100, 0], bl: [0, 100], br: [100, 100], tl: [0, 0], c: [50,
   <svg aria-hidden="true" focusable="false" class="pointer-events-none" preserveAspectRatio="none" width="100%" height="100%">
     <defs>
       <pattern :id="`d-${id}`" :width="size" :height="size" patternUnits="userSpaceOnUse">
-        <circle :cx="size / 2" :cy="size / 2" :r="size * 0.24" fill="var(--c-cellar-accent)" />
+        <circle :cx="size / 2" :cy="size / 2" :r="size * 0.24" fill="var(--c-accent)" />
       </pattern>
       <radialGradient :id="`f-${id}`" :cx="`${ORIGIN[from][0]}%`" :cy="`${ORIGIN[from][1]}%`" r="75%">
         <stop offset="0" stop-color="#fff" stop-opacity="1" />

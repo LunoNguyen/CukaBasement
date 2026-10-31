@@ -46,7 +46,7 @@ function link(n: NotificationDto): string | null {
   <section class="mx-auto max-w-2xl px-3 py-4">
     <div class="mb-3 flex items-center justify-between gap-2">
       <h1 class="font-display text-3xl font-semibold tracking-tight">{{ t('notifications.title') }}</h1>
-      <Btn variant="ghost" data-test="mark-all" @click="markAll">{{ t('notifications.markAll') }}</Btn>
+      <Btn variant="secondary" data-test="mark-all" @click="markAll">{{ t('notifications.markAll') }}</Btn>
     </div>
     <ul class="divide-y divide-[var(--c-border)] card">
       <li

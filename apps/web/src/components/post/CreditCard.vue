@@ -25,13 +25,13 @@ const repostLine = computed(() => [handle.value, platform.value].filter(Boolean)
 </script>
 
 <template>
-  <section data-test="credit" :aria-labelledby="headingId" class="relative flex flex-col gap-1 rounded-xl border border-[var(--c-border)] bg-[var(--c-paper)] px-5 pt-7 pb-4 shadow-[0_10px_24px_rgb(23_17_14/0.10)]">
+  <section data-test="credit" :aria-labelledby="headingId" class="relative flex flex-col gap-1 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface-2)] px-5 pt-7 pb-4 shadow-[0_10px_24px_rgb(23_17_14/0.10)]">
     <!-- The hang-tag hole. -->
-    <span class="absolute top-3 left-4 size-2.5 rounded-full bg-[var(--c-latte)]" aria-hidden="true" />
+    <span class="absolute top-3 left-4 size-2.5 rounded-full bg-[var(--c-muted)]" aria-hidden="true" />
     <div class="flex items-center justify-between gap-3">
       <span class="flex items-center gap-2">
         <BrandMark class="size-[22px] shrink-0" />
-        <span class="font-mono text-[11px] tracking-[0.1em] text-[var(--c-primary)] uppercase">{{ t('post.artBy') }}</span>
+        <span class="text-[11px] text-[var(--c-accent-strong)]">{{ t('post.artBy') }}</span>
       </span>
       <h2 :id="headingId" class="eyebrow text-right">{{ t('post.creditLabel') }}</h2>
     </div>
@@ -43,7 +43,7 @@ const repostLine = computed(() => [handle.value, platform.value].filter(Boolean)
       <template v-else>{{ repostLine }}</template>
     </p>
     <p v-if="!credit.isOwnWork && credit.permissionNote" class="mt-1 text-sm break-words text-[var(--c-muted)]">{{ t('post.permissionNote', { note: credit.permissionNote }) }}</p>
-    <div class="mt-3 flex flex-wrap items-center gap-1.5 border-t border-dashed border-[var(--c-latte)] pt-3">
+    <div class="mt-3 flex flex-wrap items-center gap-1.5 border-t border-dashed border-[var(--c-muted)] pt-3">
       <span data-test="credit-kind" class="tag-pill tag-pill-filled">
         <svg v-if="credit.isOwnWork" viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
         <svg v-else viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

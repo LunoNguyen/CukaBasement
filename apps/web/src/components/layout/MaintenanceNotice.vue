@@ -6,7 +6,7 @@ const { t } = useI18n()
 
 <template>
   <section data-test="maintenance" role="status" class="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
-    <h1 class="font-display text-2xl font-semibold">{{ t('maintenance.title') }}</h1>
+    <h1 class="text-xl font-bold">{{ t('maintenance.title') }}</h1>
     <p class="text-[var(--c-muted)]">{{ t('maintenance.body') }}</p>
   </section>
 </template>

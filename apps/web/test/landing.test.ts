@@ -79,7 +79,7 @@ describe('Introduction page (/gioi-thieu)', () => {
     expect(w.findAll('h2').map((h) => h.text())).toContain('Hồ sơ Du Ca')
     expect(document.title).toBe('Giới thiệu · Hibiki Du Ca · CukaBasement')
     // The normal site header, with the Introduction link marked current.
-    expect(w.get('[data-test="nav-intro"]').classes()).toContain('text-[var(--c-text)]')
+    expect(w.get('[data-test="nav-intro"]').classes()).toContain('!text-[var(--c-text)]')
     expect(w.find('[data-test="landing-chrome"]').exists()).toBe(false)
     w.unmount()
   })

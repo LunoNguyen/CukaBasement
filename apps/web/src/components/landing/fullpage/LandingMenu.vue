@@ -115,7 +115,7 @@ const badge = () => (notifications.count > 99 ? '99+' : String(notifications.cou
     >
       <div class="mx-auto flex min-h-full w-full max-w-screen-2xl flex-col px-5 pt-5 pb-8 sm:px-10 sm:pt-6">
         <div class="flex items-center justify-between gap-4">
-          <span class="font-mono text-[11px] tracking-[0.2em] text-[#a89a90] uppercase">{{ t('landing.menu.title') }}</span>
+          <span class="text-[11px] text-[#a89a90]">{{ t('landing.menu.title') }}</span>
           <button ref="closeBtn" type="button" class="fp-close flex size-12 items-center justify-center rounded-full border border-[#f3ebe6]/30 hover:border-[#f3ebe6]" :aria-label="t('landing.menu.close')" data-test="menu-close" @click="close">
             <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
@@ -132,8 +132,8 @@ const badge = () => (notifications.count > 99 ? '99+' : String(notifications.cou
                   data-test="menu-link"
                   @click="close"
                 >
-                  <span class="w-8 font-mono text-xs tracking-[0.14em] text-[#a89a90] group-hover:text-[var(--c-cellar-accent)]" aria-hidden="true">{{ l.n }}</span>
-                  <span class="font-display text-[clamp(2.25rem,6vw,5rem)] leading-none font-semibold tracking-[-0.035em] transition-transform duration-300 group-hover:translate-x-2 motion-reduce:transition-none" :class="route.path === l.to ? 'text-[var(--c-cellar-accent)]' : ''">{{ t(l.key) }}</span>
+                  <span class="w-8 text-xs text-[#a89a90] group-hover:text-[var(--c-accent)]" aria-hidden="true">{{ l.n }}</span>
+                  <span class="font-display text-[clamp(2.25rem,6vw,5rem)] leading-none font-semibold tracking-[-0.035em] transition-transform duration-300 group-hover:translate-x-2 motion-reduce:transition-none" :class="route.path === l.to ? 'text-[var(--c-accent)]' : ''">{{ t(l.key) }}</span>
                 </RouterLink>
               </li>
             </ul>
@@ -141,7 +141,7 @@ const badge = () => (notifications.count > 99 ? '99+' : String(notifications.cou
 
           <div class="flex flex-col gap-8">
             <div role="search" class="flex flex-col gap-2">
-              <label for="menu-search" class="font-mono text-[11px] tracking-[0.2em] text-[#a89a90] uppercase">{{ t('nav.search') }}</label>
+              <label for="menu-search" class="text-[11px] text-[#a89a90]">{{ t('nav.search') }}</label>
               <div class="relative">
                 <input id="menu-search" v-model="query" type="text" enterkeyhint="search" maxlength="100" :placeholder="t('search.placeholder')" class="h-12 w-full rounded-full border border-[#3a2d26] bg-[#17110e] pr-14 pl-5 text-base text-[#f3ebe6] placeholder:text-[#a89a90] focus:border-[#f3ebe6] focus:outline-none" data-test="menu-search" @keydown.enter.prevent="search" />
                 <button type="button" class="absolute top-0.5 right-0.5 flex size-11 items-center justify-center rounded-full hover:bg-[#231a15]" :aria-label="t('nav.search')" @click="search">
@@ -158,14 +158,14 @@ const badge = () => (notifications.count > 99 ? '99+' : String(notifications.cou
             <div class="flex flex-col gap-1 border-t border-[#3a2d26] pt-6" data-test="menu-account">
               <template v-if="auth.user">
                 <p class="mb-2 text-sm text-[#a89a90]">{{ t('landing.menu.signedInAs', { name: auth.user.profile.displayName }) }}</p>
-                <RouterLink :to="'/u/' + auth.user.profile.username" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold hover:text-[var(--c-cellar-accent)]" @click="close">{{ t('account.profile') }}</RouterLink>
-                <RouterLink to="/notifications" class="inline-flex min-h-11 w-fit items-center gap-2 text-lg font-semibold hover:text-[var(--c-cellar-accent)]" data-test="menu-notifications" @click="close">
+                <RouterLink :to="'/u/' + auth.user.profile.username" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold hover:text-[var(--c-accent)]" @click="close">{{ t('account.profile') }}</RouterLink>
+                <RouterLink to="/notifications" class="inline-flex min-h-11 w-fit items-center gap-2 text-lg font-semibold hover:text-[var(--c-accent)]" data-test="menu-notifications" @click="close">
                   {{ t('landing.menu.notifications') }}
-                  <span v-if="notifications.count > 0" class="rounded-full bg-[var(--c-cellar-accent)] px-2 text-xs leading-5 font-bold text-[#0f0b09]">{{ badge() }}</span>
+                  <span v-if="notifications.count > 0" class="rounded-full bg-[var(--c-accent)] px-2 text-xs leading-5 font-bold text-[#0f0b09]">{{ badge() }}</span>
                 </RouterLink>
-                <RouterLink to="/settings" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold hover:text-[var(--c-cellar-accent)]" @click="close">{{ t('account.settings') }}</RouterLink>
-                <RouterLink v-if="auth.isStaff" to="/mod" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold hover:text-[var(--c-cellar-accent)]" @click="close">{{ t('account.mod') }}</RouterLink>
-                <RouterLink v-if="auth.isAdmin" to="/admin" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold hover:text-[var(--c-cellar-accent)]" data-test="menu-admin" @click="close">{{ t('account.admin') }}</RouterLink>
+                <RouterLink to="/settings" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold hover:text-[var(--c-accent)]" @click="close">{{ t('account.settings') }}</RouterLink>
+                <RouterLink v-if="auth.isStaff" to="/mod" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold hover:text-[var(--c-accent)]" @click="close">{{ t('account.mod') }}</RouterLink>
+                <RouterLink v-if="auth.isAdmin" to="/admin" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold hover:text-[var(--c-accent)]" data-test="menu-admin" @click="close">{{ t('account.admin') }}</RouterLink>
                 <button type="button" class="inline-flex min-h-11 w-fit items-center text-lg font-semibold text-[#a89a90] hover:text-[#f3ebe6]" data-test="menu-logout" @click="logout">{{ t('account.logout') }}</button>
               </template>
               <div v-else-if="auth.ready" class="flex flex-wrap gap-3">
@@ -176,7 +176,7 @@ const badge = () => (notifications.count > 99 ? '99+' : String(notifications.cou
           </div>
         </div>
 
-        <p class="font-mono text-[10px] tracking-[0.18em] text-[#a89a90] uppercase">{{ t('brand.footerNote') }}</p>
+        <p class="text-[10px] text-[#a89a90]">{{ t('brand.footerNote') }}</p>
       </div>
     </div>
   </Transition>

@@ -121,10 +121,10 @@ const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} M
       <ul v-if="pending.length" class="flex flex-col gap-2" data-test="library-progress">
         <li v-for="q in pending" :key="q.id" class="flex items-center gap-3 rounded-lg border border-[var(--c-border)] px-3 py-2 text-xs">
           <span class="min-w-0 flex-1 truncate">{{ q.name }}</span>
-          <span class="h-1.5 w-32 overflow-hidden rounded-full bg-[var(--c-soft)]" role="progressbar" :aria-label="t('admin.home.uploading', { name: q.name })" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(q.progress * 100)">
-            <span class="block h-full bg-[var(--c-primary)] transition-[width]" :style="{ width: `${Math.round(q.progress * 100)}%` }" />
+          <span class="h-1.5 w-32 overflow-hidden rounded-full bg-[var(--c-surface-2)]" role="progressbar" :aria-label="t('admin.home.uploading', { name: q.name })" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(q.progress * 100)">
+            <span class="block h-full bg-[var(--c-accent-strong)] transition-[width]" :style="{ width: `${Math.round(q.progress * 100)}%` }" />
           </span>
-          <span class="w-9 text-right font-mono text-[var(--c-muted)]">{{ Math.round(q.progress * 100) }}%</span>
+          <span class="w-9 text-right text-[var(--c-muted)]">{{ Math.round(q.progress * 100) }}%</span>
         </li>
       </ul>
       <div v-if="loading" class="flex justify-center py-10"><Spinner /></div>
@@ -133,7 +133,7 @@ const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} M
         <li v-for="img in shown" :key="img.id" class="flex flex-col overflow-hidden rounded-xl border border-[var(--c-border)]" data-test="library-item">
           <button
             type="button"
-            class="relative aspect-square bg-[var(--c-soft)] disabled:cursor-not-allowed"
+            class="relative aspect-square bg-[var(--c-surface-2)] disabled:cursor-not-allowed"
             :disabled="img.status !== 'ready'"
             :aria-label="t('admin.home.pickImage', { name: img.originalName })"
             data-test="library-pick"
@@ -144,7 +144,7 @@ const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} M
               <Spinner v-if="img.status === 'processing'" />{{ t(img.status === 'failed' ? 'admin.home.imageFailed' : 'admin.home.imageProcessing') }}
             </span>
             <span v-if="img.used" class="badge absolute top-2 left-2">{{ t('admin.home.inUse') }}</span>
-            <span v-if="img.kind === 'video' && img.durationSec != null" class="absolute right-2 bottom-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] text-white">▶ {{ dur(img.durationSec) }}</span>
+            <span v-if="img.kind === 'video' && img.durationSec != null" class="absolute right-2 bottom-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">▶ {{ dur(img.durationSec) }}</span>
           </button>
           <div class="flex items-center gap-2 p-2 text-xs">
             <span class="min-w-0 flex-1 truncate" :title="img.originalName">{{ img.originalName }}</span>
@@ -168,7 +168,7 @@ const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} M
   <Modal :open="!!confirmDelete" :title="t('admin.home.deleteImageTitle')" @update:open="(v) => !v && (confirmDelete = null)">
     <p class="text-sm">{{ t('admin.home.deleteImageConfirm', { name: confirmDelete?.originalName ?? '' }) }}</p>
     <div class="mt-5 flex justify-end gap-2">
-      <Btn variant="ghost" @click="confirmDelete = null">{{ t('common.cancel') }}</Btn>
+      <Btn variant="secondary" @click="confirmDelete = null">{{ t('common.cancel') }}</Btn>
       <Btn variant="danger" :loading="deleting" data-test="library-delete-confirm" @click="remove">{{ t('admin.home.delete') }}</Btn>
     </div>
   </Modal>
