@@ -331,6 +331,8 @@ export interface HomeDraftDto {
   page: import('@cuka/shared').SitePage
   revision: number
   sections: import('@cuka/shared').HomeSection[]
+  /** The gallery's home banner (Introduction page; null when cleared). */
+  banner?: import('@cuka/shared').HomeBanner | null
   updatedAt: string
   updatedBy: { username: string } | null
   publishedAt: string

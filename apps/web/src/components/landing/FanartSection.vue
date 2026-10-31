@@ -4,14 +4,13 @@ import { useI18n } from 'vue-i18n'
 import type { FanartData } from '@cuka/shared'
 import { fanartShowcase } from '@/api/endpoints/site'
 import type { PostCardDto } from '@/api/types'
-import PostCard from '@/components/post/PostCard.vue'
+import PostGrid from '@/components/post/PostGrid.vue'
 import Spinner from '@/components/common/Spinner.vue'
 import LandingSection from './LandingSection.vue'
 import { useLanding } from './context'
-import { vReveal } from './reveal'
 
 /** The newest approved all-ages posts (never R18 here, whoever is looking), with a link to the full list. */
-const props = defineProps<{ data: FanartData; index: number; tone: 'cream' | 'soft' }>()
+const props = defineProps<{ data: FanartData }>()
 const { t } = useI18n()
 const { tx } = useLanding()
 const items = ref<PostCardDto[]>([])
@@ -31,18 +30,18 @@ watch(() => props.data.count, load)
 </script>
 
 <template>
-  <LandingSection data-test="landing-fanart" :tone="tone" :index="index" :eyebrow="tx(data.eyebrow)" :heading="tx(data.heading)">
+  <LandingSection data-test="landing-fanart" :eyebrow="tx(data.eyebrow)" :heading="tx(data.heading)">
     <template #aside>
-      <RouterLink to="/posts" data-test="fanart-all" class="group inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--c-accent-strong)] px-5 text-sm font-semibold text-[var(--c-accent-strong)] hover:bg-[var(--c-accent-strong)] hover:text-[var(--c-bg)]">
+      <RouterLink to="/" data-test="fanart-all" class="inline-flex min-h-9 items-center gap-0.5 text-sm text-[var(--c-muted)] hover:text-[var(--c-text)]">
         {{ t('landing.seeAll') }}
-        <svg viewBox="0 0 24 24" class="size-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
       </RouterLink>
     </template>
-    <div v-if="state === 'loading'" class="flex justify-center py-16 text-[var(--c-muted)]"><Spinner /></div>
-    <div v-else-if="!items.length" v-reveal class="flex flex-col items-start gap-4 rounded-[1.75rem] border border-dashed border-[var(--c-border)] p-8 sm:p-10">
-      <p class="font-display text-2xl font-semibold">{{ t(state === 'error' ? 'landing.fanartError' : 'landing.fanartEmpty') }}</p>
+    <div v-if="state === 'loading'" class="flex justify-center py-12 text-[var(--c-muted)]"><Spinner /></div>
+    <div v-else-if="!items.length" class="flex flex-col items-center gap-2 py-10 text-center text-sm text-[var(--c-muted)]">
+      <p>{{ t(state === 'error' ? 'landing.fanartError' : 'landing.fanartEmpty') }}</p>
       <RouterLink to="/upload" class="link">{{ t('landing.fanartShare') }}</RouterLink>
     </div>
-    <div v-else class="columns-2 gap-4 md:columns-3 lg:columns-4"><PostCard v-for="p in items" :key="p.id" :post="p" /></div>
+    <PostGrid v-else :items="items" />
   </LandingSection>
 </template>

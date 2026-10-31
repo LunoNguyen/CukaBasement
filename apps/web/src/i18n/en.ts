@@ -19,7 +19,7 @@ const en: typeof vi = {
     slide: 'Picture {n} of {total}', pause: 'Pause slideshow', play: 'Play slideshow', prev: 'Previous', next: 'Next',
     galleryEmpty: 'No pictures yet.', videosEmpty: 'No videos yet.', video: 'Video', playVideo: 'Play video: {title}',
     loadsOnClick: 'loads only when you press play', seeAll: 'See all', fanartEmpty: 'No fanart yet — be the first!',
-    fanartError: 'Could not load the fanart.', fanartShare: 'Share fanart', browsePosts: 'Browse posts',
+    fanartError: 'Could not load the fanart.', fanartShare: 'Share fanart', browsePosts: 'Browse fanart',
     fp: {
       pauseVideo: 'Pause video', playVideo: 'Play video', scroll: 'Scroll', newTab: '(opens in a new tab)', carousel: 'carousel',
       discover: 'See {name}', pauseRotation: 'Pause rotation', playRotation: 'Resume rotation', vibe: 'Spirit',
@@ -64,8 +64,12 @@ const en: typeof vi = {
       notYoutube: 'Not a YouTube video link', pickRequired: 'Pick an image or remove this row.', otherPlatform: 'Other',
       addSlide: 'Add background picture', addCta: 'Add button', addFact: 'Add fact', addMilestone: 'Add milestone', addImage: 'Add image',
       addVideo: 'Add video', addLink: 'Add link', addRelease: 'Add cover', addSpotlight: 'Add look',
-      pageSwitch: 'Page being edited', pages: { home: 'Homepage', intro: 'Introduction' }, openPage: 'Open page',
-      typeGroups: { home: 'Full screens (homepage)', intro: 'Long-form sections (introduction)' },
+      banner: {
+        title: 'Home banner', hint: 'The small band atop the home page (the fanart gallery). Saved and published with the Introduction page.',
+        edit: 'Edit', done: 'Done', off: 'Hidden', show: 'Show the banner on the home page', fTitle: 'Title', fText: 'One line of text',
+        fLinkLabel: 'Link text', fHref: 'Link to', image: 'Cover picture (optional)', invalid: 'The home banner is not valid yet: {field}',
+      },
+      pages: { home: 'Homepage', intro: 'Introduction' }, openPage: 'Open page',
       source: { manual: 'Hand-picked covers', latestFanart: 'Latest fanart' },
       releasesHint: 'A visible row needs {min}–{max} covers. A hidden one can be filled in gradually.',
       intervalHint: 'How long each picture shows ({min}–{max} seconds). Pointing at or choosing a name holds the rotation.',

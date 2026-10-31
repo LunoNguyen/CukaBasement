@@ -55,8 +55,10 @@ describe('Introduction page (/gioi-thieu)', () => {
       'landing-banner',
     ])
     expect(w.text()).not.toContain('Mục bị ẩn')
-    // Full-bleed: no centred column around the page.
-    expect(w.get('main').classes()).not.toContain('max-w-screen-2xl')
+    // One normal-scrolling page in the site column: no snapping, no full screens.
+    expect(w.get('main').classes()).toContain('max-w-[1280px]')
+    expect(w.find('[data-test="fullpage"]').exists()).toBe(false)
+    expect(document.documentElement.classList.contains('fp-snap')).toBe(false)
     w.unmount()
   })
 
@@ -71,7 +73,7 @@ describe('Introduction page (/gioi-thieu)', () => {
     expect(ctas[1]!.attributes()).toMatchObject({ href: 'https://www.youtube.com/@hibikiduca', target: '_blank', rel: 'noopener noreferrer' })
     const imgs = hero.findAll('img')
     expect(imgs).toHaveLength(2)
-    expect(imgs[0]!.attributes()).toMatchObject({ alt: 'Du Ca cười', loading: 'eager', sizes: '100vw' })
+    expect(imgs[0]!.attributes()).toMatchObject({ alt: 'Du Ca cười', loading: 'eager', sizes: '(min-width: 1280px) 1232px, 100vw' })
     expect(imgs[0]!.attributes('srcset')).toContain('2400w')
     expect(imgs[1]!.attributes('loading')).toBe('lazy')
     expect(hero.find('[data-test="hero-pause"]').exists()).toBe(true)
@@ -109,9 +111,9 @@ describe('Introduction page (/gioi-thieu)', () => {
     expect(about.find('script').exists()).toBe(false)
     expect(about.text()).toContain('<script>alert(1)</script>')
     expect(about.html()).not.toContain('href="javascript:')
-    // No picture: the decorative arch stands in.
+    // No picture: the text alone, no decoration in its place.
     expect(about.find('img').exists()).toBe(false)
-    expect(about.find('[aria-hidden="true"]').exists()).toBe(true)
+    expect(about.find('figure').exists()).toBe(false)
     w.unmount()
   })
 
@@ -142,12 +144,12 @@ describe('Introduction page (/gioi-thieu)', () => {
     w.unmount()
   })
 
-  it('fanart strip loads the showcase with the configured count and links to /posts', async () => {
+  it('fanart strip loads the showcase with the configured count and links to the gallery', async () => {
     const { w } = await mountLanding()
     expect(fake!.callsTo('GET /api/feed/showcase')[0]!.query.get('limit')).toBe('6')
     const fanart = w.get('[data-test="landing-fanart"]')
     expect(fanart.text()).toContain('Mèo')
-    expect(fanart.get('[data-test="fanart-all"]').attributes('href')).toBe('/posts')
+    expect(fanart.get('[data-test="fanart-all"]').attributes('href')).toBe('/')
     w.unmount()
   })
 
@@ -193,17 +195,17 @@ describe('Introduction page (/gioi-thieu)', () => {
 
   it('logged out: ends with the sign-up invitation; logged in: no invitation', async () => {
     let { w } = await mountLanding()
-    expect(w.get('[data-test="home-hero"]').get('[data-test="hero-register"]').attributes('href')).toBe('/register')
+    expect(w.get('[data-test="intro-join"]').get('a[href="/register"]').classes().some((c) => c.includes('--c-accent-strong'))).toBe(true)
     w.unmount()
     ;({ w } = await mountLanding(publicHome(), true))
-    expect(w.find('[data-test="home-hero"]').exists()).toBe(false)
+    expect(w.find('[data-test="intro-join"]').exists()).toBe(false)
     w.unmount()
   })
 
-  it('API down: a fallback welcome that still leads to the posts', async () => {
+  it('API down: a fallback welcome that still leads to the gallery', async () => {
     const { w } = await mountLanding(publicHome(), false, { 'GET /api/site/pages/intro': { status: 500, body: { error: { code: 'INTERNAL' } } } })
     expect(w.get('h1').text()).toBe('CukaBasement')
-    expect(w.findAll('a').some((a) => a.attributes('href') === '/posts' && a.text() === 'Xem bài đăng')).toBe(true)
+    expect(w.findAll('main a').some((a) => a.attributes('href') === '/' && a.text() === 'Xem fanart')).toBe(true)
     w.unmount()
   })
 

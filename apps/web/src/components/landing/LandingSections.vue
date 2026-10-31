@@ -2,62 +2,84 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { HomeSection } from '@cuka/shared'
-import type { SiteImageDto } from '@/api/types'
+import type { PageYouTubeDto, SiteImageDto, SiteVideoDto } from '@/api/types'
 import AboutSection from './AboutSection.vue'
 import BannerSection from './BannerSection.vue'
 import FanartSection from './FanartSection.vue'
 import GallerySection from './GallerySection.vue'
 import HeroSection from './HeroSection.vue'
+import HeroVideoSection from './HeroVideoSection.vue'
 import LinksSection from './LinksSection.vue'
+import MusicSection from './MusicSection.vue'
 import ProfileSection from './ProfileSection.vue'
+import ReleasesSection from './ReleasesSection.vue'
+import SpotlightSection from './SpotlightSection.vue'
 import TimelineSection from './TimelineSection.vue'
 import VideosSection from './VideosSection.vue'
 import { provideLanding } from './context'
+import { musicTabs } from './music'
 
 /**
- * Renders homepage sections in order: the public page and the admin preview use this same component.
- * Light bands alternate cream / soft between the dark ones; sections are numbered after the hero ("01 — …").
+ * The Introduction page's sections in order, as one normal-scrolling page; the public page and the admin preview
+ * both use it. The first opening block (heroVideo or hero) carries the page's h1, every other heading is an h2.
+ * `vibe` and `footer` (sections of the old full-screen landing page) are not shown.
  */
-const props = withDefaults(defineProps<{ sections: HomeSection[]; images: Record<string, SiteImageDto>; locale?: string; preview?: boolean }>(), {
-  locale: undefined,
-  preview: false,
-})
+const props = withDefaults(
+  defineProps<{
+    sections: HomeSection[]
+    images: Record<string, SiteImageDto>
+    videos?: Record<string, SiteVideoDto>
+    youtube?: PageYouTubeDto
+    locale?: string
+    preview?: boolean
+  }>(),
+  { videos: () => ({}), youtube: () => ({ feeds: {}, videos: {} }), locale: undefined, preview: false },
+)
 
-const { locale: uiLocale } = useI18n()
+const { t, locale: uiLocale } = useI18n()
+const loc = computed(() => props.locale ?? uiLocale.value)
 provideLanding({
-  locale: computed(() => props.locale ?? uiLocale.value),
+  locale: loc,
   images: computed(() => props.images),
+  videos: computed(() => props.videos),
+  youtube: computed(() => props.youtube),
   preview: props.preview,
 })
 
+const HIDDEN_TYPES = new Set(['vibe', 'footer'])
+
+/** Whether a section has anything to show a visitor (the editor preview keeps empty ones, with their hints). */
+function hasContent(s: HomeSection): boolean {
+  if (s.type === 'releases') return s.data.source === 'latestFanart' || s.data.items.length > 0
+  if (s.type === 'music') return Object.values(musicTabs(s.data, s.id, props.youtube, loc.value, '')).some((l) => l.length > 0)
+  return !('items' in s.data) || s.data.items.length > 0
+}
+
 const rows = computed(() => {
-  let n = 0
-  let light = 0
-  return props.sections
-    .filter((s) => s.visible)
-    // An empty list section has nothing to show visitors; the editor preview keeps it with a hint.
-    .filter((s) => props.preview || !('items' in s.data) || s.data.items.length > 0)
-    .map((s) => {
-      const dark = s.type === 'hero' || s.type === 'banner'
-      const index = s.type === 'hero' || s.type === 'banner' ? 0 : ++n
-      const tone: 'cream' | 'soft' = dark ? 'cream' : light++ % 2 === 0 ? 'cream' : 'soft'
-      return { s, index, tone }
-    })
+  const list = props.sections.filter((s) => s.visible && !HIDDEN_TYPES.has(s.type) && (props.preview || hasContent(s)))
+  const first = list.findIndex((s) => s.type === 'heroVideo' || s.type === 'hero')
+  return list.map((s, i) => ({ s, level: (i === first ? 1 : 2) as 1 | 2 }))
 })
+const hasH1 = computed(() => rows.value.some((r) => r.level === 1))
 </script>
 
 <template>
   <div data-test="landing-sections">
-    <template v-for="{ s, index, tone } in rows" :key="s.id">
-      <HeroSection v-if="s.type === 'hero'" :data="s.data" />
-      <AboutSection v-else-if="s.type === 'about'" :data="s.data" :index="index" :tone="tone" />
-      <ProfileSection v-else-if="s.type === 'profile'" :data="s.data" :index="index" :tone="tone" />
-      <TimelineSection v-else-if="s.type === 'timeline'" :data="s.data" :index="index" :tone="tone" />
-      <GallerySection v-else-if="s.type === 'gallery'" :data="s.data" :index="index" :tone="tone" />
-      <VideosSection v-else-if="s.type === 'videos'" :data="s.data" :index="index" :tone="tone" />
-      <LinksSection v-else-if="s.type === 'links'" :data="s.data" :index="index" :tone="tone" />
-      <FanartSection v-else-if="s.type === 'fanart'" :data="s.data" :index="index" :tone="tone" />
+    <h1 v-if="!hasH1 && !preview" class="sr-only">{{ t('nav.intro') }}</h1>
+    <div v-for="{ s, level } in rows" :key="s.id" data-test="intro-block" :data-section="s.type">
+      <HeroVideoSection v-if="s.type === 'heroVideo'" :data="s.data" :level="level" />
+      <HeroSection v-else-if="s.type === 'hero'" :data="s.data" :level="level" />
+      <MusicSection v-else-if="s.type === 'music'" :data="s.data" :section-id="s.id" />
+      <ReleasesSection v-else-if="s.type === 'releases'" :data="s.data" />
+      <SpotlightSection v-else-if="s.type === 'spotlight'" :data="s.data" />
+      <AboutSection v-else-if="s.type === 'about'" :data="s.data" />
+      <ProfileSection v-else-if="s.type === 'profile'" :data="s.data" />
+      <TimelineSection v-else-if="s.type === 'timeline'" :data="s.data" />
+      <GallerySection v-else-if="s.type === 'gallery'" :data="s.data" />
+      <VideosSection v-else-if="s.type === 'videos'" :data="s.data" />
+      <LinksSection v-else-if="s.type === 'links'" :data="s.data" />
+      <FanartSection v-else-if="s.type === 'fanart'" :data="s.data" />
       <BannerSection v-else-if="s.type === 'banner'" :data="s.data" />
-    </template>
+    </div>
   </div>
 </template>

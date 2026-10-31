@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { parseYouTubeId } from '@cuka/shared'
-import Halftone from './Halftone.vue'
 
 /**
  * Click-to-load YouTube player: until the visitor presses play nothing is requested from Google (the poster is
@@ -16,7 +15,7 @@ const src = computed(() => `https://www.youtube-nocookie.com/embed/${id.value}?a
 </script>
 
 <template>
-  <div v-if="id" class="relative aspect-video overflow-hidden rounded-2xl bg-[#141414]">
+  <div v-if="id" class="relative aspect-video overflow-hidden rounded-lg bg-[#1f1f1f]">
     <iframe
       v-if="playing"
       :src="src"
@@ -35,12 +34,11 @@ const src = computed(() => `https://www.youtube-nocookie.com/embed/${id.value}?a
       :aria-label="t('landing.playVideo', { title: title || t('landing.video') })"
       @click="playing = true"
     >
-      <Halftone class="absolute inset-0 h-full w-full opacity-30" from="tr" :size="9" aria-hidden="true" />
-      <span class="absolute top-1/2 left-1/2 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#fbf7f4] text-[#5b3a29] shadow-lg transition-transform group-hover:scale-105 sm:size-20">
-        <svg viewBox="0 0 24 24" class="ml-1 size-7 sm:size-8" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+      <span class="absolute top-1/2 left-1/2 flex size-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#141414] transition-colors group-hover:bg-white">
+        <svg viewBox="0 0 24 24" class="ml-1 size-6" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
       </span>
       <span class="relative text-[11px] text-[#a3a3a3]">YouTube · {{ t('landing.loadsOnClick') }}</span>
-      <span v-if="title" class="relative font-display text-xl leading-tight font-semibold sm:text-2xl">{{ title }}</span>
+      <span v-if="title" class="relative text-sm font-bold">{{ title }}</span>
     </button>
   </div>
 </template>

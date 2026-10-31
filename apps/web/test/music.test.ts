@@ -74,16 +74,16 @@ function yt(over: Partial<PageYouTubeDto> = {}): PageYouTubeDto {
 }
 
 function home(sections: HomeSection[] = [music()], youtube: PageYouTubeDto = yt()): PublicHomeDto {
-  return { page: 'home', sections, images: {}, videos: {}, youtube, publishedAt: '2026-10-01T00:00:00.000Z' }
+  return { page: 'intro', sections, images: {}, videos: {}, youtube, publishedAt: '2026-10-01T00:00:00.000Z' }
 }
 
 async function mountHome(h = home()) {
-  fake = installFakeFetch({ 'GET /api/site/pages/home': ok(h), 'GET /api/feed/showcase': ok({ items: [], nextCursor: null }) })
+  fake = installFakeFetch({ 'GET /api/site/pages/intro': ok(h), 'GET /api/feed/showcase': ok({ items: [], nextCursor: null }) })
   const pinia = createPinia()
   setActivePinia(pinia)
   useAuth().ready = true
   const router = createAppRouter(createMemoryHistory())
-  await router.push('/')
+  await router.push('/gioi-thieu')
   wrapper = mount(App, { global: { plugins: [pinia, router, i18n] }, attachTo: document.body })
   await flushPromises()
   return wrapper
@@ -93,9 +93,8 @@ const key = (el: Element, k: string) => el.dispatchEvent(new KeyboardEvent('keyd
 const tabs = () => [...document.querySelectorAll<HTMLElement>('[role="tab"]')]
 const selected = () => tabs().find((t) => t.getAttribute('aria-selected') === 'true')!
 
-// Task 6 brings these screens back as blocks of /gioi-thieu (the landing page left "/" in Task 4).
-describe.skip('Music section on the landing page', () => {
-  it('is a full screen with a title and three ARIA tabs; arrows, Home and End move between them', async () => {
+describe('Music block on the Introduction page', () => {
+  it('is a block with a title and three ARIA tabs; arrows, Home and End move between them', async () => {
     const w = await mountHome()
     expect(w.find('[data-section="music"]').exists()).toBe(true)
     expect(w.get('[data-test="fp-music"] h2').text()).toBe('Âm nhạc')
@@ -220,10 +219,10 @@ describe.skip('Music section on the landing page', () => {
     wrapper = undefined
     fake!.restore()
     const empty = music({ newest: { label: lt(''), auto: false, keyword: '', items: [] }, popular: { label: lt(''), auto: false, items: [] } })
-    const vibe = { id: 'v', type: 'vibe', visible: true, data: { eyebrow: lt(''), text: lt('Xin chào'), image: null, cta: null } } as HomeSection
-    const w2 = await mountHome(home([empty, vibe], { feeds: { music: { newest: [], popular: [], channel: [] } }, videos: {} }))
+    const about = { id: 'v', type: 'about', visible: true, data: { eyebrow: lt(''), heading: lt('Xin chào'), body: lt(''), image: null, imageSide: 'right' } } as HomeSection
+    const w2 = await mountHome(home([empty, about], { feeds: { music: { newest: [], popular: [], channel: [] } }, videos: {} }))
     expect(w2.find('[data-section="music"]').exists()).toBe(false)
-    expect(w2.find('[data-section="vibe"]').exists()).toBe(true)
+    expect(w2.find('[data-section="about"]').exists()).toBe(true)
   })
 
   it('English: tab names and titles fall back sensibly', async () => {
@@ -241,7 +240,7 @@ describe.skip('Music section on the landing page', () => {
 
 function draft(sections: HomeSection[], o: Partial<HomeDraftDto> = {}): HomeDraftDto {
   return {
-    page: 'home',
+    page: 'intro',
     revision: 2,
     sections,
     updatedAt: '2026-10-01T00:00:00Z',
@@ -263,8 +262,8 @@ const statusOf = (apiKey: boolean, feeds: MusicStatusDto['feeds'] = []): MusicSt
 
 async function mountEditor(sections: HomeSection[], routes: Record<string, FakeRoute> = {}) {
   fake = installFakeFetch({
-    'GET /api/admin/site/pages/home/draft': ok(draft(sections)),
-    'PUT /api/admin/site/pages/home/draft': saveEcho,
+    'GET /api/admin/site/pages/intro/draft': ok(draft(sections)),
+    'PUT /api/admin/site/pages/intro/draft': saveEcho,
     'GET /api/admin/site/images': ok([]),
     'GET /api/feed/showcase': ok({ items: [], nextCursor: null }),
     'GET /api/admin/site/music': ok(statusOf(false, [{ key: `channel:${CH}`, count: 3, fetchedAt: '2026-10-27T08:00:00Z', attemptAt: '2026-10-27T09:00:00Z', error: 'www.youtube.com: HTTP 500', errorAt: '2026-10-27T09:00:00Z' }])),
@@ -286,7 +285,7 @@ async function mountEditor(sections: HomeSection[], routes: Record<string, FakeR
   await flushPromises()
   return wrapper
 }
-const lastSaved = () => fake!.callsTo('PUT /api/admin/site/pages/home/draft').at(-1)!.body as { sections: HomeSection[] }
+const lastSaved = () => fake!.callsTo('PUT /api/admin/site/pages/intro/draft').at(-1)!.body as { sections: HomeSection[] }
 
 describe('Admin → Trang chủ: music section form', () => {
   it('three tab panels; without an API key only the channel tab can be automatic; sync status and errors are shown', async () => {
@@ -322,7 +321,7 @@ describe('Admin → Trang chủ: music section form', () => {
     expect(rowsN()[2]!.text()).toContain('Không phải liên kết video YouTube')
     await w.get('[data-test="home-save"]').trigger('click')
     await flushPromises()
-    expect(fake!.callsTo('PUT /api/admin/site/pages/home/draft')).toHaveLength(0)
+    expect(fake!.callsTo('PUT /api/admin/site/pages/intro/draft')).toHaveLength(0)
     expect(w.get('[data-test="home-problem"]').text()).toContain('Âm nhạc')
 
     await rowsN()[2]!.get('[data-test="f-music-url"]').setValue(`https://youtu.be/${D}`)
@@ -359,14 +358,14 @@ describe('Admin → Trang chủ: music section form', () => {
 
   it('the preview shows empty tabs with a hint for the admin; a new music section starts on Du Ca\'s channel', async () => {
     const empty = music({ newest: { label: lt(''), auto: false, keyword: '', items: [] }, popular: { label: lt(''), auto: false, items: [] } })
-    const w = await mountEditor([empty], { 'GET /api/admin/site/pages/home/draft': ok(draft([empty], { youtube: { feeds: {}, videos: {} } })) })
+    const w = await mountEditor([empty], { 'GET /api/admin/site/pages/intro/draft': ok(draft([empty], { youtube: { feeds: {}, videos: {} } })) })
     const preview = w.get('[data-test="home-preview"]')
     expect(preview.findAll('[role="tab"]')).toHaveLength(3)
     expect(preview.get('[data-test="music-empty"]').text()).toContain('Chưa có MV nào')
     await preview.get('[data-test="music-tab-channel"]').trigger('click')
     expect(preview.get('[data-test="music-empty"]').text()).toContain('Chưa có video nào từ kênh')
 
-    expect((w.get('[data-test="add-type"]').element as HTMLSelectElement).value).toBe('music')
+    await w.get('[data-test="add-type"]').setValue('music')
     await w.get('[data-test="add-section"]').trigger('click')
     await flushPromises()
     expect((w.get('[data-test="f-channel-id"]').element as HTMLInputElement).value).toBe(CH)

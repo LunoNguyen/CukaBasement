@@ -30,9 +30,10 @@ const sectionsOk = () =>
 
 function draft(sections: HomeSection[] = sectionsOk().slice(0, 3), o: Partial<HomeDraftDto> = {}): HomeDraftDto {
   return {
-    page: 'home',
+    page: 'intro',
     revision: 4,
     sections,
+    banner: { title: lt('Hibiki Du Ca'), text: lt('VTuber'), image: null, link: { label: lt('Giới thiệu'), href: '/gioi-thieu' } },
     updatedAt: '2026-10-01T00:00:00Z',
     updatedBy: { username: 'root' },
     publishedAt: '2026-10-01T00:00:00Z',
@@ -52,8 +53,8 @@ const saveEcho = (req: FakeRequest) => {
 
 async function mountEditor(routes: Record<string, FakeRoute> = {}) {
   fake = installFakeFetch({
-    'GET /api/admin/site/pages/home/draft': ok(draft()),
-    'PUT /api/admin/site/pages/home/draft': saveEcho,
+    'GET /api/admin/site/pages/intro/draft': ok(draft()),
+    'PUT /api/admin/site/pages/intro/draft': saveEcho,
     'GET /api/feed/showcase': ok({ items: [], nextCursor: null }),
     'GET /api/admin/site/images': ok([]),
     ...routes,
@@ -76,7 +77,7 @@ async function mountEditor(routes: Record<string, FakeRoute> = {}) {
 const rows = (w: VueWrapper) => w.findAll('[data-test="section-row"]')
 const rowTypes = (w: VueWrapper) => rows(w).map((r) => r.get('[data-test="section-select"] span').text())
 const button = (sel: string) => document.body.querySelector<HTMLElement>(sel)!
-const lastSaved = () => fake!.callsTo('PUT /api/admin/site/pages/home/draft').at(-1)!.body as { revision: number; sections: HomeSection[] }
+const lastSaved = () => fake!.callsTo('PUT /api/admin/site/pages/intro/draft').at(-1)!.body as { revision: number; sections: HomeSection[] }
 
 describe('Admin → Trang chủ (homepage editor)', () => {
   it('lists the draft sections and previews them with the landing components', async () => {
@@ -138,7 +139,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
 
   it('item lists: remove one gallery image row and reorder the rest', async () => {
     const gallery = sectionsOk().find((s) => s.type === 'gallery')!
-    const { w } = await mountEditor({ 'GET /api/admin/site/pages/home/draft': ok(draft([gallery])) })
+    const { w } = await mountEditor({ 'GET /api/admin/site/pages/intro/draft': ok(draft([gallery])) })
     const items = () => w.get('[data-test="gallery-items"]').findAll('[data-test="item-row"]')
     expect(items()).toHaveLength(2)
     await items()[0]!.get('[data-test="item-down"]').trigger('click')
@@ -158,41 +159,41 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     await rows(w)[0]!.get('[data-test="section-select"]').trigger('click')
     await w.get('[data-test="home-save"]').trigger('click')
     await flushPromises()
-    expect(fake!.callsTo('PUT /api/admin/site/pages/home/draft')).toHaveLength(0)
+    expect(fake!.callsTo('PUT /api/admin/site/pages/intro/draft')).toHaveLength(0)
     expect(w.get('[data-test="home-problem"]').text()).toContain('Hồ sơ')
     expect(w.get('[data-test="section-editor"] h2').text()).toBe('Hồ sơ')
   })
 
   it('publish saves pending changes first, then publishes that revision', async () => {
     const { w } = await mountEditor({
-      'POST /api/admin/site/pages/home/publish': (req) => ok(draft(lastSaved().sections, { revision: (req.body as { revision: number }).revision, unpublished: false })),
+      'POST /api/admin/site/pages/intro/publish': (req) => ok(draft(lastSaved().sections, { revision: (req.body as { revision: number }).revision, unpublished: false })),
     })
     await w.get('[data-test="f-title"]').setValue('Lên sóng')
     await w.get('[data-test="home-publish"]').trigger('click')
     await flushPromises()
     button('[data-test="publish-confirm"]').click()
     await flushPromises()
-    expect(fake!.callsTo('PUT /api/admin/site/pages/home/draft')).toHaveLength(1)
-    expect(fake!.callsTo('POST /api/admin/site/pages/home/publish')[0]!.body).toEqual({ revision: 5 })
+    expect(fake!.callsTo('PUT /api/admin/site/pages/intro/draft')).toHaveLength(1)
+    expect(fake!.callsTo('POST /api/admin/site/pages/intro/publish')[0]!.body).toEqual({ revision: 5 })
     expect(w.get('[data-test="home-status"]').text()).toBe('Đang hiển thị đúng bản nháp')
   })
 
   it('discard resets the draft to the published version', async () => {
     const { w } = await mountEditor({
-      'GET /api/admin/site/pages/home/draft': ok(draft(sectionsOk().slice(0, 2), { unpublished: true })),
-      'POST /api/admin/site/pages/home/discard': ok(draft(sectionsOk().slice(0, 1), { revision: 5 })),
+      'GET /api/admin/site/pages/intro/draft': ok(draft(sectionsOk().slice(0, 2), { unpublished: true })),
+      'POST /api/admin/site/pages/intro/discard': ok(draft(sectionsOk().slice(0, 1), { revision: 5 })),
     })
     await w.get('[data-test="home-discard"]').trigger('click')
     await flushPromises()
     button('[data-test="discard-confirm"]').click()
     await flushPromises()
-    expect(fake!.callsTo('POST /api/admin/site/pages/home/discard')[0]!.body).toEqual({ revision: 4 })
+    expect(fake!.callsTo('POST /api/admin/site/pages/intro/discard')[0]!.body).toEqual({ revision: 4 })
     expect(rowTypes(w)).toEqual(['Ảnh bìa (hero)'])
   })
 
   it('a stale revision (409) offers to reload the draft', async () => {
     const { w } = await mountEditor({
-      'PUT /api/admin/site/pages/home/draft': { status: 409, body: { error: { code: 'REVISION_CONFLICT', message: 'x', details: { revision: 9 } } } },
+      'PUT /api/admin/site/pages/intro/draft': { status: 409, body: { error: { code: 'REVISION_CONFLICT', message: 'x', details: { revision: 9 } } } },
     })
     await w.get('[data-test="f-title"]').setValue('Của tôi')
     await w.get('[data-test="home-save"]').trigger('click')
@@ -200,7 +201,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     expect(w.text()).toContain('Một quản trị viên khác vừa sửa bản nháp')
     await w.get('[data-test="home-reload"]').trigger('click')
     await flushPromises()
-    expect(fake!.callsTo('GET /api/admin/site/pages/home/draft')).toHaveLength(2)
+    expect(fake!.callsTo('GET /api/admin/site/pages/intro/draft')).toHaveLength(2)
     expect(w.get('[data-test="f-title"]').element).toHaveProperty('value', 'Hibiki Du Ca')
   })
 
@@ -223,7 +224,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
   it('image picker: choose from the library, alt text required unless decorative', async () => {
     const about = { ...sectionsOk()[1]!, data: { ...(sectionsOk()[1]!.data as object), image: null } } as HomeSection
     const { w } = await mountEditor({
-      'GET /api/admin/site/pages/home/draft': ok(draft([about])),
+      'GET /api/admin/site/pages/intro/draft': ok(draft([about])),
       'GET /api/admin/site/images': ok([
         { id: IMG2, status: 'ready', originalName: 'du-ca.png', sizeBytes: 2048, width: 2400, height: 1600, createdAt: '2026-10-01T00:00:00Z', used: false, image: resolved(IMG2) },
       ]),
@@ -240,7 +241,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     // No alt text yet: saving is refused with the field named.
     await w.get('[data-test="home-save"]').trigger('click')
     await flushPromises()
-    expect(fake!.callsTo('PUT /api/admin/site/pages/home/draft')).toHaveLength(0)
+    expect(fake!.callsTo('PUT /api/admin/site/pages/intro/draft')).toHaveLength(0)
     expect(w.get('[data-test="home-problem"]').text()).toContain('alt')
     await w.get('[data-test="image-alt"]').setValue('Du Ca vẫy tay')
     await w.get('[data-test="home-save"]').trigger('click')
@@ -251,7 +252,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
   it('library uploads go up as site images and unused ones can be deleted', async () => {
     const about = sectionsOk()[1]!
     const { w } = await mountEditor({
-      'GET /api/admin/site/pages/home/draft': ok(draft([about])),
+      'GET /api/admin/site/pages/intro/draft': ok(draft([about])),
       'GET /api/admin/site/images': ok([
         { id: IMG2, status: 'ready', originalName: 'cu.png', sizeBytes: 2048, width: 10, height: 10, createdAt: '2026-10-01T00:00:00Z', used: false, image: resolved(IMG2) },
         { id: IMG, status: 'ready', originalName: 'dang-dung.png', sizeBytes: 2048, width: 10, height: 10, createdAt: '2026-10-01T00:00:00Z', used: true, image: resolved(IMG) },
@@ -280,61 +281,63 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     expect(fake!.callsTo('POST /api/uploads')[0]!.body).toEqual({ name: 'moi.png', size: 1, mime: 'image/png', purpose: 'site' })
   })
 
-  it('page switcher: the Introduction page has its own draft, save and publish; asks before dropping changes', async () => {
-    const intro = draft(sectionsOk().slice(0, 2), { page: 'intro', revision: 9 })
-    const { w } = await mountEditor({
-      'GET /api/admin/site/pages/intro/draft': ok(intro),
-      'PUT /api/admin/site/pages/intro/draft': (req) => ok(draft((req.body as { sections: HomeSection[] }).sections, { page: 'intro', revision: 10, unpublished: true })),
-    })
-    expect(w.get('[data-test="page-home"]').attributes('aria-pressed')).toBe('true')
-    await w.get('[data-test="f-title"]').setValue('Chưa lưu')
-    const ask = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    await w.get('[data-test="page-intro"]').trigger('click')
-    await flushPromises()
-    expect(ask).toHaveBeenCalled()
-    expect(fake!.callsTo('GET /api/admin/site/pages/intro/draft')).toHaveLength(0)
-    ask.mockReturnValue(true)
-    await w.get('[data-test="page-intro"]').trigger('click')
-    await vi.waitFor(async () => {
-      await flushPromises()
-      expect(w.find('[data-test="section-list"]').exists()).toBe(true)
-    })
-    expect(w.get('[data-test="page-intro"]').attributes('aria-pressed')).toBe('true')
+  it('one page: no page switcher; the editor edits the Introduction page and opens /gioi-thieu', async () => {
+    const { w } = await mountEditor()
+    expect(w.find('[data-test="page-switch"]').exists()).toBe(false)
     expect(w.get('[data-test="page-open"]').attributes('href')).toBe('/gioi-thieu')
-    expect(rowTypes(w)).toEqual(['Ảnh bìa (hero)', 'Giới thiệu'])
-    // The intro preview is the long-form page, not the full screens.
-    expect(w.find('[data-test="home-preview"] [data-test="landing-sections"]').exists()).toBe(true)
-    expect(w.find('[data-test="home-preview"] [data-test="fullpage"]').exists()).toBe(false)
-    // The add menu offers the long-form types first.
-    const groups = w.findAll('[data-test="add-type"] optgroup')
-    expect(groups.map((g) => g.attributes('label'))).toEqual(['Mục trang dài (giới thiệu)', 'Màn hình toàn trang (trang chủ)'])
-    await w.get('[data-test="f-title"]').setValue('Giới thiệu mới')
-    await w.get('[data-test="home-save"]').trigger('click')
-    await flushPromises()
-    expect(fake!.callsTo('PUT /api/admin/site/pages/intro/draft')[0]!.body).toMatchObject({ revision: 9 })
-    expect(fake!.callsTo('PUT /api/admin/site/pages/home/draft')).toHaveLength(0)
+    expect(fake!.callsTo('GET /api/admin/site/pages/intro/draft')).toHaveLength(1)
+    expect(fake!.calls.some((c) => c.path.includes('/pages/home/'))).toBe(false)
   })
 
-  it('home preview draws the full screens without snapping, dots or the menu', async () => {
-    const { w } = await mountEditor({ 'GET /api/admin/site/pages/home/draft': ok(draft(landingSections(), { videos: { [VID]: resolvedVideo(VID) }, images: { [IMG]: resolved(IMG), [IMG2]: resolved(IMG2), [VID]: resolved(VID) } })) })
+  it('home banner form: edits title, text, link and picture; saved and published with the intro draft', async () => {
+    const { w } = await mountEditor({ 'POST /api/admin/site/pages/intro/publish': (req) => ok(draft(sectionsOk().slice(0, 3), { revision: (req.body as { revision: number }).revision })) })
+    await w.get('[data-test="banner-edit"]').trigger('click')
+    const form = w.get('[data-test="banner-form"]')
+    expect((form.get('[data-test="banner-title"] input').element as HTMLInputElement).value).toBe('Hibiki Du Ca')
+    await form.get('[data-test="banner-title"] input').setValue('Du Ca mới')
+    await form.get('[data-test="banner-href"]').setValue('/ranking')
+    expect(w.get('[data-test="home-status"]').text()).not.toBe('Đang hiển thị đúng bản nháp')
+    await w.get('[data-test="home-save"]').trigger('click')
+    await flushPromises()
+    const body = fake!.callsTo('PUT /api/admin/site/pages/intro/draft')[0]!.body as { banner: { title: { vi: string }; link: { href: string } } }
+    expect(body.banner.title.vi).toBe('Du Ca mới')
+    expect(body.banner.link.href).toBe('/ranking')
+    await w.get('[data-test="home-publish"]').trigger('click')
+    await flushPromises()
+    button('[data-test="publish-confirm"]').click()
+    await flushPromises()
+    expect(fake!.callsTo('POST /api/admin/site/pages/intro/publish')).toHaveLength(1)
+  })
+
+  it('a banner link that is not a safe address blocks the save', async () => {
+    const { w } = await mountEditor()
+    await w.get('[data-test="banner-edit"]').trigger('click')
+    await w.get('[data-test="banner-href"]').setValue('javascript:alert(1)')
+    await w.get('[data-test="home-save"]').trigger('click')
+    await flushPromises()
+    expect(fake!.callsTo('PUT /api/admin/site/pages/intro/draft')).toHaveLength(0)
+    expect(w.get('[data-test="banner-form"]').text()).toContain('http')
+  })
+
+  it('the preview draws the former landing blocks as normal sections; the add menu has no vibe or footer', async () => {
+    const { w } = await mountEditor({ 'GET /api/admin/site/pages/intro/draft': ok(draft(landingSections(), { videos: { [VID]: resolvedVideo(VID) }, images: { [IMG]: resolved(IMG), [IMG2]: resolved(IMG2), [VID]: resolved(VID) } })) })
     const preview = w.get('[data-test="home-preview"]')
-    expect(preview.get('[data-test="fullpage"]').classes()).toContain('fp-preview')
-    expect(preview.findAll('[data-test="fp-panel"]').map((p) => p.attributes('data-section'))).toEqual(['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])
-    expect(preview.find('[data-test="dot-nav"]').exists()).toBe(false)
-    expect(preview.find('[data-test="landing-chrome"]').exists()).toBe(false)
+    expect(preview.find('[data-test="fullpage"]').exists()).toBe(false)
+    expect(preview.findAll('[data-test="intro-block"]').map((p) => p.attributes('data-section'))).toEqual(['heroVideo', 'releases', 'spotlight'])
     expect(document.documentElement.classList.contains('fp-snap')).toBe(false)
     // The preview never plays the background video.
     expect(preview.get('[data-test="fp-hero-video"]').attributes('poster')).toContain(VID)
-    const groups = w.findAll('[data-test="add-type"] optgroup')
-    // The newest landing type comes first, and is what "Thêm mục" adds by default.
-    expect(groups[0]!.findAll('option').map((o) => o.attributes('value'))).toEqual(['music', 'heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])
-    expect((w.get('[data-test="add-type"]').element as HTMLSelectElement).value).toBe('music')
+    const values = w.findAll('[data-test="add-type"] option').map((o) => o.attributes('value'))
+    expect(values.slice(0, 4)).toEqual(['heroVideo', 'music', 'releases', 'spotlight'])
+    expect(values).not.toContain('vibe')
+    expect(values).not.toContain('footer')
+    expect(w.findAll('[data-test="add-type"] optgroup')).toHaveLength(0)
   })
 
   it('opening video form: choose a background video from the video library; poster and name update the preview', async () => {
     const hero = { id: 'top', type: 'heroVideo', visible: true, data: { eyebrow: lt(''), name: lt('Hibiki Du Ca'), subtitle: lt(''), video: null, videoMobile: null, images: [], link: null } } as HomeSection
     const { w } = await mountEditor({
-      'GET /api/admin/site/pages/home/draft': ok(draft([hero])),
+      'GET /api/admin/site/pages/intro/draft': ok(draft([hero])),
       'GET /api/admin/site/images': ok([
         { id: IMG2, kind: 'image', status: 'ready', originalName: 'anh.png', sizeBytes: 2048, width: 10, height: 10, createdAt: '2026-10-01T00:00:00Z', durationSec: null, used: false, image: resolved(IMG2), video: null },
         { id: VID, kind: 'video', status: 'ready', originalName: 'mo-dau.mp4', sizeBytes: 4096, width: 1920, height: 1080, createdAt: '2026-10-01T00:00:00Z', durationSec: 12, used: false, image: resolved(VID), video: resolvedVideo(VID) },
@@ -342,7 +345,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     })
     await w.get('[data-test="f-name"]').setValue('Du Ca')
     expect(w.get('[data-test="home-preview"] [data-test="fp-hero-name"]').text()).toBe('Du Ca')
-    expect(w.get('[data-test="home-preview"]').find('[data-test="fp-hero-art"]').exists()).toBe(true)
+    expect(w.get('[data-test="home-preview"] [data-test="fp-hero"]').classes()).toContain('bg-[var(--c-surface-2)]')
     await w.findAll('[data-test="video-choose"]')[0]!.trigger('click')
     await vi.waitFor(async () => {
       await flushPromises()
@@ -363,7 +366,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     await w.get('[data-test="f-link-href"]').setValue('javascript:alert(1)')
     await w.get('[data-test="home-save"]').trigger('click')
     await flushPromises()
-    expect(fake!.callsTo('PUT /api/admin/site/pages/home/draft')).toHaveLength(0)
+    expect(fake!.callsTo('PUT /api/admin/site/pages/intro/draft')).toHaveLength(0)
     await w.get('[data-test="f-link-href"]').setValue('https://youtu.be/dQw4w9WgXcQ')
     await w.get('[data-test="home-save"]').trigger('click')
     await flushPromises()
@@ -374,7 +377,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     const hero = { id: 'top', type: 'heroVideo', visible: true, data: { eyebrow: lt(''), name: lt('Du Ca'), subtitle: lt(''), video: null, videoMobile: null, images: [], link: null } } as HomeSection
     let release: () => void = () => {}
     const { w } = await mountEditor({
-      'GET /api/admin/site/pages/home/draft': ok(draft([hero])),
+      'GET /api/admin/site/pages/intro/draft': ok(draft([hero])),
       'POST /api/uploads': () => new Promise((r) => (release = () => r({ status: 400, body: { error: { code: 'FILE_TOO_LARGE' } } }))),
     })
     await w.findAll('[data-test="video-choose"]')[0]!.trigger('click')
@@ -393,7 +396,7 @@ describe('Admin → Trang chủ (homepage editor)', () => {
 
   it('new release form: hand-picked covers need 3–8 to be shown; the fanart source only a count', async () => {
     const rel = { id: 'new', type: 'releases', visible: true, data: { eyebrow: lt(''), heading: lt('Mới phát hành'), source: 'latestFanart', count: 5, items: [] } } as HomeSection
-    const { w } = await mountEditor({ 'GET /api/admin/site/pages/home/draft': ok(draft([rel])) })
+    const { w } = await mountEditor({ 'GET /api/admin/site/pages/intro/draft': ok(draft([rel])) })
     expect(w.get('[data-test="f-release-count"]').element).toHaveProperty('value', '5')
     await w.get('[data-test="f-source"]').setValue('manual')
     expect(w.find('[data-test="f-release-count"]').exists()).toBe(false)
@@ -402,13 +405,13 @@ describe('Admin → Trang chủ (homepage editor)', () => {
     expect(w.findAll('[data-test="release-items"] [data-test="item-row"]')).toHaveLength(1)
     await w.get('[data-test="home-save"]').trigger('click')
     await flushPromises()
-    expect(fake!.callsTo('PUT /api/admin/site/pages/home/draft')).toHaveLength(0)
+    expect(fake!.callsTo('PUT /api/admin/site/pages/intro/draft')).toHaveLength(0)
     expect(w.get('[data-test="home-problem"]').text()).toContain('Mới phát hành')
   })
 
   it('spotlight form: interval and looks; the preview follows', async () => {
     const sp = landingSections().find((s) => s.type === 'spotlight')!
-    const { w } = await mountEditor({ 'GET /api/admin/site/pages/home/draft': ok(draft([sp])) })
+    const { w } = await mountEditor({ 'GET /api/admin/site/pages/intro/draft': ok(draft([sp])) })
     await w.get('[data-test="f-interval"]').setValue(6)
     const rowsSp = () => w.get('[data-test="spotlight-items"]').findAll('[data-test="item-row"]')
     expect(rowsSp()).toHaveLength(3)

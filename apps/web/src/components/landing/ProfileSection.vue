@@ -1,33 +1,29 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ProfileData } from '@cuka/shared'
-import ArchArt from './ArchArt.vue'
 import LandingSection from './LandingSection.vue'
 import SiteImage from './SiteImage.vue'
 import { useLanding } from './context'
-import { vReveal } from './reveal'
 
-const props = defineProps<{ data: ProfileData; index: number; tone: 'cream' | 'soft' }>()
+const props = defineProps<{ data: ProfileData }>()
 const { tx } = useLanding()
 /** Monogram of the portrait stand-in: the heading's first letter. */
 const letter = computed(() => tx(props.data.heading).trim().charAt(0).toUpperCase())
 </script>
 
 <template>
-  <LandingSection data-test="landing-profile" :tone="tone" :index="index" :eyebrow="tx(data.eyebrow)" :heading="tx(data.heading)">
-    <div class="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
-      <figure v-reveal class="mx-auto w-full max-w-sm lg:mx-0 lg:max-w-none">
-        <div class="aspect-[3/4] overflow-hidden rounded-[2rem] border border-[var(--c-border)] bg-[#141414] lg:sticky lg:top-24">
-          <SiteImage :image="data.image" sizes="(min-width: 1024px) 26rem, 90vw" img-class="h-full w-full object-cover">
-            <template #fallback><ArchArt :letter="letter" /></template>
-          </SiteImage>
-        </div>
+  <LandingSection data-test="landing-profile" :eyebrow="tx(data.eyebrow)" :heading="tx(data.heading)">
+    <div class="grid items-start gap-8" :class="data.image ? 'md:grid-cols-[16rem_minmax(0,1fr)] md:gap-12' : ''">
+      <figure v-if="data.image" class="w-full max-w-64 overflow-hidden rounded-lg bg-[var(--c-surface-2)]">
+        <SiteImage :image="data.image" sizes="16rem" img-class="aspect-[3/4] h-full w-full object-cover" />
       </figure>
-      <dl class="grid content-start gap-x-10 sm:grid-cols-2">
-        <div v-for="(f, i) in data.facts" :key="i" v-reveal data-test="profile-fact" class="flex flex-col gap-2 border-t border-[var(--c-border)] py-5" :class="tx(f.value).length > 70 ? 'sm:col-span-2' : ''">
-          <dt class="text-[11px] text-[var(--c-muted)]">{{ tx(f.label) }}</dt>
-          <dd class="text-lg leading-snug font-medium text-pretty">{{ tx(f.value) }}</dd>
-        </div>
+      <dl class="grid content-start border-t border-[var(--c-border)] sm:grid-cols-[10rem_minmax(0,1fr)]">
+        <template v-for="(f, i) in data.facts" :key="i">
+          <div data-test="profile-fact" class="contents">
+            <dt class="pt-3 text-[13px] text-[var(--c-muted)] sm:border-b sm:border-[var(--c-border)] sm:py-3">{{ tx(f.label) }}</dt>
+            <dd class="border-b border-[var(--c-border)] pb-3 text-sm text-pretty sm:py-3">{{ tx(f.value) }}</dd>
+          </div>
+        </template>
       </dl>
     </div>
   </LandingSection>

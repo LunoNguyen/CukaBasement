@@ -51,9 +51,10 @@ afterEach(() => {
 const REDUCE = '(prefers-reduced-motion: reduce)'
 const PHONE = '(max-width: 767px)'
 
+/** /gioi-thieu with the former landing blocks (and anything else `home` holds) as its published sections. */
 async function mountHome(home = publicLanding(), opts: { admin?: boolean; loggedIn?: boolean; routes?: Record<string, FakeRoute> } = {}) {
   fake = installFakeFetch({
-    'GET /api/site/pages/home': { status: 200, body: home },
+    'GET /api/site/pages/intro': { status: 200, body: { ...home, page: 'intro' } },
     'GET /api/feed/showcase': { status: 200, body: { items: [card(), card({ id: 'p2', title: 'Chó' }), card({ id: 'p3', title: 'Gà' })], nextCursor: null } },
     'GET /api/notifications/unread-count': { status: 200, body: { count: 3 } },
     ...opts.routes,
@@ -64,36 +65,32 @@ async function mountHome(home = publicLanding(), opts: { admin?: boolean; logged
   auth.ready = true
   if (opts.loggedIn || opts.admin) auth.setSession({ accessToken: 't', user: makeMe(opts.admin ? { role: 'admin' } : {}) })
   const router = createAppRouter(createMemoryHistory())
-  await router.push('/')
+  await router.push('/gioi-thieu')
   wrapper = mount(App, { global: { plugins: [pinia, router, i18n] }, attachTo: document.body })
   await flushPromises()
   return { w: wrapper, router }
 }
 
-const panels = (w: VueWrapper) => w.findAll('[data-test="fp-panel"]')
-const press = (key: string, target: EventTarget = document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+const blocks = (w: VueWrapper) => w.findAll('[data-test="intro-block"]')
 
-// Task 6 brings these screens back as blocks of /gioi-thieu (the landing page left "/" in Task 4).
-describe.skip('Landing page (/) as full screens', () => {
-  it('renders one screen per visible section, in order, under the site header (shown on every route)', async () => {
-    const { w, router } = await mountHome()
-    expect(panels(w).map((p) => p.attributes('data-section'))).toEqual(['heroVideo', 'releases', 'spotlight', 'vibe', 'footer'])
+describe('Introduction page (/gioi-thieu): the former landing screens as normal blocks', () => {
+  it('renders the blocks in order as one normal-scrolling page: no snapping, dots, menu, vibe or footer', async () => {
+    const { w } = await mountHome()
+    expect(blocks(w).map((p) => p.attributes('data-section'))).toEqual(['heroVideo', 'releases', 'spotlight'])
     expect(w.text()).not.toContain('Bí mật')
-    expect(w.find('[data-test="brand"]').exists()).toBe(true)
-    expect(w.find('[data-test="landing-chrome"]').exists()).toBe(true)
-    expect(document.documentElement.classList.contains('fp-snap')).toBe(true)
-    // One h1: the huge name. Landmarks: the floating header, main, the screen dots and the footer.
-    expect(w.findAll('h1').map((h) => h.text())).toEqual(['Hibiki Du Ca'])
-    expect(w.find('header[data-test="landing-chrome"]').exists()).toBe(true)
-    expect(w.find('main [data-test="fullpage"]').exists()).toBe(true)
-    expect(w.find('footer[data-test="fp-footer"]').exists()).toBe(true)
-    expect(document.title).toBe('Hibiki Du Ca · CukaBasement')
-
-    // Other pages keep the normal header and footer, and stop snapping.
-    await router.push('/posts')
-    await flushPromises()
-    expect(w.find('[data-test="brand"]').exists()).toBe(true)
+    expect(w.text()).not.toContain('Một căn hầm ấm áp')
+    expect(w.find('[data-test="fullpage"]').exists()).toBe(false)
+    expect(w.find('[data-test="dot-nav"]').exists()).toBe(false)
+    expect(w.find('[data-test="landing-chrome"]').exists()).toBe(false)
     expect(document.documentElement.classList.contains('fp-snap')).toBe(false)
+    // The site header and footer, one h1 (the name, the one Fraunces heading), the hero at most 60% of the screen.
+    expect(w.find('[data-test="brand"]').exists()).toBe(true)
+    expect(w.find('[data-test="footer"]').exists()).toBe(true)
+    expect(w.findAll('h1').map((h) => h.text())).toEqual(['Hibiki Du Ca'])
+    expect(w.get('h1').classes()).toContain('font-display')
+    expect(w.get('[data-test="fp-hero"]').classes()).toContain('max-h-[60vh]')
+    for (const h of w.findAll('h2')) expect(h.classes()).not.toContain('font-display')
+    expect(document.title).toBe('Giới thiệu · Hibiki Du Ca · CukaBasement')
   })
 
   it('loads nothing from outside the site: API calls only, no iframes', async () => {
@@ -101,97 +98,6 @@ describe.skip('Landing page (/) as full screens', () => {
     expect(fake!.calls.every((c) => c.path.startsWith('/api/'))).toBe(true)
     expect(w.find('iframe').exists()).toBe(false)
     expect(w.html()).not.toMatch(/youtube\.com\/embed|ytimg|fonts\.g/)
-  })
-
-  it('dot navigation names every screen, marks the current one and scrolls to the chosen one', async () => {
-    const { w } = await mountHome()
-    const dots = w.findAll('[data-test="dot"]')
-    expect(dots.map((d) => d.attributes('aria-label'))).toEqual(['Hibiki Du Ca', 'Mới phát hành', 'Những phiên bản của Du Ca', 'CukaBasement', 'Liên hệ'])
-    expect(w.get('[data-test="dot-nav"]').attributes('aria-label')).toBe('Các màn hình của trang')
-    expect(dots[0]!.attributes('aria-current')).toBe('true')
-    await dots[2]!.trigger('click')
-    expect(scrolled.at(-1)).toBe(panels(w)[2]!.element)
-    expect(w.findAll('[data-test="dot"]')[2]!.attributes('aria-current')).toBe('true')
-    expect(w.findAll('[data-test="dot"]')[0]!.attributes('aria-current')).toBeUndefined()
-    expect(document.activeElement).toBe(panels(w)[2]!.element)
-  })
-
-  it('keyboard: PageDown/arrows/Home/End move a screen at a time, but not while typing', async () => {
-    const { w } = await mountHome()
-    press('PageDown')
-    await flushPromises()
-    expect(scrolled.at(-1)).toBe(panels(w)[1]!.element)
-    press('ArrowDown')
-    expect(scrolled.at(-1)).toBe(panels(w)[2]!.element)
-    press('ArrowUp')
-    expect(scrolled.at(-1)).toBe(panels(w)[1]!.element)
-    press('End')
-    expect(scrolled.at(-1)).toBe(panels(w)[4]!.element)
-    press('Home')
-    expect(scrolled.at(-1)).toBe(panels(w)[0]!.element)
-    const input = document.createElement('input')
-    document.body.appendChild(input)
-    const n = scrolled.length
-    press('PageDown', input)
-    expect(scrolled).toHaveLength(n)
-  })
-
-  it('menu: full-screen dialog with focus kept inside; Esc closes and returns focus to the button', async () => {
-    const { w } = await mountHome()
-    const btn = w.get('[data-test="menu-button"]')
-    expect(btn.attributes()).toMatchObject({ 'aria-expanded': 'false', 'aria-controls': 'landing-menu', 'aria-label': 'Mở menu' })
-    await btn.trigger('click')
-    await flushPromises()
-    const menu = w.get('[data-test="landing-menu"]')
-    expect(menu.attributes()).toMatchObject({ role: 'dialog', 'aria-modal': 'true', id: 'landing-menu' })
-    expect(btn.attributes('aria-expanded')).toBe('true')
-    expect(document.documentElement.classList.contains('fp-menu-open')).toBe(true)
-    expect(menu.findAll('[data-test="menu-link"]').map((a) => [a.text().replace(/^\d+/, ''), a.attributes('href')])).toEqual([
-      ['Trang chủ', '/'],
-      ['Giới thiệu', '/gioi-thieu'],
-      ['Bài đăng', '/posts'],
-      ['Đăng bài', '/upload'],
-    ])
-    expect(menu.find('[data-test="menu-search"]').exists()).toBe(true)
-    expect(menu.find('[data-test="lang-en"]').exists()).toBe(true)
-    expect(menu.find('[data-test="theme-toggle"]').exists()).toBe(true)
-    expect(menu.get('[data-test="menu-login"]').attributes('href')).toBe('/login')
-    expect(menu.get('[data-test="menu-register"]').attributes('href')).toBe('/register')
-    // Focus starts on the close button; Tab wraps at both ends.
-    const close = menu.get('[data-test="menu-close"]').element as HTMLElement
-    expect(document.activeElement).toBe(close)
-    const focusables = [...menu.element.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input')]
-    focusables.at(-1)!.focus()
-    menu.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
-    expect(document.activeElement).toBe(focusables[0])
-    menu.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }))
-    expect(document.activeElement).toBe(focusables.at(-1))
-    // Screen keys are left alone while the menu is open.
-    const n = scrolled.length
-    press('PageDown', close)
-    expect(scrolled).toHaveLength(n)
-
-    close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
-    await flushPromises()
-    expect(w.find('[data-test="landing-menu"]').exists()).toBe(false)
-    expect(btn.attributes('aria-expanded')).toBe('false')
-    expect(document.activeElement).toBe(btn.element)
-    expect(document.documentElement.classList.contains('fp-menu-open')).toBe(false)
-  })
-
-  it('menu: account links for a signed-in admin, search goes to /search, following a link closes it', async () => {
-    const { w, router } = await mountHome(publicLanding(), { admin: true })
-    await w.get('[data-test="menu-button"]').trigger('click')
-    await flushPromises()
-    const menu = w.get('[data-test="landing-menu"]')
-    expect(menu.get('[data-test="menu-admin"]').attributes('href')).toBe('/admin')
-    expect(menu.get('[data-test="menu-notifications"]').text()).toContain('3')
-    expect(menu.find('[data-test="menu-login"]').exists()).toBe(false)
-    await menu.get('[data-test="menu-search"]').setValue('mèo')
-    await menu.get('[data-test="menu-search"]').trigger('keydown', { key: 'Enter' })
-    await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/search?q=m%C3%A8o')
-    expect(w.find('[data-test="landing-menu"]').exists()).toBe(false)
   })
 
   it('hero video: muted inline loop, poster frame, plays only as allowed, with a pause button', async () => {
@@ -213,9 +119,8 @@ describe.skip('Landing page (/) as full screens', () => {
     expect(pause).toHaveBeenCalled()
     expect(toggle.attributes('aria-pressed')).toBe('true')
     expect(toggle.text()).toBe('Phát video')
-    // "Now playing" links out in a new tab.
+    // The link goes out in a new tab.
     expect(w.get('[data-test="fp-now-playing"]').attributes()).toMatchObject({ href: 'https://www.youtube.com/@hibikiduca', target: '_blank', rel: 'noopener noreferrer' })
-    expect(w.get('[data-test="fp-now-playing"]').classes()).toContain('mix-blend-difference')
   })
 
   it('hero video: the phone clip on small screens; a hidden tab pauses it', async () => {
@@ -243,7 +148,7 @@ describe.skip('Landing page (/) as full screens', () => {
     expect(w.get('[data-test="spotlight-count"]').text()).toBe('01 / 03')
   })
 
-  it('hero without a ready video: the image slideshow, else the basement art', async () => {
+  it('hero without a ready video: the image slideshow, else plain text on the grey surface', async () => {
     const withSlides = landingSections().map((s) => (s.type === 'heroVideo' ? { ...s, data: { ...s.data, video: null, videoMobile: null, images: [{ fileId: IMG, alt: lt('Du Ca'), decorative: false }] } } : s)) as HomeSection[]
     let { w } = await mountHome(publicLanding(withSlides, {}))
     expect(w.find('[data-test="fp-hero-video"]').exists()).toBe(false)
@@ -252,7 +157,8 @@ describe.skip('Landing page (/) as full screens', () => {
     fake!.restore()
     ;({ w } = await mountHome(publicLanding(landingSections(), {})))
     expect(w.find('[data-test="fp-hero-video"]').exists()).toBe(false)
-    expect(w.find('[data-test="fp-hero-art"]').exists()).toBe(true)
+    expect(w.get('[data-test="fp-hero"]').classes()).toContain('bg-[var(--c-surface-2)]')
+    expect(w.find('[data-test="fp-hero"] img').exists()).toBe(false)
     expect(w.find('[data-test="fp-hero-toggle"]').exists()).toBe(false)
   })
 
@@ -307,7 +213,7 @@ describe.skip('Landing page (/) as full screens', () => {
     const links = w.get('[data-test="releases-row"]').findAll('a')
     expect(links.map((a) => a.attributes('href'))).toEqual(['/posts/p1', '/posts/p2', '/posts/p3'])
     expect(links[0]!.attributes('target')).toBeUndefined()
-    expect(w.get('[data-test="releases-all"]').attributes('href')).toBe('/posts')
+    expect(w.get('[data-test="releases-all"]').attributes('href')).toBe('/')
   })
 
   it('spotlight: cross-fades every N seconds; pointing or focusing holds it; it has a pause button', async () => {
@@ -361,18 +267,6 @@ describe.skip('Landing page (/) as full screens', () => {
     expect(count()).toBe('03 / 03')
   })
 
-  it('vibe links to the Introduction page; footer has site links, e-mail, social links and back to top', async () => {
-    const { w } = await mountHome()
-    expect(w.get('[data-test="vibe-cta"]').attributes('href')).toBe('/gioi-thieu')
-    const footer = w.get('[data-test="fp-footer"]')
-    expect(footer.get('[data-test="footer-intro"]').attributes('href')).toBe('/gioi-thieu')
-    expect(footer.get('[data-test="footer-email"]').attributes('href')).toBe('mailto:lienhe@cuka.test')
-    expect(footer.get('[data-test="footer-social"]').attributes()).toMatchObject({ href: 'https://www.youtube.com/@hibikiduca', target: '_blank', rel: 'noopener noreferrer' })
-    expect(footer.text()).toContain('© CukaBasement')
-    await footer.get('[data-test="footer-top"]').trigger('click')
-    expect(scrolled.at(-1)).toBe(panels(w)[0]!.element)
-  })
-
   it('English texts with Vietnamese fallback', async () => {
     setLocale('en')
     const { w } = await mountHome()
@@ -382,18 +276,15 @@ describe.skip('Landing page (/) as full screens', () => {
     expect(w.get('[data-test="fp-now-playing"]').text()).toContain('YouTube channel')
   })
 
-  it('an older long-form homepage still renders, one screen per section', async () => {
+  it('a page holding both opening blocks (moved landing hero + old long-form hero): still one h1', async () => {
     const { allSections } = await import('./homepageFixture')
-    const { w } = await mountHome({ ...publicLanding(allSections()), videos: {} })
-    expect(panels(w).map((p) => p.attributes('data-section'))).toEqual(['hero', 'about', 'profile', 'timeline', 'gallery', 'videos', 'links', 'fanart', 'banner'])
+    const sections = [...landingSections().filter((x) => x.type === 'heroVideo'), ...allSections()]
+    const { w } = await mountHome({ ...publicLanding(sections) })
+    expect(blocks(w).map((p) => p.attributes('data-section'))).toEqual(['heroVideo', 'hero', 'about', 'profile', 'timeline', 'gallery', 'videos', 'links', 'fanart', 'banner'])
     expect(w.findAll('h1')).toHaveLength(1)
-    expect(w.find('[data-test="landing-hero"] h1').exists()).toBe(true)
+    expect(w.get('[data-test="landing-hero"] h2').text()).toBe('Hibiki Du Ca')
   })
 
-  it('API down: a fallback screen that still leads to the posts, with the menu', async () => {
-    const { w } = await mountHome(publicLanding(), { routes: { 'GET /api/site/pages/home': { status: 500, body: { error: { code: 'INTERNAL' } } } } })
-    expect(w.get('h1').text()).toBe('CukaBasement')
-    expect(w.findAll('a').some((a) => a.attributes('href') === '/posts')).toBe(true)
-    expect(w.find('[data-test="menu-button"]').exists()).toBe(true)
-  })
+
+
 })

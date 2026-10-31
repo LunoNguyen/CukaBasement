@@ -24,7 +24,6 @@ import {
   EDITABLE_SITE_PAGES,
   homeBannerSchema,
   LONGFORM_SECTION_TYPES,
-  SITE_PAGE_TYPES,
   SITE_PAGES,
   sitePageSchema,
   UPLOAD_PURPOSES,
@@ -265,14 +264,11 @@ describe('homepage schemas', () => {
     expect(homeSectionSchema.safeParse({ ...ft, data: { ...ft.data, email: 'javascript:alert(1)' } }).success).toBe(false)
   })
 
-  it('site pages: home and intro, each with its own suggested types', () => {
+  it('site pages: home (read-only) and intro', () => {
     expect(SITE_PAGES).toEqual(['home', 'intro'])
     expect(sitePageSchema.safeParse('intro').success).toBe(true)
     expect(sitePageSchema.safeParse('admin').success).toBe(false)
-    // The same types, the music row first so admins of an existing homepage find it.
-    expect(SITE_PAGE_TYPES.home[0]).toBe('music')
-    expect([...SITE_PAGE_TYPES.home].sort()).toEqual([...LANDING_SECTION_TYPES].sort())
-    expect(SITE_PAGE_TYPES.intro).toContain('profile')
+    expect(LANDING_SECTION_TYPES).toContain('vibe')
     expect(HOME_SECTION_TYPES).toHaveLength(15)
   })
 

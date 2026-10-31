@@ -2,15 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { HeroData } from '@cuka/shared'
-import BasementArt from '@/components/brand/BasementArt.vue'
-import Halftone from './Halftone.vue'
 import SiteImage from './SiteImage.vue'
 import SmartLink from './SmartLink.vue'
 import { useLanding } from './context'
 
 /**
- * Full-bleed opening band. With pictures: a cross-fading slideshow (paused on reduced motion, with a pause button
- * and slide dots). Without: the basement arch and halftone dots of the brand board.
+ * The page's opening panel (at most 60% of the screen). With pictures: a cross-fading slideshow (paused on reduced
+ * motion, with a pause button and slide dots) under a dark scrim. Without: plain text on the grey surface.
  */
 const props = withDefaults(defineProps<{ data: HeroData; level?: 1 | 2 }>(), { level: 1 })
 const { t } = useI18n()
@@ -61,8 +59,12 @@ watch(
 </script>
 
 <template>
-  <section data-test="landing-hero" :aria-labelledby="titleId" class="relative isolate overflow-hidden bg-[#141414] text-[#ededed]">
-    <!-- Background -->
+  <section
+    data-test="landing-hero"
+    :aria-labelledby="titleId"
+    class="relative isolate flex max-h-[60vh] flex-col justify-end overflow-hidden rounded-lg"
+    :class="slides.length ? 'h-[60vh] min-h-[280px] bg-[#141414] text-white sm:min-h-[360px]' : 'bg-[var(--c-surface-2)]'"
+  >
     <div v-if="slides.length" class="absolute inset-0 -z-10">
       <div
         v-for="(img, i) in slides"
@@ -71,75 +73,53 @@ watch(
         :class="i === current ? 'opacity-100' : 'opacity-0'"
         :aria-hidden="i === current ? undefined : 'true'"
       >
-        <SiteImage :image="img" sizes="100vw" :eager="i === 0" img-class="h-full w-full object-cover" />
+        <SiteImage :image="img" sizes="(min-width: 1280px) 1232px, 100vw" :eager="i === 0" img-class="h-full w-full object-cover" />
       </div>
-      <!-- A flat scrim keeps the text at contrast over any picture (the board has no gradients). -->
-      <div class="absolute inset-0 bg-[#17110e]/60" />
-    </div>
-    <div v-else class="absolute inset-0 -z-10" aria-hidden="true">
-      <Halftone class="absolute inset-y-0 right-0 h-full w-full opacity-25 md:w-2/3" from="tr" :size="10" />
-      <Halftone class="absolute bottom-0 left-0 h-1/2 w-1/2 opacity-15" from="bl" :size="7" />
+      <div class="absolute inset-0 bg-linear-to-t from-black/75 via-black/30 to-transparent" />
     </div>
 
-    <div class="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-16 pb-24 sm:px-6 md:min-h-[min(88svh,860px)] md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] md:pt-24">
-      <div class="flex flex-col gap-7">
-        <p v-if="tx(data.eyebrow)" class="flex items-center gap-3 text-xs text-[#ededed]/85">
-          <span class="size-2 rounded-full bg-[var(--c-accent)]" aria-hidden="true" />
-          {{ tx(data.eyebrow) }}
-        </p>
-        <component :is="level === 1 ? 'h1' : 'h2'" :id="titleId" class="font-display text-[clamp(3.25rem,11vw,8.5rem)] leading-[0.9] font-semibold tracking-[-0.045em] text-balance">
-          {{ tx(data.title) }}
-        </component>
-        <p v-if="tx(data.subtitle)" class="max-w-xl text-lg leading-relaxed text-[#ededed]/90 sm:text-xl">{{ tx(data.subtitle) }}</p>
-        <div v-if="data.ctas.length" class="flex flex-wrap gap-3 pt-1">
-          <SmartLink
-            v-for="(cta, i) in data.ctas"
-            :key="i"
-            :href="cta.href"
-            data-test="hero-cta"
-            class="group inline-flex min-h-12 items-center gap-2 rounded-full px-6 text-sm font-semibold transition-colors"
-            :class="
-              i === 0
-                ? 'bg-[#fbf7f4] text-[#5b3a29] hover:bg-white'
-                : 'border border-[#ededed]/35 text-[#ededed] hover:border-[#ededed]'
-            "
-          >
-            {{ tx(cta.label) }}
-            <svg viewBox="0 0 24 24" class="size-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          </SmartLink>
-        </div>
-      </div>
-
-      <!-- No picture yet: the basement arch from the brand board. -->
-      <div v-if="!slides.length" class="relative mx-auto hidden w-full max-w-sm md:block" aria-hidden="true">
-        <div class="relative aspect-[4/5] overflow-hidden rounded-t-full border border-[#2e2e2e] bg-[#0a0a0a]">
-          <BasementArt class="absolute inset-0 h-full w-full" />
-        </div>
-        <div class="absolute -bottom-5 -left-6 flex items-center gap-2 rounded-full border border-[#2e2e2e] bg-[#1f1f1f] px-4 py-2 text-[11px] text-[#a3a3a3]">
-          <span class="size-1.5 rounded-full bg-[var(--c-accent)]" />
-          CukaBasement
-        </div>
+    <div class="flex flex-col gap-3 p-6 sm:p-10">
+      <p v-if="tx(data.eyebrow)" class="text-xs font-semibold" :class="slides.length ? 'text-white/80' : 'text-[var(--c-accent-strong)]'">{{ tx(data.eyebrow) }}</p>
+      <component :is="level === 1 ? 'h1' : 'h2'" :id="titleId" class="font-display text-[clamp(2.25rem,6vw,4rem)] leading-[1.02] font-semibold tracking-[-0.02em] text-balance">
+        {{ tx(data.title) }}
+      </component>
+      <p v-if="tx(data.subtitle)" class="max-w-xl text-sm leading-relaxed sm:text-base" :class="slides.length ? 'text-white/85' : 'text-[var(--c-muted)]'">{{ tx(data.subtitle) }}</p>
+      <div v-if="data.ctas.length" class="flex flex-wrap gap-2 pt-2">
+        <SmartLink
+          v-for="(cta, i) in data.ctas"
+          :key="i"
+          :href="cta.href"
+          data-test="hero-cta"
+          class="inline-flex h-10 items-center rounded px-4 text-sm font-semibold transition"
+          :class="
+            i === 0
+              ? 'bg-[var(--c-accent-strong)] text-[var(--c-on-primary)] hover:brightness-110'
+              : slides.length
+                ? 'border border-white/40 text-white hover:bg-white/10'
+                : 'border border-[var(--c-border)] bg-[var(--c-bg)] hover:bg-[var(--c-surface-2)]'
+          "
+        >
+          {{ tx(cta.label) }}
+        </SmartLink>
       </div>
     </div>
 
-    <div v-if="slides.length > 1" class="absolute right-4 bottom-6 flex items-center gap-2 sm:right-6">
+    <div v-if="slides.length > 1" class="absolute right-3 bottom-3 flex items-center sm:right-5 sm:bottom-5">
       <button
         v-for="(img, i) in slides"
         :key="img.fileId"
         type="button"
-        class="flex size-11 items-center justify-center"
+        class="flex size-8 items-center justify-center touch-pad"
         :aria-label="t('landing.slide', { n: i + 1, total: slides.length })"
         :aria-current="i === current ? 'true' : undefined"
         @click="go(i)"
       >
-        <span class="block h-1.5 rounded-full transition-all" :class="i === current ? 'w-7 bg-[#ededed]' : 'w-1.5 bg-[#ededed]/50'" />
+        <span class="block size-1.5 rounded-full" :class="i === current ? 'bg-white' : 'bg-white/45'" />
       </button>
       <button
         type="button"
         data-test="hero-pause"
-        class="flex size-11 items-center justify-center rounded-full border border-[#ededed]/35 text-[#ededed] hover:border-[#ededed]"
+        class="icon-btn text-white hover:bg-white/10"
         :aria-label="playing ? t('landing.pause') : t('landing.play')"
         @click="toggle"
       >

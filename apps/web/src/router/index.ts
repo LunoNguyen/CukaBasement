@@ -40,7 +40,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       // The fanart gallery: banner, tags, type filter, ranking and the latest / following feed.
       { path: '/', name: 'home', component: HomePage },
       { path: '/ranking', name: 'ranking', component: RankingPage },
-      { path: '/gioi-thieu', name: 'intro', component: IntroPage, meta: { fullBleed: true } },
+      { path: '/gioi-thieu', name: 'intro', component: IntroPage },
       { path: '/intro', redirect: '/gioi-thieu' },
       // The old feed addresses: the feed is part of "/" now (the type filter carries over).
       { path: '/posts', redirect: (to) => ({ path: '/', query: to.query }) },

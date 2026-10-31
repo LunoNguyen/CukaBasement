@@ -4,8 +4,8 @@
 declare const URL: new (url: string) => { protocol: string; hostname: string; pathname: string; searchParams: { get(name: string): string | null } }
 
 /**
- * Full-screen sections of the snap-scrolling landing page ("/"): background video, new releases, music videos,
- * spotlight, brand statement, footer. Every section type may be used on every page; these are the ones the landing is built from.
+ * Sections of the old full-screen landing page: background video, new releases, music videos, spotlight, brand
+ * statement, footer. The first four are now blocks of the Introduction page; `vibe` and `footer` only parse old data.
  */
 export const LANDING_SECTION_TYPES = ['heroVideo', 'releases', 'music', 'spotlight', 'vibe', 'footer'] as const
 /** Long-form sections (the Introduction page "/gioi-thieu" and the first homepage). */
@@ -15,16 +15,10 @@ export const LONGFORM_SECTION_TYPES = ['hero', 'about', 'profile', 'timeline', '
 export const HOME_SECTION_TYPES = [...LANDING_SECTION_TYPES, ...LONGFORM_SECTION_TYPES] as const
 export type HomeSectionType = (typeof HOME_SECTION_TYPES)[number]
 
-/** The CMS pages: `home` is the landing page at "/", `intro` the Introduction page at "/gioi-thieu". */
+/** The CMS pages: `intro` is the Introduction page at "/gioi-thieu"; `home` the old landing page, kept read-only. */
 export const SITE_PAGES = ['home', 'intro'] as const
 export type SitePage = (typeof SITE_PAGES)[number]
 
-/** The section types offered first in the editor of each page (the others stay available below them). */
-export const SITE_PAGE_TYPES: Record<SitePage, readonly HomeSectionType[]> = {
-  // The music row is the newest landing type: listed first so admins of an existing homepage find it.
-  home: ['music', ...LANDING_SECTION_TYPES.filter((t) => t !== 'music')],
-  intro: LONGFORM_SECTION_TYPES,
-}
 
 /** Pages admins can still edit: "/" is now the fanart gallery, so the old landing page (`home`) is read-only. */
 export const EDITABLE_SITE_PAGES = ['intro'] as const satisfies readonly SitePage[]

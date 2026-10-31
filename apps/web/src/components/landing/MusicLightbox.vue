@@ -74,15 +74,15 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-300 motion-reduce:transition-none" leave-active-class="transition-opacity duration-200 motion-reduce:transition-none">
-      <div v-if="video" class="fixed inset-0 z-50 flex items-center justify-center bg-[#0f0b09]/90 p-3 backdrop-blur-sm sm:p-8" data-test="music-lightbox" @click.self="emit('close')">
-        <div ref="dialog" role="dialog" aria-modal="true" :aria-labelledby="titleId" class="flex w-full max-w-[min(72rem,calc((100svh-12rem)*16/9))] flex-col gap-4 text-[#f3ebe6]">
+      <div v-if="video" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-8" data-test="music-lightbox" @click.self="emit('close')">
+        <div ref="dialog" role="dialog" aria-modal="true" :aria-labelledby="titleId" class="flex w-full max-w-[min(72rem,calc((100svh-12rem)*16/9))] flex-col gap-4 text-[#ededed]">
           <div class="flex items-center justify-between gap-4">
-            <p class="text-[11px] text-[#a89a90]">{{ t('landing.music.player') }}</p>
-            <button type="button" class="flex size-11 items-center justify-center rounded-full border border-[#f3ebe6]/35 hover:border-[#f3ebe6]" :aria-label="t('landing.music.close')" data-test="music-close" @click="emit('close')">
-              <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            <p class="text-[11px] text-[#a3a3a3]">{{ t('landing.music.player') }}</p>
+            <button type="button" class="flex size-11 items-center justify-center rounded text-[#ededed] hover:bg-white/10" :aria-label="t('landing.music.close')" data-test="music-close" @click="emit('close')">
+              <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
           </div>
-          <div class="relative aspect-video w-full overflow-hidden rounded-xl bg-black shadow-2xl">
+          <div class="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
             <iframe
               :key="video.id"
               :src="src"
@@ -96,10 +96,10 @@ onBeforeUnmount(() => {
           </div>
           <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div class="flex min-w-0 flex-col gap-1">
-              <h2 :id="titleId" class="font-display text-xl leading-tight font-semibold text-balance sm:text-2xl">{{ video.title }}</h2>
-              <p v-if="meta" class="text-xs text-[#a89a90]">{{ meta }}</p>
+              <h2 :id="titleId" class="text-base leading-snug font-bold text-balance sm:text-lg">{{ video.title }}</h2>
+              <p v-if="meta" class="text-xs text-[#a3a3a3]">{{ meta }}</p>
             </div>
-            <a :href="video.watchUrl" target="_blank" rel="noopener noreferrer" class="group inline-flex min-h-11 items-center gap-2 rounded-full bg-[#fbf7f4] px-5 text-sm font-semibold text-[#5b3a29] hover:bg-white" data-test="music-watch">
+            <a :href="video.watchUrl" target="_blank" rel="noopener noreferrer" class="inline-flex h-10 items-center gap-1.5 rounded bg-[#ededed] px-4 text-sm font-semibold text-[#141414] hover:bg-white" data-test="music-watch">
               {{ t('landing.music.watchOnYoutube') }}
               <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
               <span class="sr-only">{{ t('landing.fp.newTab') }}</span>

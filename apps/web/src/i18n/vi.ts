@@ -63,7 +63,7 @@ export default {
     slide: 'Ảnh {n} trên {total}', pause: 'Tạm dừng trình chiếu', play: 'Tiếp tục trình chiếu', prev: 'Trước', next: 'Tiếp',
     galleryEmpty: 'Chưa có ảnh nào.', videosEmpty: 'Chưa có video nào.', video: 'Video', playVideo: 'Phát video: {title}',
     loadsOnClick: 'chỉ tải khi bấm phát', seeAll: 'Xem tất cả', fanartEmpty: 'Chưa có fanart nào — hãy là người đầu tiên!',
-    fanartError: 'Chưa tải được fanart.', fanartShare: 'Đăng fanart', browsePosts: 'Xem bài đăng',
+    fanartError: 'Chưa tải được fanart.', fanartShare: 'Đăng fanart', browsePosts: 'Xem fanart',
     fp: {
       pauseVideo: 'Tạm dừng video', playVideo: 'Phát video', scroll: 'Cuộn', newTab: '(mở thẻ mới)', carousel: 'băng chuyền',
       discover: 'Xem {name}', pauseRotation: 'Tạm dừng tự chuyển', playRotation: 'Tiếp tục tự chuyển', vibe: 'Tinh thần',
@@ -108,8 +108,12 @@ export default {
       notYoutube: 'Không phải liên kết video YouTube', pickRequired: 'Hãy chọn một ảnh hoặc xóa dòng này.', otherPlatform: 'Khác',
       addSlide: 'Thêm ảnh nền', addCta: 'Thêm nút', addFact: 'Thêm thông tin', addMilestone: 'Thêm dấu mốc', addImage: 'Thêm ảnh',
       addVideo: 'Thêm video', addLink: 'Thêm liên kết', addRelease: 'Thêm bìa', addSpotlight: 'Thêm diện mạo',
-      pageSwitch: 'Trang đang sửa', pages: { home: 'Trang chủ', intro: 'Giới thiệu' }, openPage: 'Mở trang',
-      typeGroups: { home: 'Màn hình toàn trang (trang chủ)', intro: 'Mục trang dài (giới thiệu)' },
+      banner: {
+        title: 'Banner trang chủ', hint: 'Dải nhỏ ở đầu trang chủ (thư viện fanart). Lưu và xuất bản cùng trang Giới thiệu.',
+        edit: 'Sửa', done: 'Xong', off: 'Không hiện', show: 'Hiện banner ở trang chủ', fTitle: 'Tiêu đề', fText: 'Một dòng mô tả',
+        fLinkLabel: 'Chữ trên liên kết', fHref: 'Liên kết tới', image: 'Ảnh bìa (tuỳ chọn)', invalid: 'Banner trang chủ chưa hợp lệ: {field}',
+      },
+      pages: { home: 'Trang chủ', intro: 'Giới thiệu' }, openPage: 'Mở trang',
       source: { manual: 'Tự chọn bìa', latestFanart: 'Fanart mới nhất' },
       releasesHint: 'Khi hiển thị cần {min}–{max} bìa. Mục đang ẩn có thể thêm dần.',
       intervalHint: 'Mỗi ảnh hiện bao lâu ({min}–{max} giây). Rê chuột hoặc chọn một tên sẽ dừng tự chuyển.',

@@ -1,17 +1,17 @@
-import type { HomeSection, SitePage } from '@cuka/shared'
+import type { HomeBanner, HomeSection, SitePage } from '@cuka/shared'
 import { request } from '../client'
 import type { AdminSiteImageDto, HomeBannerDto, HomeDraftDto, MusicStatusDto, Page, PostCardDto, PublicHomeDto } from '../types'
 
-/** A published page: `home` (the landing page at "/") or `intro` (the Introduction page). */
+/** A published page: `intro` (the Introduction page; `home` is the old landing page, read-only). */
 export const publicPage = (page: SitePage) => request<PublicHomeDto>(`/site/pages/${page}`)
-export const publicHome = () => publicPage('home')
 /** The fanart gallery's home banner (null when the admin cleared it). */
 export const homeBanner = () => request<{ banner: HomeBannerDto | null }>('/site/banner')
 export const fanartShowcase = (limit: number) => request<Page<PostCardDto>>('/feed/showcase', { query: { limit } })
 
 export const pageDraft = (page: SitePage) => request<HomeDraftDto>(`/admin/site/pages/${page}/draft`)
-export const savePageDraft = (page: SitePage, revision: number, sections: HomeSection[]) =>
-  request<HomeDraftDto>(`/admin/site/pages/${page}/draft`, { method: 'PUT', body: { revision, sections } })
+/** Saves the draft; `banner` (the gallery's home banner, Introduction page only) is left as stored when undefined. */
+export const savePageDraft = (page: SitePage, revision: number, sections: HomeSection[], banner?: HomeBanner | null) =>
+  request<HomeDraftDto>(`/admin/site/pages/${page}/draft`, { method: 'PUT', body: banner === undefined ? { revision, sections } : { revision, sections, banner } })
 export const publishPage = (page: SitePage, revision: number) => request<HomeDraftDto>(`/admin/site/pages/${page}/publish`, { method: 'POST', body: { revision } })
 export const discardPageDraft = (page: SitePage, revision: number) => request<HomeDraftDto>(`/admin/site/pages/${page}/discard`, { method: 'POST', body: { revision } })
 
