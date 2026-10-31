@@ -36,6 +36,8 @@ export const LikeSchema = new Schema<Like>(
 LikeSchema.index({ userId: 1, postId: 1 }, { unique: true })
 // Per-post lookups by the nightly reconcile and the purge job.
 LikeSchema.index({ postId: 1 })
+// The fanart ranking counts likes of the last day / week / month.
+LikeSchema.index({ createdAt: -1 })
 
 export const BookmarkSchema = new Schema<Bookmark>(
   { userId: ref, postId: ref, isPrivate: { type: Boolean, default: false } },
@@ -44,6 +46,7 @@ export const BookmarkSchema = new Schema<Bookmark>(
 BookmarkSchema.index({ userId: 1, postId: 1 }, { unique: true })
 BookmarkSchema.index({ userId: 1, createdAt: -1 })
 BookmarkSchema.index({ postId: 1 })
+BookmarkSchema.index({ createdAt: -1 })
 
 export const FollowSchema = new Schema<Follow>(
   { followerId: ref, followeeId: ref },

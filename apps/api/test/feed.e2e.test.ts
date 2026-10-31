@@ -67,6 +67,19 @@ describe('feed, search and tags', () => {
     expect(p2.body.nextCursor).toBeNull()
   })
 
+  it('home and following take ?type=; an unknown type is 400', async () => {
+    const author = await createUser(h)
+    const fan = await createUser(h)
+    const ill = await seed(author.id)
+    const video = await seed(author.id, { type: 'video' })
+    await h.http().post(`/api/users/${author.username}/follow`).set(auth(fan.token)).expect((r) => expect([200, 201, 204]).toContain(r.status))
+    expect(ids(await h.http().get('/api/feed/home').query({ type: 'video' }))).toEqual([video])
+    expect(ids(await h.http().get('/api/feed/home'))).toEqual([video, ill])
+    expect(ids(await h.http().get('/api/feed/following').query({ type: 'illustration' }).set(auth(fan.token)))).toEqual([ill])
+    expect((await h.http().get('/api/feed/home').query({ type: 'painting' })).status).toBe(400)
+    expect((await h.http().get('/api/feed/following').query({ type: 'painting' }).set(auth(fan.token))).status).toBe(400)
+  })
+
   it('home hides r18 from anonymous and from adult without showR18; shows to eligible', async () => {
     const author = await createUser(h)
     const r18 = await seed(author.id, { rating: 'r18' })

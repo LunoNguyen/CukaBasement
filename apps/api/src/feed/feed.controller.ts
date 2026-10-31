@@ -1,11 +1,10 @@
 import { Controller, Get, Query } from '@nestjs/common'
-import { cursorQuerySchema, HOME_LIMITS, searchQuerySchema } from '@cuka/shared'
+import { feedQuerySchema, HOME_LIMITS, rankingQuerySchema, searchQuerySchema } from '@cuka/shared'
 import { z } from 'zod'
 import { Auth, CurrentViewer } from '../auth/decorators'
 import type { Viewer } from '../auth/viewer'
 import { ZodPipe } from '../common/zod.pipe'
-import type { CursorQuery } from '../posts/posts.service'
-import { FeedService, type SearchQuery } from './feed.service'
+import { type FeedQuery, FeedService, type RankingQuery, type SearchQuery } from './feed.service'
 
 const showcaseQuerySchema = z.object({ limit: z.coerce.number().int().min(HOME_LIMITS.fanartMin).max(HOME_LIMITS.fanartMax).default(8) })
 
@@ -14,7 +13,7 @@ export class FeedController {
   constructor(private readonly feed: FeedService) {}
 
   @Get('feed/home')
-  home(@CurrentViewer() v: Viewer | null, @Query(new ZodPipe(cursorQuerySchema)) q: CursorQuery) {
+  home(@CurrentViewer() v: Viewer | null, @Query(new ZodPipe(feedQuerySchema)) q: FeedQuery) {
     return this.feed.home(v, q)
   }
 
@@ -24,9 +23,15 @@ export class FeedController {
     return this.feed.showcase(q.limit)
   }
 
+  /** The fanart ranking: most liked and bookmarked posts of the last day, week or month (see FeedService.ranking). */
+  @Get('feed/ranking')
+  ranking(@CurrentViewer() v: Viewer | null, @Query(new ZodPipe(rankingQuerySchema)) q: RankingQuery) {
+    return this.feed.ranking(v, q)
+  }
+
   @Auth()
   @Get('feed/following')
-  following(@CurrentViewer() v: Viewer, @Query(new ZodPipe(cursorQuerySchema)) q: CursorQuery) {
+  following(@CurrentViewer() v: Viewer, @Query(new ZodPipe(feedQuerySchema)) q: FeedQuery) {
     return this.feed.following(v, q)
   }
 

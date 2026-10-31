@@ -63,9 +63,9 @@ export class FeedCache implements FeedGen, OnModuleInit, OnModuleDestroy {
 
   /**
    * The cached JSON of `compute()` under (`kind`, `params`); `params` must hold everything the result depends on.
-   * Errors from `compute` propagate and are not cached.
+   * Errors from `compute` propagate and are not cached. `ttlSeconds` overrides the default lifetime (bumps still drop it).
    */
-  async wrap<T>(kind: string, params: unknown, compute: () => Promise<T>): Promise<T> {
+  async wrap<T>(kind: string, params: unknown, compute: () => Promise<T>, ttlSeconds = FEED_CACHE_TTL_SEC): Promise<T> {
     const c = this.usable()
     if (!c) return compute()
     let key: string
@@ -84,7 +84,7 @@ export class FeedCache implements FeedGen, OnModuleInit, OnModuleDestroy {
       return compute()
     }
     const value = await compute()
-    c.set(key, JSON.stringify(value), 'EX', FEED_CACHE_TTL_SEC).catch((err: Error) => this.warn(err))
+    c.set(key, JSON.stringify(value), 'EX', ttlSeconds).catch((err: Error) => this.warn(err))
     return value
   }
 
