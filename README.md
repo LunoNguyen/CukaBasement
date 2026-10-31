@@ -40,6 +40,13 @@ npm run dev             # build shared rồi chạy shared, api, worker, web; m�
 - **Code worker mới không tự nạp:** sau khi `git pull` hoặc sửa code job, dừng `npm run dev` rồi chạy lại.
 - **Kiểm tra:** `npm test`, `npm run type-check`.
 
+## Docker
+
+- `cp .env.docker.example .env.docker` rồi đổi mọi giá trị `change-me` (JWT, MinIO).
+- `docker compose up -d --build` chạy mongo, minio, redis, `setup` (một lần), api, worker, web.
+- Tạo admin: `docker compose run --rm api node apps/api/dist/scripts/create-admin.js --email <email> --password <mật khẩu> --username <tên>`.
+- Mở http://localhost:8080. Trình duyệt tải tệp thẳng lên MinIO nên `MINIO_PUBLIC_URL` phải truy cập được từ trình duyệt; ngoài localhost cần HTTPS (cookie đăng nhập `Secure`).
+
 ## Sao lưu
 
 - `npm run backup` ghi một tệp `.tar.gz` (toàn bộ MongoDB + mọi tệp MinIO) vào `BACKUP_DIR` (mặc định `backups/`).

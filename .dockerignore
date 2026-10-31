@@ -1,0 +1,38 @@
+# Dependencies and build output are produced inside the image.
+**/node_modules
+**/dist
+**/dist-ssr
+**/*.tsbuildinfo
+**/coverage
+
+# Secrets and local env files (the example files are harmless but not needed in the image).
+.env
+.env.*
+
+# VCS, editors, agent tooling, local docs
+.git
+.gitignore
+.vscode
+.idea
+.claude
+.agents
+.superpowers
+skills
+docs
+
+# Local data
+backups
+dump.rdb
+logs
+**/*.log
+
+# Test output
+**/test-results
+**/playwright-report
+**/__screenshots__
+**/.vitest
+
+# Docker files themselves (the nginx template under docker/ is still needed)
+Dockerfile
+.dockerignore
+docker-compose*.yml
