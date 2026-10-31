@@ -93,6 +93,15 @@ describe('Introduction page (/gioi-thieu): the former landing screens as normal 
     expect(document.title).toBe('Giới thiệu · Hibiki Du Ca · CukaBasement')
   })
 
+  it('the blocks\' small lines are muted subtitles under their H2', async () => {
+    const { w } = await mountHome()
+    for (const sel of ['fp-releases', 'fp-spotlight']) {
+      const h2 = w.get(`[data-test="${sel}"] h2`).element
+      expect(h2.nextElementSibling?.getAttribute('data-test'), sel).toBe('section-subtitle')
+      expect(h2.previousElementSibling, sel).toBeNull()
+    }
+  })
+
   it('loads nothing from outside the site: API calls only, no iframes', async () => {
     const { w } = await mountHome()
     expect(fake!.calls.every((c) => c.path.startsWith('/api/'))).toBe(true)

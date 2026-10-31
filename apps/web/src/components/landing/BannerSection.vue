@@ -16,7 +16,7 @@ const hasImage = computed(() => !!props.data.image)
   <section data-test="landing-banner" class="border-t border-[var(--c-border)] py-10 sm:py-12">
     <div class="grid items-center gap-6 rounded-lg bg-[var(--c-surface-2)] p-6 sm:p-8" :class="hasImage ? 'md:grid-cols-[minmax(0,1fr)_14rem]' : ''">
       <figure class="flex flex-col gap-4">
-        <p v-if="tx(data.eyebrow)" class="text-xs font-semibold text-[var(--c-accent-strong)]">{{ tx(data.eyebrow) }}</p>
+        <p v-if="tx(data.eyebrow)" class="text-[13px] text-[var(--c-muted)]">{{ tx(data.eyebrow) }}</p>
         <blockquote class="max-w-3xl text-lg leading-relaxed font-bold text-balance sm:text-xl">
           <template v-for="(p, i) in parts" :key="i"
             ><span v-if="p.startsWith('#')" class="text-[var(--c-accent-strong)]">{{ p }}</span><template v-else>{{ p }}</template></template

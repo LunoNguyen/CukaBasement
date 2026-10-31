@@ -209,6 +209,20 @@ describe('Introduction page (/gioi-thieu)', () => {
     w.unmount()
   })
 
+  it('the small section line is a muted subtitle under the H2, never a pink label above it', async () => {
+    const { w } = await mountLanding()
+    for (const sel of ['landing-about', 'landing-profile', 'landing-fanart']) {
+      const h2 = w.get(`[data-test="${sel}"] h2`).element
+      const sub = h2.nextElementSibling as HTMLElement
+      expect(sub?.getAttribute('data-test'), sel).toBe('section-subtitle')
+      expect(sub.className).toContain('text-[var(--c-muted)]')
+      expect(h2.previousElementSibling, sel).toBeNull()
+    }
+    expect(w.get('[data-test="landing-profile"] [data-test="section-subtitle"]').text()).toBe('Hồ sơ')
+    expect(w.html()).not.toMatch(/text-xs font-semibold text-\[var\(--c-accent-strong\)\]/)
+    w.unmount()
+  })
+
   it('a section title with markup is shown as text', async () => {
     const sections = [{ id: 'a', type: 'about', visible: true, data: { eyebrow: lt(''), heading: lt('<img src=x onerror=alert(1)>'), body: lt(''), image: null, imageSide: 'right' } }] as ReturnType<typeof allSections>
     const { w } = await mountLanding(publicHome(sections))

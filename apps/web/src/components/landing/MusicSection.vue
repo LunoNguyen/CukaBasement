@@ -82,8 +82,8 @@ const open = (v: MusicVideo) => (playing.value = v)
   <section data-test="fp-music" :aria-labelledby="headingId" class="flex flex-col gap-5 border-t border-[var(--c-border)] py-10 sm:py-12">
     <header class="flex flex-col gap-3">
       <div class="flex min-w-0 flex-col gap-1">
-        <p v-if="tx(data.eyebrow)" class="text-xs font-semibold text-[var(--c-accent-strong)]">{{ tx(data.eyebrow) }}</p>
         <h2 :id="headingId" class="text-xl font-bold sm:text-2xl">{{ tx(data.heading) }}</h2>
+        <p v-if="tx(data.eyebrow)" data-test="section-subtitle" class="text-[13px] text-[var(--c-muted)]">{{ tx(data.eyebrow) }}</p>
       </div>
       <div v-if="tabs.length" role="tablist" :aria-label="t('landing.music.tabsLabel')" class="flex gap-6 overflow-x-auto shadow-[inset_0_-1px_0_var(--c-border)] [scrollbar-width:none]" data-test="music-tabs">
         <button

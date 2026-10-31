@@ -73,7 +73,7 @@ const en: typeof vi = {
       source: { manual: 'Hand-picked covers', latestFanart: 'Latest fanart' },
       releasesHint: 'A visible row needs {min}–{max} covers. A hidden one can be filled in gradually.',
       intervalHint: 'How long each picture shows ({min}–{max} seconds). Pointing at or choosing a name holds the rotation.',
-      bigNameHint: 'Shown in huge capitals at the bottom left.',
+      bigNameHint: 'The large name at the top of the Introduction page (its main heading).',
       videoHint: 'MP4 or WebM, silent (always muted), looping. A poster frame is made automatically. Without a video the images below are used.',
       videoMobileHint: 'Optional: a portrait cut for phones.',
       videoLibrary: 'Homepage video library', uploadVideo: 'Upload videos', uploadVideoHint: 'MP4 or WebM, up to the upload limit. Keep it short (10–30 s) and light.',
@@ -104,7 +104,7 @@ const en: typeof vi = {
       layout: { grid: 'Even grid', masonry: 'Masonry', carousel: 'Carousel' },
       types: { heroVideo: 'Opening video', releases: 'New release', music: 'Music / MV', spotlight: 'Looks (slideshow)', vibe: 'Brand statement', footer: 'Footer', hero: 'Hero', about: 'About', profile: 'Profile', timeline: 'Milestones', gallery: 'Gallery', videos: 'YouTube videos', links: 'Links', fanart: 'Latest fanart', banner: 'Quote / banner' },
       f: {
-        eyebrow: 'Small line above', heading: 'Heading', title: 'Title', titleOptional: 'Title (optional)', subtitle: 'Short description',
+        eyebrow: 'Subtitle under the heading (optional)', heading: 'Heading', title: 'Title', titleOptional: 'Title (optional)', subtitle: 'Short description',
         slides: 'Background pictures (slideshow)', slide: 'Picture {n}', ctas: 'Buttons (up to 2)', ctaLabel: 'Button text', href: 'Link', hrefOptional: 'Link (optional)',
         body: 'Text', image: 'Image', imageSide: 'Image position', portrait: 'Portrait', facts: 'Facts', factLabel: 'Label', factValue: 'Value',
         milestones: 'Milestones', date: 'Date', text: 'Description', layout: 'Layout', images: 'Images', caption: 'Caption',

@@ -117,7 +117,7 @@ export default {
       source: { manual: 'Tự chọn bìa', latestFanart: 'Fanart mới nhất' },
       releasesHint: 'Khi hiển thị cần {min}–{max} bìa. Mục đang ẩn có thể thêm dần.',
       intervalHint: 'Mỗi ảnh hiện bao lâu ({min}–{max} giây). Rê chuột hoặc chọn một tên sẽ dừng tự chuyển.',
-      bigNameHint: 'Hiện chữ in hoa rất lớn ở góc dưới bên trái.',
+      bigNameHint: 'Tên lớn ở đầu trang Giới thiệu (tiêu đề chính của trang).',
       videoHint: 'MP4 hoặc WebM, không tiếng (luôn tắt tiếng), lặp lại. Tạo ảnh poster tự động. Không có video thì dùng ảnh nền bên dưới.',
       videoMobileHint: 'Không bắt buộc: bản dọc cho điện thoại.',
       videoLibrary: 'Thư viện video trang chủ', uploadVideo: 'Tải video lên', uploadVideoHint: 'MP4 hoặc WebM, tối đa theo giới hạn tải lên. Nên ngắn (10–30 giây) và nhẹ.',
@@ -148,7 +148,7 @@ export default {
       layout: { grid: 'Lưới đều', masonry: 'So le (masonry)', carousel: 'Trượt ngang' },
       types: { heroVideo: 'Video mở đầu', releases: 'Mới phát hành', music: 'Âm nhạc / MV', spotlight: 'Diện mạo (trình chiếu)', vibe: 'Tuyên ngôn thương hiệu', footer: 'Chân trang', hero: 'Ảnh bìa (hero)', about: 'Giới thiệu', profile: 'Hồ sơ', timeline: 'Dấu mốc', gallery: 'Thư viện ảnh', videos: 'Video YouTube', links: 'Liên kết', fanart: 'Fanart mới', banner: 'Trích dẫn / banner' },
       f: {
-        eyebrow: 'Dòng nhỏ phía trên', heading: 'Tiêu đề', title: 'Tiêu đề', titleOptional: 'Tiêu đề (không bắt buộc)', subtitle: 'Mô tả ngắn',
+        eyebrow: 'Dòng phụ dưới tiêu đề (không bắt buộc)', heading: 'Tiêu đề', title: 'Tiêu đề', titleOptional: 'Tiêu đề (không bắt buộc)', subtitle: 'Mô tả ngắn',
         slides: 'Ảnh nền (trình chiếu)', slide: 'Ảnh {n}', ctas: 'Nút (tối đa 2)', ctaLabel: 'Chữ trên nút', href: 'Liên kết', hrefOptional: 'Liên kết (không bắt buộc)',
         body: 'Nội dung', image: 'Ảnh', imageSide: 'Vị trí ảnh', portrait: 'Ảnh chân dung', facts: 'Thông tin', factLabel: 'Nhãn', factValue: 'Giá trị',
         milestones: 'Dấu mốc', date: 'Ngày', text: 'Mô tả', layout: 'Kiểu bố cục', images: 'Ảnh', caption: 'Chú thích',

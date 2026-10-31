@@ -8,6 +8,7 @@ import { prepareDatabase } from '../src/database/prepare'
 import { cleanupUploads } from '../src/jobs/handlers/cleanup-uploads'
 import { processFile } from '../src/jobs/handlers/process-file'
 import { ensureHomepage, ensureSitePages, HOME_BANNER_SEED, HOME_SEED, INTRO_SEED, LEGACY_HOME_SEED, migrateHomeIntoIntro } from '../src/site/home-seed'
+import { HOME_LIMITS, homeSectionsSchema } from '@cuka/shared'
 import { approve, createPost, createTestHarness, createUser, type Harness, jobDeps, postMultipart, uploadFixture } from './harness'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
@@ -514,10 +515,10 @@ describe('home → intro migration and the home banner', () => {
     expect(intro.published.sections[1].data.heading.vi).toBe('Mới đã đăng')
     expect(intro.draft.sections[2].data.heading.vi).toBe('Nhạc của admin')
     expect(intro.draft.revision).toBe(3)
-    // The old landing page is left as it was, marked done.
+    // The old landing page is left as it was; the intro page records the move in the same write.
     const home = (await h.db.collection('homepage').findOne({ _id: 'home' as never }))!
     expect(ids(home.draft.sections)).toEqual(['top', 'rel-1', 'mv', 'vibe', 'end'])
-    expect(home.migratedToIntro).toBeInstanceOf(Date)
+    expect(intro.migratedFromHome).toBeInstanceOf(Date)
 
     // Setup again, a restore, a first read: nothing is copied twice, even after the admin removed a moved block.
     await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'draft.sections': [about] } })
@@ -529,13 +530,111 @@ describe('home → intro migration and the home banner', () => {
     expect(ids((await h.http().get('/api/site/pages/intro')).body.sections)).toEqual(['top', 'rel-1', 'about'])
   })
 
-  it('a section already on the intro page (same id) is not copied over it', async () => {
+  it('a section with the same id but other content: the old homepage version (the admin edits) replaces it in place', async () => {
     await editedDb()
     await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'draft.sections': [releasesOf('rel-1', 'Bản intro'), about] } })
-    expect(await migrateHomeIntoIntro(h.db)).toBe(2)
+    // Two added (top, mv) and one replaced (rel-1).
+    expect(await migrateHomeIntoIntro(h.db)).toBe(3)
     const intro = (await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!
     expect(ids(intro.draft.sections)).toEqual(['top', 'mv', 'rel-1', 'about'])
-    expect(intro.draft.sections[2].data.heading.vi).toBe('Bản intro')
+    expect(intro.draft.sections[2].data.heading.vi).toBe('Mới của admin')
+  })
+
+  it('an admin-edited about and profile on the old homepage show on /gioi-thieu after the upgrade', async () => {
+    const by = new Types.ObjectId()
+    const edited = LEGACY_HOME_SEED.map((x) =>
+      x.id === 'about' ? { ...x, data: { ...x.data, heading: lt('Giới thiệu của admin') } } : x.id === 'profile' ? { ...x, data: { ...x.data, heading: lt('Hồ sơ của admin') } } : x,
+    )
+    await h.db.collection('homepage').insertOne({
+      _id: 'home' as never,
+      draft: { revision: 5, sections: edited, updatedAt: now, updatedBy: by },
+      published: { sections: edited, publishedAt: now, publishedBy: by },
+    })
+    await prepareDatabase(h.db)
+    const sections = (await h.http().get('/api/site/pages/intro')).body.sections as Array<{ id: string; data: { heading?: { vi: string } } }>
+    expect(sections.find((x) => x.id === 'about')!.data.heading!.vi).toBe('Giới thiệu của admin')
+    expect(sections.find((x) => x.id === 'profile')!.data.heading!.vi).toBe('Hồ sơ của admin')
+    const intro = (await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!
+    expect(intro.draft.sections.find((x: { id: string }) => x.id === 'about').data.heading.vi).toBe('Giới thiệu của admin')
+  })
+
+  it('a moved opening video hides the intro long-form hero (draft and published), so the page has one opening', async () => {
+    await editedDb()
+    const hero = heroWith([], 'Hibiki Du Ca')
+    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'draft.sections': [hero, about], 'published.sections': [hero, about] } })
+    await migrateHomeIntoIntro(h.db)
+    const intro = (await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!
+    for (const part of [intro.draft, intro.published]) {
+      expect(ids(part.sections).slice(0, 2)).toEqual(['top', 'rel-1'])
+      expect(part.sections.find((x: { id: string }) => x.id === 'hero').visible).toBe(false)
+    }
+    expect(ids((await h.http().get('/api/site/pages/intro')).body.sections)).not.toContain('hero')
+  })
+
+  it('atomic: the record of the move is written with the sections; without it the move runs again, idempotently', async () => {
+    await editedDb()
+    expect(await migrateHomeIntoIntro(h.db)).toBe(3)
+    // As if a process had died before recording the move (the sections are there, the flag is not).
+    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $unset: { migratedFromHome: '' } })
+    expect(await migrateHomeIntoIntro(h.db)).toBe(0)
+    const intro = (await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!
+    expect(ids(intro.draft.sections)).toEqual(['top', 'rel-1', 'mv', 'about'])
+    expect(intro.migratedFromHome).toBeInstanceOf(Date)
+    expect(await migrateHomeIntoIntro(h.db)).toBe(0)
+  })
+
+  it('an earlier release that already moved the sections (home.migratedToIntro) is respected: nothing is copied over newer edits', async () => {
+    await editedDb()
+    await h.db.collection('homepage').updateOne({ _id: 'home' as never }, { $set: { migratedToIntro: new Date('2026-10-30') } })
+    expect(await migrateHomeIntoIntro(h.db)).toBe(0)
+    const intro = (await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!
+    expect(ids(intro.draft.sections)).toEqual(['about'])
+    expect(intro.migratedFromHome).toBeInstanceOf(Date)
+  })
+
+  it('a publish landing during the move is not overwritten: the move is retried on top of it', async () => {
+    await editedDb()
+    const col = h.db.collection('homepage')
+    let raced = false
+    // A connection whose first read of the intro page is followed by an admin publishing a new version.
+    const racing = {
+      collection: (name: string) => {
+        const real = h.db.collection(name)
+        return new Proxy(real, {
+          get(target, prop, recv) {
+            if (prop !== 'findOne') return Reflect.get(target, prop, recv)
+            return async (...args: unknown[]) => {
+              const doc = await (target.findOne as (...a: unknown[]) => Promise<unknown>)(...args)
+              const q = args[0] as { _id?: string }
+              if (!raced && q?._id === 'intro') {
+                raced = true
+                await col.updateOne({ _id: 'intro' as never }, { $set: { published: { sections: [about, { ...about, id: 'about-2' }], publishedAt: new Date(), publishedBy: new Types.ObjectId() } } })
+              }
+              return doc
+            }
+          },
+        })
+      },
+    } as unknown as Parameters<typeof migrateHomeIntoIntro>[0]
+    await migrateHomeIntoIntro(racing)
+    expect(raced).toBe(true)
+    const intro = (await col.findOne({ _id: 'intro' as never }))!
+    expect(ids(intro.published.sections)).toEqual(['top', 'rel-1', 'about', 'about-2'])
+    expect(intro.migratedFromHome).toBeInstanceOf(Date)
+  })
+
+  it('the merged page never exceeds the section limit: overflow from the end is dropped, with a log line', async () => {
+    await editedDb()
+    const many = Array.from({ length: HOME_LIMITS.sectionsMax - 1 }, (_, i) => ({ ...about, id: `a-${i}` }))
+    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'draft.sections': many, 'published.sections': many } })
+    const lines: string[] = []
+    await migrateHomeIntoIntro(h.db, (l) => lines.push(l))
+    const intro = (await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!
+    expect(intro.draft.sections).toHaveLength(HOME_LIMITS.sectionsMax)
+    expect(ids(intro.draft.sections).slice(0, 3)).toEqual(['top', 'rel-1', 'mv'])
+    expect(ids(intro.draft.sections).at(-1)).toBe(`a-${HOME_LIMITS.sectionsMax - 4}`)
+    expect(lines.join('\n')).toMatch(/dropped 2 sections?/)
+    expect(homeSectionsSchema.safeParse(intro.draft.sections).success).toBe(true)
   })
 
   it('the banner: seeded, public only once published, its image resolved and counted as in use', async () => {
@@ -582,6 +681,30 @@ describe('home → intro migration and the home banner', () => {
     const missing = await put({ ...HOME_BANNER_SEED, image: { fileId: 'f'.repeat(24), alt: lt('x'), decorative: false } })
     expect(missing.status).toBe(400)
     expect(missing.body.error.code).toBe('SITE_IMAGE_INVALID')
+  })
+})
+
+describe('home → intro migration on the first read', () => {
+  let h: Harness
+  beforeAll(async () => {
+    h = await createTestHarness()
+    await h.reset()
+  })
+  afterAll(() => h.close())
+
+  it('the API runs the move on its first site read and then drops the cached lists and pages', async () => {
+    const by = new Types.ObjectId()
+    const now = new Date('2026-05-01')
+    const homeSections = [heroVideoWith(null, [], 'Du Ca')]
+    const intro = [heroWith([], 'Hibiki Du Ca')]
+    await h.db.collection('homepage').insertMany([
+      { _id: 'home' as never, draft: { revision: 1, sections: homeSections, updatedAt: now, updatedBy: by }, published: { sections: homeSections, publishedAt: now, publishedBy: by } },
+      { _id: 'intro' as never, draft: { revision: 1, sections: intro, updatedAt: now, updatedBy: by }, published: { sections: intro, publishedAt: now, publishedBy: by } },
+    ])
+    const bump = vi.spyOn(h.app.get(FeedCache), 'bump')
+    const res = await h.http().get('/api/site/pages/intro').expect(200)
+    expect(res.body.sections.map((x: { id: string }) => x.id)).toEqual(['top'])
+    expect(bump).toHaveBeenCalled()
   })
 })
 

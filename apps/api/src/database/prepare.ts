@@ -14,10 +14,10 @@ export async function prepareDatabase(conn: mongoose.Connection, log: (line: str
     .collection<any>('settings')
     .updateOne({ _id: 'global' }, { $setOnInsert: { ...DEFAULT_SETTINGS } }, { upsert: true })
   log(`settings: ${res.upsertedCount ? 'created with defaults' : 'kept existing'}`)
-  const pages = await ensureSitePages(conn)
+  const pages = await ensureSitePages(conn, log)
   const said = { created: 'created with the default content', migrated: 'upgraded to the landing page (it was the untouched first version)', kept: 'kept existing' }
   log(`homepage: ${said[pages.home]}; introduction page: ${said[pages.intro]}`)
-  if (pages.moved) log(`introduction page: moved ${pages.moved} section${pages.moved === 1 ? '' : 's'} of the old landing page to its top`)
+  if (pages.moved) log(`introduction page: moved ${pages.moved} section${pages.moved === 1 ? '' : 's'} of the old landing page into it`)
   log(`profile links: migrated ${await migrateLegacyLinks(conn)} legacy profiles`)
 }
 

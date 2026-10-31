@@ -47,6 +47,13 @@ describe('foundation', () => {
     }
   })
 
+  it('editor hints describe the new layout: no huge capitals, the small line sits under the heading', () => {
+    expect(vi.admin.home.bigNameHint).not.toMatch(/in hoa|rất lớn/i)
+    expect(en.admin.home.bigNameHint).not.toMatch(/capitals|huge/i)
+    expect(vi.admin.home.f.eyebrow).toMatch(/dưới tiêu đề/)
+    expect(en.admin.home.f.eyebrow).toMatch(/under the heading/i)
+  })
+
   it('every shared ErrorCode has vi and en messages', () => {
     for (const c of ERROR_CODES) {
       expect(vi.errors[c]).toBeTruthy()

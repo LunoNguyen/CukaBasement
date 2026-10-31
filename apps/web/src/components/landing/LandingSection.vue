@@ -10,8 +10,8 @@ const headingId = useId()
   <section :id="anchor" :aria-labelledby="heading ? headingId : undefined" class="border-t border-[var(--c-border)] py-10 sm:py-12">
     <header v-if="heading || $slots.aside" class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex min-w-0 flex-col gap-1">
-        <p v-if="eyebrow" class="text-xs font-semibold text-[var(--c-accent-strong)]">{{ eyebrow }}</p>
         <h2 :id="headingId" class="text-xl font-bold text-balance sm:text-2xl">{{ heading }}</h2>
+        <p v-if="eyebrow" data-test="section-subtitle" class="text-[13px] text-[var(--c-muted)]">{{ eyebrow }}</p>
       </div>
       <slot name="aside" />
     </header>

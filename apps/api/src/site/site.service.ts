@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { getConnectionToken, InjectModel } from '@nestjs/mongoose'
 import { EDITABLE_SITE_PAGES, type EditableSitePage, type HomeBanner, homeBannerSchema, homeImageIds, type HomeImage, type HomeSection, homeSectionSchema, homeVideoIds, type saveHomeDraftSchema, SITE_PAGES, type SitePage } from '@cuka/shared'
 import { type Connection, type Model, Types } from 'mongoose'
@@ -150,14 +150,18 @@ export class SiteService {
     return this.conn.collection<HomepageDoc>(HOME_COLLECTION)
   }
 
+  private readonly logger = new Logger('SiteService')
+
   /** The pages were checked (seeded, banner, home → intro move) by this process; see ensureSitePages. */
   private pagesChecked = false
 
   private async load(page: SitePage): Promise<HomepageDoc> {
     if (!this.pagesChecked) {
-      // The first read after an upgrade runs the one-time migration even before `npm run setup` is re-run.
-      await ensureSitePages(this.conn)
+      // The first read after an upgrade runs the one-time migration even before `npm run setup` is re-run; what it
+      // changed must not be served from the cache.
+      const res = await ensureSitePages(this.conn, (line) => this.logger.warn(line))
       this.pagesChecked = true
+      if (res.moved) await this.cache.bump()
     }
     let doc = await this.col().findOne({ _id: page })
     if (!doc) {

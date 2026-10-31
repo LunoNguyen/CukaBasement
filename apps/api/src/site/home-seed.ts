@@ -1,4 +1,4 @@
-import { DU_CA_CHANNEL_ID, type HomeBanner, homeBannerSchema, type HomeSection, homeSectionSchema, homeSectionsSchema, type SitePage } from '@cuka/shared'
+import { DU_CA_CHANNEL_ID, type HomeBanner, homeBannerSchema, HOME_LIMITS, type HomeSection, homeSectionSchema, homeSectionsSchema, type SitePage } from '@cuka/shared'
 import type { Connection, Types } from 'mongoose'
 
 // Kept free of Nest services: database/prepare (setup, restore) imports it.
@@ -261,8 +261,8 @@ export const HOME_BANNER_SEED: HomeBanner = homeBannerSchema.parse({
 const LANDING_ONLY_TYPES = new Set(['vibe', 'footer'])
 
 export const HOME_COLLECTION = 'homepage'
-export const HOME_ID = 'home'
-export const INTRO_ID = 'intro'
+export const HOME_ID = 'home' as const
+export const INTRO_ID = 'intro' as const
 
 const SEEDS: Record<SitePage, HomeSection[]> = { home: HOME_SEED, intro: INTRO_SEED }
 
@@ -275,8 +275,10 @@ export interface HomepageDoc {
   /** `banner`: the gallery's home banner, kept on the Introduction page only (absent on older documents). */
   draft: { revision: number; sections: HomeSection[]; banner?: HomeBanner | null; updatedAt: Date; updatedBy: Types.ObjectId | null }
   published: { sections: HomeSection[]; banner?: HomeBanner | null; publishedAt: Date; publishedBy: Types.ObjectId | null }
-  /** On `home`: when its sections were copied to the Introduction page (see migrateHomeIntoIntro). */
+  /** On `home`, from an earlier release: its sections were already copied to the Introduction page. */
   migratedToIntro?: Date
+  /** On `intro`: when the old landing page's sections were merged in (see migrateHomeIntoIntro). */
+  migratedFromHome?: Date
 }
 
 /** Creates page `page` with its default content unless it exists; never overwrites. Returns whether it was created. */
@@ -322,7 +324,7 @@ export function isUntouchedLegacyHome(doc: HomepageDoc | null): boolean {
   return normalised(doc.draft.sections) === legacy && normalised(doc.published.sections) === legacy
 }
 
-/** `moved`: sections copied from the old landing page to the Introduction page by this run (see migrateHomeIntoIntro). */
+/** `moved`: sections of the old landing page added to or replaced on the Introduction page by this run (see migrateHomeIntoIntro). */
 export type EnsurePagesResult = { home: 'created' | 'migrated' | 'kept'; intro: 'created' | 'kept'; moved: number }
 
 /**
@@ -330,11 +332,11 @@ export type EnsurePagesResult = { home: 'created' | 'migrated' | 'kept'; intro: 
  * becomes the new landing page (its long-form content lives on in the Introduction page); one an admin edited is
  * kept exactly as it is, and only gains the new section types in the editor.
  */
-export async function ensureSitePages(conn: Connection): Promise<EnsurePagesResult> {
+export async function ensureSitePages(conn: Connection, log: (line: string) => void = () => {}): Promise<EnsurePagesResult> {
   const intro = (await ensurePage(conn, 'intro')) ? 'created' : 'kept'
   const home = await ensureHome(conn)
   await ensureIntroBanner(conn)
-  return { home, intro, moved: await migrateHomeIntoIntro(conn) }
+  return { home, intro, moved: await migrateHomeIntoIntro(conn, log) }
 }
 
 async function ensureHome(conn: Connection): Promise<EnsurePagesResult['home']> {
@@ -361,38 +363,85 @@ async function ensureIntroBanner(conn: Connection): Promise<void> {
     await col.updateOne({ _id: INTRO_ID, [`${part}.banner`]: { $exists: false } }, { $set: { [`${part}.banner`]: HOME_BANNER_SEED } })
 }
 
+/** Stable JSON (sorted keys) of a section, for telling an edited one from the seed. */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    return `{${Object.keys(o)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(v)
+}
+
+interface Merge {
+  sections: HomeSection[]
+  /** Sections added to the top or replaced in place. */
+  changed: number
+  /** Sections cut from the end to stay within HOME_LIMITS.sectionsMax. */
+  dropped: number
+}
+
+/**
+ * The Introduction page's `into` list with the old landing page's `from` sections merged in: sections it lacks go
+ * to the top (in their order); a section with the same id but other content is replaced in place by the landing
+ * version (that is what the admin last edited there); `vibe` and `footer` are left out. A moved `heroVideo` hides
+ * the intro's long-form `hero`, so the page keeps one opening. The result is cut to the section limit.
+ */
+function mergeInto(into: unknown, from: unknown): Merge {
+  const intro = (Array.isArray(into) ? into : []) as HomeSection[]
+  const landing = ((Array.isArray(from) ? from : []) as HomeSection[]).filter((s) => s && typeof s.id === 'string' && !LANDING_ONLY_TYPES.has(s.type))
+  const byId = new Map(landing.map((s) => [s.id, s]))
+  const have = new Set(intro.map((s) => s.id))
+  let changed = 0
+  const kept = intro.map((s) => {
+    const mine = byId.get(s.id)
+    if (!mine || canonical(mine) === canonical(s)) return s
+    changed++
+    return mine
+  })
+  const added = landing.filter((s) => !have.has(s.id))
+  changed += added.length
+  let sections = [...added, ...kept]
+  if (added.some((s) => s.type === 'heroVideo')) sections = sections.map((s) => (s.type === 'hero' && s.visible ? ({ ...s, visible: false } as HomeSection) : s))
+  const dropped = Math.max(0, sections.length - HOME_LIMITS.sectionsMax)
+  return { sections: sections.slice(0, HOME_LIMITS.sectionsMax), changed, dropped }
+}
+
 /**
  * "/" became the fanart gallery, so the old landing page (`home`) is no longer shown or edited. Once (setup, restore
- * or first read), the sections it has that the Introduction page lacks (by id; `vibe` and `footer` excepted) are
- * copied to the top of the Introduction page, draft to draft and published to published, in their order; the intro's
- * own sections stay as they are. `home` is then marked, so later runs (and a section the admin removed since) are
- * left alone. Returns how many sections were added to the draft (0 when there was nothing to do).
+ * or first read) its sections are merged into the Introduction page, draft into draft and published into published
+ * (see mergeInto). The merged lists and the `migratedFromHome` record are written in one update, guarded on the
+ * draft revision and the publish time, so an admin save or publish landing meanwhile is re-read and merged into,
+ * never overwritten; after repeated conflicts the move is left unrecorded and runs again next time. An earlier
+ * release's record on `home` (`migratedToIntro`) counts as done. Returns how many draft sections were added or
+ * replaced (0 when there was nothing to do).
  */
-export async function migrateHomeIntoIntro(conn: Connection): Promise<number> {
+export async function migrateHomeIntoIntro(conn: Connection, log: (line: string) => void = () => {}): Promise<number> {
   const col = conn.collection<HomepageDoc>(HOME_COLLECTION)
-  // Claimed first, so two processes starting together cannot both copy.
-  const home = await col.findOneAndUpdate({ _id: HOME_ID, migratedToIntro: { $exists: false } }, { $set: { migratedToIntro: new Date() } })
-  if (!home) return 0
-  const missing = (from: unknown, into: Array<{ id: string }>) => {
-    const have = new Set(into.map((s) => s.id))
-    return (Array.isArray(from) ? (from as HomeSection[]) : []).filter((s) => s && !LANDING_ONLY_TYPES.has(s.type) && !have.has(s.id))
-  }
-  // Guarded on the intro draft's revision: an admin save landing in between is re-read, never overwritten.
   for (let attempt = 0; attempt < 5; attempt++) {
     const intro = await col.findOne({ _id: INTRO_ID })
-    if (!intro) return 0
-    const draft = missing(home.draft?.sections, intro.draft.sections ?? [])
-    const published = missing(home.published?.sections, intro.published.sections ?? [])
-    if (!draft.length && !published.length) return 0
-    const res = await col.updateOne(
-      { _id: INTRO_ID, 'draft.revision': intro.draft.revision },
-      {
-        $set: { 'draft.sections': [...draft, ...(intro.draft.sections ?? [])], 'published.sections': [...published, ...(intro.published.sections ?? [])] },
-        ...(draft.length ? { $inc: { 'draft.revision': 1 } } : {}),
-      },
-    )
-    if (res.matchedCount) return draft.length
+    if (!intro || intro.migratedFromHome) return 0
+    const home = await col.findOne({ _id: HOME_ID })
+    const guard = { _id: INTRO_ID, 'draft.revision': intro.draft.revision, 'published.publishedAt': intro.published.publishedAt, migratedFromHome: { $exists: false } }
+    if (!home || home.migratedToIntro) {
+      if ((await col.updateOne(guard, { $set: { migratedFromHome: new Date() } })).matchedCount) return 0
+      continue
+    }
+    const draft = mergeInto(intro.draft.sections, home.draft?.sections)
+    const published = mergeInto(intro.published.sections, home.published?.sections)
+    const res = await col.updateOne(guard, {
+      $set: { 'draft.sections': draft.sections, 'published.sections': published.sections, migratedFromHome: new Date() },
+      ...(draft.changed ? { $inc: { 'draft.revision': 1 } } : {}),
+    })
+    if (!res.matchedCount) continue
+    for (const [part, m] of [['draft', draft], ['published', published]] as const)
+      if (m.dropped) log(`introduction page: dropped ${m.dropped} section${m.dropped === 1 ? '' : 's'} from the end of the ${part} (limit ${HOME_LIMITS.sectionsMax})`)
+    return draft.changed
   }
+  log('introduction page: WARNING could not merge the old landing page (the page kept changing); it will be tried again')
   return 0
 }
 

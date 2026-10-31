@@ -140,7 +140,7 @@ const media = computed(() => !!clip.value || slides.value.length > 0)
     </div>
 
     <div class="flex flex-col gap-3 p-6 sm:p-10">
-      <p v-if="tx(data.eyebrow)" class="text-xs font-semibold" :class="media ? 'text-white/80' : 'text-[var(--c-accent-strong)]'">{{ tx(data.eyebrow) }}</p>
+      <p v-if="tx(data.eyebrow)" class="text-[13px]" :class="media ? 'text-white/80' : 'text-[var(--c-muted)]'">{{ tx(data.eyebrow) }}</p>
       <component
         :is="level === 1 ? 'h1' : 'h2'"
         :id="nameId"

@@ -83,8 +83,8 @@ const pictured = computed(() => items.value.some((it) => it.bg || it.thumb))
 <template>
   <section ref="root" data-test="fp-spotlight" :aria-labelledby="headingId" class="flex flex-col gap-6 border-t border-[var(--c-border)] py-10 sm:py-12">
     <header class="flex flex-col gap-1">
-      <p v-if="tx(data.eyebrow)" class="text-xs font-semibold text-[var(--c-accent-strong)]">{{ tx(data.eyebrow) }}</p>
       <h2 :id="headingId" class="text-xl font-bold sm:text-2xl">{{ tx(data.heading) }}</h2>
+      <p v-if="tx(data.eyebrow)" data-test="section-subtitle" class="text-[13px] text-[var(--c-muted)]">{{ tx(data.eyebrow) }}</p>
     </header>
 
     <div class="grid gap-6" :class="pictured ? 'md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-10' : 'max-w-2xl'">

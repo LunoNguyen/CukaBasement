@@ -79,7 +79,7 @@ watch(
     </div>
 
     <div class="flex flex-col gap-3 p-6 sm:p-10">
-      <p v-if="tx(data.eyebrow)" class="text-xs font-semibold" :class="slides.length ? 'text-white/80' : 'text-[var(--c-accent-strong)]'">{{ tx(data.eyebrow) }}</p>
+      <p v-if="tx(data.eyebrow)" class="text-[13px]" :class="slides.length ? 'text-white/80' : 'text-[var(--c-muted)]'">{{ tx(data.eyebrow) }}</p>
       <component :is="level === 1 ? 'h1' : 'h2'" :id="titleId" class="font-display text-[clamp(2.25rem,6vw,4rem)] leading-[1.02] font-semibold tracking-[-0.02em] text-balance">
         {{ tx(data.title) }}
       </component>
