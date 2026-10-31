@@ -307,10 +307,25 @@ export const homeSectionsSchema = z
     })
   })
 
-/** PUT /admin/site/home/draft: the whole section list, saved only over the draft revision the editor loaded. */
+/**
+ * The small banner at the top of the fanart gallery ("/"): a title, a line of text, an optional cover picture and a
+ * link (by default to the Introduction page). Stored with the Introduction page's draft and published version.
+ */
+export const homeBannerSchema = z.strictObject({
+  title: localized(L.headingMax, true),
+  text: localized(L.subtitleMax),
+  image: optionalImage,
+  link: z.strictObject({ label: localized(L.labelMax, true), href: homeHrefSchema }),
+})
+
+/**
+ * PUT /admin/site/pages/intro/draft: the whole section list (and the home banner; left out, the stored one stays),
+ * saved only over the draft revision the editor loaded.
+ */
 export const saveHomeDraftSchema = z.strictObject({
   revision: z.number().int().min(0),
   sections: homeSectionsSchema,
+  banner: homeBannerSchema.nullable().optional(),
 })
 
 /** The `:page` of the site page routes. */
@@ -321,6 +336,7 @@ export const homeRevisionSchema = z.strictObject({ revision: z.number().int().mi
 
 export type HomeImage = z.output<typeof homeImageSchema>
 export type HomeCta = z.output<typeof homeCtaSchema>
+export type HomeBanner = z.output<typeof homeBannerSchema>
 export type HomeSection = z.output<typeof homeSectionSchema>
 export type HomeSectionInput = z.input<typeof homeSectionSchema>
 export type HeroData = z.output<typeof heroDataSchema>

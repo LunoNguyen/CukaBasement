@@ -20,6 +20,10 @@ import {
   parseYouTubeId,
   pickText,
   saveHomeDraftSchema,
+  ADDABLE_SECTION_TYPES,
+  EDITABLE_SITE_PAGES,
+  homeBannerSchema,
+  LONGFORM_SECTION_TYPES,
   SITE_PAGE_TYPES,
   SITE_PAGES,
   sitePageSchema,
@@ -270,6 +274,30 @@ describe('homepage schemas', () => {
     expect([...SITE_PAGE_TYPES.home].sort()).toEqual([...LANDING_SECTION_TYPES].sort())
     expect(SITE_PAGE_TYPES.intro).toContain('profile')
     expect(HOME_SECTION_TYPES).toHaveLength(15)
+  })
+
+  it('the Introduction page is the only editable page; vibe and footer can no longer be added', () => {
+    expect(EDITABLE_SITE_PAGES).toEqual(['intro'])
+    expect(ADDABLE_SECTION_TYPES.intro.slice(0, 4)).toEqual(['heroVideo', 'music', 'releases', 'spotlight'])
+    expect(ADDABLE_SECTION_TYPES.intro).toEqual(expect.arrayContaining([...LONGFORM_SECTION_TYPES]))
+    expect(ADDABLE_SECTION_TYPES.intro).not.toContain('vibe')
+    expect(ADDABLE_SECTION_TYPES.intro).not.toContain('footer')
+    // Old pages holding them still parse.
+    expect(homeSectionSchema.safeParse(samples.vibe).success).toBe(true)
+  })
+
+  it('home banner: title, optional text and image, a safe link', () => {
+    const banner = { title: lt('Hibiki Du Ca'), text: lt('VTuber'), image: img(), link: { label: lt('Giới thiệu'), href: '/gioi-thieu' } }
+    expect(homeBannerSchema.parse(banner)).toEqual({ ...banner, text: lt('VTuber') })
+    expect(homeBannerSchema.parse({ title: lt('Du Ca'), link: { label: lt('Xem'), href: 'https://x.com/hibikiduca' } })).toMatchObject({ text: lt(''), image: null })
+    for (const href of ['javascript:alert(1)', 'data:text/html,x', '//evil.example', ''])
+      expect(homeBannerSchema.safeParse({ ...banner, link: { label: lt('x'), href } }).success, href).toBe(false)
+    expect(homeBannerSchema.safeParse({ ...banner, title: lt(' ') }).success).toBe(false)
+    expect(homeBannerSchema.safeParse({ ...banner, extra: 1 }).success).toBe(false)
+    // The draft body may carry it (or leave it out to keep the stored one).
+    expect(saveHomeDraftSchema.parse({ revision: 1, sections: [], banner }).banner).toMatchObject({ title: lt('Hibiki Du Ca') })
+    expect(saveHomeDraftSchema.parse({ revision: 1, sections: [] }).banner).toBeUndefined()
+    expect(saveHomeDraftSchema.parse({ revision: 1, sections: [], banner: null }).banner).toBeNull()
   })
 
   it('upload purpose, variant, actions and error codes exist', () => {

@@ -17,6 +17,7 @@ export async function prepareDatabase(conn: mongoose.Connection, log: (line: str
   const pages = await ensureSitePages(conn)
   const said = { created: 'created with the default content', migrated: 'upgraded to the landing page (it was the untouched first version)', kept: 'kept existing' }
   log(`homepage: ${said[pages.home]}; introduction page: ${said[pages.intro]}`)
+  if (pages.moved) log(`introduction page: moved ${pages.moved} section${pages.moved === 1 ? '' : 's'} of the old landing page to its top`)
   log(`profile links: migrated ${await migrateLegacyLinks(conn)} legacy profiles`)
 }
 

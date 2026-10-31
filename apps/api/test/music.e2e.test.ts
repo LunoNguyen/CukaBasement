@@ -114,12 +114,12 @@ describe('music section (YouTube)', () => {
 
   const deps = (fetch: YouTubeSyncDeps['fetch'], more: Partial<YouTubeSyncDeps> = {}): YouTubeSyncDeps => ({ ...jobDeps(h), fetch, ...more })
 
-  /** Saves and publishes `sections` as the homepage. */
+  /** Saves and publishes `sections` as the Introduction page. */
   async function publish(sections: unknown[]) {
-    const d = (await h.http().get('/api/admin/site/home/draft').set(auth(admin.token))).body
-    const saved = await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d.revision, sections })
+    const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    const saved = await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections })
     expect(saved.status, JSON.stringify(saved.body)).toBe(200)
-    await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: saved.body.revision }).expect(200)
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: saved.body.revision }).expect(200)
   }
 
   it('the default landing has the music row after the releases: channel videos automatic, MV tabs empty', async () => {
@@ -158,7 +158,7 @@ describe('music section (YouTube)', () => {
     for (const u of yt.calls) expect(YOUTUBE_HOSTS.has(new URL(u).hostname), u).toBe(true)
     expect(yt.calls.filter((u) => u.includes('maxresdefault'))).toHaveLength(3)
 
-    const res = await h.http().get('/api/site/home').expect(200)
+    const res = await h.http().get('/api/site/pages/intro').expect(200)
     expect(res.body.youtube.feeds.music).toEqual({ newest: [], popular: [], channel: IDS.slice(0, 3) })
     const v = res.body.youtube.videos[IDS[0]!]
     expect(v).toMatchObject({ title: 'Du Ca – Bài hát mới (Official MV)', views: 12000, publishedAt: '2026-10-20T10:00:00.000Z' })
@@ -213,7 +213,7 @@ describe('music section (YouTube)', () => {
       const f = await feedsCol(h.db).findOne({ _id: `channel:${CH}` })
       expect(f!.ids, name).toEqual(IDS.slice(0, 3))
       expect(f!.error, name).toBeTruthy()
-      expect((await h.http().get('/api/site/home')).body.youtube.feeds.music.channel, name).toEqual(IDS.slice(0, 3))
+      expect((await h.http().get('/api/site/pages/intro')).body.youtube.feeds.music.channel, name).toEqual(IDS.slice(0, 3))
     }
     expect(warn).toHaveBeenCalled()
     expect(String(warn.mock.calls[0]![0])).toContain('keeping the last good list')
@@ -267,7 +267,7 @@ describe('music section (YouTube)', () => {
     const r = await youtubeSync(deps(yt.fetch))
     expect(r.titles).toBe(2)
     expect(r.thumbs.stored).toBe(3)
-    const res = await h.http().get('/api/site/home').expect(200)
+    const res = await h.http().get('/api/site/pages/intro').expect(200)
     expect(res.body.youtube.videos[IDS[0]!].title).toBe('MV chính thức')
     // The admin's own title stays in the section and wins on the page; the stored one is only the fallback.
     expect(res.body.youtube.videos[IDS[1]!].title).toBe('Tên YouTube')
@@ -295,7 +295,7 @@ describe('music section (YouTube)', () => {
     ])
     const r = await youtubeSync(deps(yt.fetch))
     expect(r.thumbs).toEqual({ stored: 0, failed: 2 })
-    const res = await h.http().get('/api/site/home').expect(200)
+    const res = await h.http().get('/api/site/pages/intro').expect(200)
     expect(res.body.youtube.videos[IDS[0]!].thumb).toBeNull()
     expect((await videosCol(h.db).findOne({ _id: IDS[0]! }))!.thumbTries).toBe(1)
     const soon = fakeYouTube([])
@@ -331,7 +331,7 @@ describe('music section (YouTube)', () => {
     // One list of uploads answers both tabs.
     expect(yt.calls.filter((u) => u.includes('playlistItems'))).toHaveLength(1)
     expect(yt.calls.find((u) => u.includes('playlistItems'))).toContain(`playlistId=UU${CH.slice(2)}`)
-    const res = await h.http().get('/api/site/home').expect(200)
+    const res = await h.http().get('/api/site/pages/intro').expect(200)
     expect(res.body.youtube.feeds.music.popular).toEqual([IDS[3], IDS[1], IDS[2], IDS[0]])
     expect(res.body.youtube.feeds.music.newest).toEqual([IDS[2], IDS[1]])
     expect(res.body.youtube.videos[IDS[3]!].views).toBe(99999)
@@ -341,7 +341,7 @@ describe('music section (YouTube)', () => {
     // Removing the key again: the tabs fall back to their hand-picked videos (none here).
     config.youtube = { apiKey: undefined }
     await h.app.get(FeedCache).bump()
-    expect((await h.http().get('/api/site/home')).body.youtube.feeds.music).toEqual({ newest: [], popular: [], channel: [] })
+    expect((await h.http().get('/api/site/pages/intro')).body.youtube.feeds.music).toEqual({ newest: [], popular: [], channel: [] })
   })
 
   it('hand-picked videos come first, automatic ones fill the tab up to 12 without repeats', async () => {
@@ -349,7 +349,7 @@ describe('music section (YouTube)', () => {
     await publish([musicSection({ channel: { label: lt(''), auto: true, items } })])
     const many = Array.from({ length: 15 }, (_, i) => ({ id: `vid${String(i).padStart(8, '0')}`, title: `V${i}` }))
     await youtubeSync(deps(fakeYouTube([['https://www.youtube.com/feeds/', { body: feed([{ id: IDS[2]!, title: 'pinned' }, ...many]) }]]).fetch))
-    const res = await h.http().get('/api/site/home').expect(200)
+    const res = await h.http().get('/api/site/pages/intro').expect(200)
     const auto = res.body.youtube.feeds.music.channel as string[]
     expect(auto).toHaveLength(11)
     expect(auto).not.toContain(IDS[2])
@@ -376,16 +376,16 @@ describe('music section (YouTube)', () => {
 
     await h.reset()
     admin = await createUser(h, { role: 'admin' })
-    const d = (await h.http().get('/api/admin/site/home/draft').set(auth(admin.token))).body
+    const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
     h.jobs.clear()
-    await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [{ id: 'v', type: 'vibe', visible: true, data: { eyebrow: lt(''), text: lt('Xin chào'), image: null, cta: null } }] }).expect(200)
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [{ id: 'v', type: 'vibe', visible: true, data: { eyebrow: lt(''), text: lt('Xin chào'), image: null, cta: null } }] }).expect(200)
     expect(h.jobs.enqueued).toEqual([])
   })
 
   it('the draft preview gets the stored data too; videos no page uses are forgotten after 30 days', async () => {
     await publish([musicSection()])
     await youtubeSync(deps(fakeYouTube([['https://www.youtube.com/feeds/', { body: FEED_OK }], ...thumbRoutes()]).fetch))
-    const d = (await h.http().get('/api/admin/site/home/draft').set(auth(admin.token))).body
+    const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
     expect(d.youtube.feeds.music.channel).toEqual(IDS.slice(0, 3))
     expect(d.youtube.videos[IDS[0]!].thumb.src).toContain('/youtube/')
 
@@ -425,11 +425,11 @@ describe('music section cache', () => {
   it('a sync that changes what visitors see refreshes the cached page', async (ctx) => {
     if (!up || !h) return ctx.skip()
     await vi.waitFor(() => expect(h!.app.get(FeedCache).ready).toBe(true), { timeout: 3000 })
-    await h.http().get('/api/site/home').expect(200)
-    await h.http().get('/api/site/home').expect(200)
-    expect((await h.http().get('/api/site/home')).body.youtube.feeds.music.channel).toEqual([])
+    await h.http().get('/api/site/pages/intro').expect(200)
+    await h.http().get('/api/site/pages/intro').expect(200)
+    expect((await h.http().get('/api/site/pages/intro')).body.youtube.feeds.music.channel).toEqual([])
     const yt = fakeYouTube([['https://www.youtube.com/feeds/', { body: FEED_OK }]])
     await youtubeSync({ ...jobDeps(h), fetch: yt.fetch, feed: h.app.get(FeedCache) })
-    expect((await h.http().get('/api/site/home')).body.youtube.feeds.music.channel).toEqual(IDS.slice(0, 3))
+    expect((await h.http().get('/api/site/pages/intro')).body.youtube.feeds.music.channel).toEqual(IDS.slice(0, 3))
   })
 })

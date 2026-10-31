@@ -7,7 +7,7 @@ import { FeedCache } from '../src/cache/feed-cache.service'
 import { prepareDatabase } from '../src/database/prepare'
 import { cleanupUploads } from '../src/jobs/handlers/cleanup-uploads'
 import { processFile } from '../src/jobs/handlers/process-file'
-import { ensureHomepage, ensureSitePages, HOME_SEED, INTRO_SEED, LEGACY_HOME_SEED } from '../src/site/home-seed'
+import { ensureHomepage, ensureSitePages, HOME_BANNER_SEED, HOME_SEED, INTRO_SEED, LEGACY_HOME_SEED, migrateHomeIntoIntro } from '../src/site/home-seed'
 import { approve, createPost, createTestHarness, createUser, type Harness, jobDeps, postMultipart, uploadFixture } from './harness'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
@@ -73,12 +73,12 @@ describe('homepage CMS', () => {
   afterAll(() => h.close())
 
   async function draftOf(admin: { token: string }) {
-    const res = await h.http().get('/api/admin/site/home/draft').set(auth(admin.token))
+    const res = await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))
     expect(res.status).toBe(200)
     return res.body as { revision: number; sections: Array<Record<string, unknown>>; unpublished: boolean; images: Record<string, { src: string; srcset: string }> }
   }
 
-  it('public GET seeds the default landing page on first use: full-screen sections, no media yet', async () => {
+  it('the old landing page (home) is still readable: its seed, no media yet', async () => {
     const res = await h.http().get('/api/site/home')
     expect(res.status).toBe(200)
     const types = (res.body.sections as Array<{ type: string; visible: boolean }>).map((s) => s.type)
@@ -92,16 +92,19 @@ describe('homepage CMS', () => {
     expect((await h.http().get('/api/site/pages/home')).body).toEqual(res.body)
   })
 
-  it('the Introduction page carries the long-form profile; unknown pages are 404', async () => {
+  it('a fresh Introduction page: the former landing blocks first, then the long-form profile; unknown pages are 404', async () => {
     const res = await h.http().get('/api/site/pages/intro')
     expect(res.status).toBe(200)
     expect(res.body.page).toBe('intro')
     const types = res.body.sections.map((s: { type: string }) => s.type)
-    expect(types[0]).toBe('hero')
+    expect(types).toEqual(['heroVideo', 'music', 'releases', 'spotlight', 'about', 'profile', 'timeline', 'links', 'fanart', 'banner'])
     expect(types).toEqual(INTRO_SEED.filter((s) => s.visible).map((s) => s.type))
-    expect(types).toContain('profile')
     expect(types).not.toContain('gallery')
-    expect(res.body.sections[0].data.title.vi).toBe('Hibiki Du Ca')
+    expect(types).not.toContain('vibe')
+    expect(types).not.toContain('footer')
+    expect(res.body.sections[0].data.name.vi).toBe('Hibiki Du Ca')
+    // No link of the seed points at the old /posts feed.
+    expect(JSON.stringify(res.body)).not.toContain('"/posts"')
     for (const bad of ['admin', 'HOME', '..', 'x'.repeat(50)]) expect((await h.http().get(`/api/site/pages/${bad}`)).status, bad).toBe(404)
     const admin = await createUser(h, { role: 'admin' })
     expect((await h.http().get('/api/admin/site/pages/nope/draft').set(auth(admin.token))).status).toBe(404)
@@ -130,7 +133,7 @@ describe('homepage CMS', () => {
       expect(home!.draft.sections).toEqual(home!.published.sections)
       expect((await h.http().get('/api/site/pages/intro')).body.sections.map((s: { id: string }) => s.id)).toEqual(INTRO_SEED.filter((s) => s.visible).map((s) => s.id))
       // Running again changes nothing.
-      expect(await ensureSitePages(h.db)).toEqual({ home: 'kept', intro: 'kept' })
+      expect(await ensureSitePages(h.db)).toEqual({ home: 'kept', intro: 'kept', moved: 0 })
     })
 
     it('a homepage an admin saved, published or changed is never replaced', async () => {
@@ -138,51 +141,47 @@ describe('homepage CMS', () => {
       const changed = LEGACY_HOME_SEED.map((s) => (s.type === 'hero' ? { ...s, data: { ...s.data, title: lt('Của admin') } } : s))
       for (const edit of [{ updatedBy: someone }, { publishedBy: someone }, { sections: changed }]) {
         await legacyDb(edit)
-        expect(await ensureSitePages(h.db)).toEqual({ home: 'kept', intro: 'created' })
+        expect(await ensureSitePages(h.db)).toMatchObject({ home: 'kept', intro: 'created' })
         const home = await h.db.collection('homepage').findOne({ _id: 'home' as never })
         expect(home!.draft.revision).toBe(3)
         expect(home!.published.sections[0].type).toBe('hero')
         if (edit.sections) expect(home!.draft.sections[0].data.title.vi).toBe('Của admin')
       }
-      // The kept homepage still renders, and new section types can be added to it.
+      // The kept homepage still renders (read-only); what the Introduction page lacked of it moved there.
+      expect((await h.http().get('/api/site/home')).body.sections[0].type).toBe('hero')
       const admin = await createUser(h, { role: 'admin' })
-      const d = await draftOf(admin)
-      const res = await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [...d.sections, heroVideoWith(null)] })
-      expect(res.status).toBe(200)
-      expect(res.body.sections.map((s: { type: string }) => s.type).at(-1)).toBe('heroVideo')
+      expect((await draftOf(admin)).sections[0]!.id).toBe('hero')
     })
   })
 
-  it('each page has its own draft, revision and publish; the log names the page', async () => {
+  it('only the Introduction page is editable: writes to the old landing page are 400; the log names the page', async () => {
     const admin = await createUser(h, { role: 'admin' })
-    const intro = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
-    const home = await draftOf(admin)
-    expect(intro.page).toBe('intro')
-    const saved = await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: intro.revision, sections: [heroWith([], 'Giới thiệu mới')] })
-    expect(saved.status).toBe(200)
-    expect(saved.body).toMatchObject({ page: 'intro', unpublished: true, revision: intro.revision + 1 })
-    expect((await draftOf(admin)).revision).toBe(home.revision)
-    expect(JSON.stringify((await h.http().get('/api/site/pages/intro')).body)).not.toContain('Giới thiệu mới')
+    const home = (await h.http().get('/api/admin/site/pages/home/draft').set(auth(admin.token))).body
+    expect(home.page).toBe('home')
+    for (const [method, path, body] of [
+      ['put', '/api/admin/site/pages/home/draft', { revision: home.revision, sections: [] }],
+      ['post', '/api/admin/site/pages/home/publish', { revision: home.revision }],
+      ['post', '/api/admin/site/pages/home/discard', { revision: home.revision }],
+      ['put', '/api/admin/site/home/draft', { revision: home.revision, sections: [] }],
+      ['post', '/api/admin/site/home/publish', { revision: home.revision }],
+      ['post', '/api/admin/site/home/discard', { revision: home.revision }],
+    ] as const) {
+      const res = await h.http()[method](path).set(auth(admin.token)).send(body)
+      expect(res.status, path).toBe(400)
+      expect(res.body.error.code).toBe('VALIDATION_FAILED')
+    }
+    expect((await h.http().get('/api/admin/site/pages/home/draft').set(auth(admin.token))).body.revision).toBe(home.revision)
 
-    // The homepage's revision does not publish the intro draft.
-    expect((await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: intro.revision })).status).toBe(409)
+    const intro = await draftOf(admin)
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: intro.revision, sections: [heroWith([], 'Giới thiệu mới')] }).expect(200)
     await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: intro.revision + 1 }).expect(200)
-    const pub = await h.http().get('/api/site/pages/intro')
-    expect(pub.body.sections.map((s: { data: { title: { vi: string } } }) => s.data.title.vi)).toEqual(['Giới thiệu mới'])
-    expect((await h.http().get('/api/site/home')).body.sections[0].type).toBe('heroVideo')
-
-    const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    const d = await draftOf(admin)
     await h.http().post('/api/admin/site/pages/intro/discard').set(auth(admin.token)).send({ revision: d.revision }).expect(200)
     const logs = await h.http().get('/api/admin/logs').set(auth(admin.token))
     expect(logs.body.items.map((l: { action: string; targetId: string }) => [l.action, l.targetId])).toEqual([
       ['homepage_discard', 'intro'],
       ['homepage_publish', 'intro'],
     ])
-    for (const who of [await createUser(h), await createUser(h, { role: 'moderator' })]) {
-      await h.http().get('/api/admin/site/pages/intro/draft').set(auth(who.token)).expect(403)
-      await h.http().put('/api/admin/site/pages/intro/draft').set(auth(who.token)).send({ revision: 0, sections: [] }).expect(403)
-      await h.http().post('/api/admin/site/pages/intro/publish').set(auth(who.token)).send({ revision: 0 }).expect(403)
-    }
   })
 
   it('seeding is idempotent and never overwrites an edited homepage (setup re-run included)', async () => {
@@ -190,11 +189,11 @@ describe('homepage CMS', () => {
     expect(await ensureHomepage(h.db)).toBe(false)
     const admin = await createUser(h, { role: 'admin' })
     const d = await draftOf(admin)
-    await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [heroWith([], 'Đã sửa')] }).expect(200)
-    await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: d.revision + 1 }).expect(200)
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [heroWith([], 'Đã sửa')] }).expect(200)
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: d.revision + 1 }).expect(200)
     await prepareDatabase(h.db)
     expect(await ensureHomepage(h.db)).toBe(false)
-    const pub = await h.http().get('/api/site/home')
+    const pub = await h.http().get('/api/site/pages/intro')
     expect(pub.body.sections).toHaveLength(1)
     expect(pub.body.sections[0].data.title.vi).toBe('Đã sửa')
   })
@@ -202,12 +201,12 @@ describe('homepage CMS', () => {
   it('only admins read or edit the draft; moderators and users are refused', async () => {
     const user = await createUser(h)
     const mod = await createUser(h, { role: 'moderator' })
-    await h.http().get('/api/admin/site/home/draft').expect(401)
+    await h.http().get('/api/admin/site/pages/intro/draft').expect(401)
     for (const who of [user, mod]) {
-      await h.http().get('/api/admin/site/home/draft').set(auth(who.token)).expect(403)
-      await h.http().put('/api/admin/site/home/draft').set(auth(who.token)).send({ revision: 0, sections: [] }).expect(403)
-      await h.http().post('/api/admin/site/home/publish').set(auth(who.token)).send({ revision: 0 }).expect(403)
-      await h.http().post('/api/admin/site/home/discard').set(auth(who.token)).send({ revision: 0 }).expect(403)
+      await h.http().get('/api/admin/site/pages/intro/draft').set(auth(who.token)).expect(403)
+      await h.http().put('/api/admin/site/pages/intro/draft').set(auth(who.token)).send({ revision: 0, sections: [] }).expect(403)
+      await h.http().post('/api/admin/site/pages/intro/publish').set(auth(who.token)).send({ revision: 0 }).expect(403)
+      await h.http().post('/api/admin/site/pages/intro/discard').set(auth(who.token)).send({ revision: 0 }).expect(403)
       await h.http().get('/api/admin/site/images').set(auth(who.token)).expect(403)
       const presign = await h.http().post('/api/uploads').set(auth(who.token)).send({ name: 'a.png', size: 10, mime: 'image/png', purpose: 'site' })
       expect(presign.status).toBe(403)
@@ -218,40 +217,40 @@ describe('homepage CMS', () => {
     const admin = await createUser(h, { role: 'admin' })
     const d0 = await draftOf(admin)
     expect(d0.unpublished).toBe(false)
-    const saved = await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d0.revision, sections: [heroWith([], 'Bản nháp bí mật')] })
+    const saved = await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d0.revision, sections: [heroWith([], 'Bản nháp bí mật')] })
     expect(saved.status).toBe(200)
     expect(saved.body.revision).toBe(d0.revision + 1)
     expect(saved.body.unpublished).toBe(true)
     expect(saved.body.updatedBy).toEqual({ username: admin.username })
 
-    const pub = await h.http().get('/api/site/home')
+    const pub = await h.http().get('/api/site/pages/intro')
     expect(JSON.stringify(pub.body)).not.toContain('Bản nháp bí mật')
 
-    await h.http().post('/api/admin/site/home/discard').set(auth(admin.token)).send({ revision: d0.revision + 1 }).expect(200)
+    await h.http().post('/api/admin/site/pages/intro/discard').set(auth(admin.token)).send({ revision: d0.revision + 1 }).expect(200)
     const reset = await draftOf(admin)
     expect(reset.unpublished).toBe(false)
-    expect(reset.sections.map((s) => s.id)).toEqual(HOME_SEED.map((s) => s.id))
+    expect(reset.sections.map((s) => s.id)).toEqual(INTRO_SEED.map((s) => s.id))
 
-    await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: reset.revision, sections: [heroWith([], 'Lên sóng')] }).expect(200)
-    const published = await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: reset.revision + 1 })
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: reset.revision, sections: [heroWith([], 'Lên sóng')] }).expect(200)
+    const published = await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: reset.revision + 1 })
     expect(published.status).toBe(200)
     expect(published.body.unpublished).toBe(false)
     expect(published.body.publishedBy).toEqual({ username: admin.username })
-    const after = await h.http().get('/api/site/home')
+    const after = await h.http().get('/api/site/pages/intro')
     expect(after.body.sections.map((s: { data: { title: { vi: string } } }) => s.data.title.vi)).toEqual(['Lên sóng'])
 
     const logs = await h.http().get('/api/admin/logs').set(auth(admin.token))
     expect(logs.body.items.map((l: { action: string }) => l.action)).toEqual(['homepage_publish', 'homepage_discard'])
-    expect(logs.body.items[0]).toMatchObject({ targetType: 'site', targetId: 'home' })
+    expect(logs.body.items[0]).toMatchObject({ targetType: 'site', targetId: 'intro' })
   })
 
   it('hidden sections are kept in the draft but not served publicly', async () => {
     const admin = await createUser(h, { role: 'admin' })
     const d = await draftOf(admin)
     const sections = [heroWith([]), { ...heroWith([], 'Ẩn'), id: 'hero-2', visible: false }]
-    await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d.revision, sections }).expect(200)
-    await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: d.revision + 1 }).expect(200)
-    expect((await h.http().get('/api/site/home')).body.sections.map((s: { id: string }) => s.id)).toEqual(['hero'])
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections }).expect(200)
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: d.revision + 1 }).expect(200)
+    expect((await h.http().get('/api/site/pages/intro')).body.sections.map((s: { id: string }) => s.id)).toEqual(['hero'])
     expect((await draftOf(admin)).sections.map((s) => s.id)).toEqual(['hero', 'hero-2'])
   })
 
@@ -259,19 +258,19 @@ describe('homepage CMS', () => {
     const admin = await createUser(h, { role: 'admin' })
     const other = await createUser(h, { role: 'admin' })
     const d = await draftOf(admin)
-    await h.http().put('/api/admin/site/home/draft').set(auth(other.token)).send({ revision: d.revision, sections: [heroWith([], 'Người khác')] }).expect(200)
-    const stale = await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [heroWith([], 'Của tôi')] })
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(other.token)).send({ revision: d.revision, sections: [heroWith([], 'Người khác')] }).expect(200)
+    const stale = await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [heroWith([], 'Của tôi')] })
     expect(stale.status).toBe(409)
     expect(stale.body.error).toMatchObject({ code: 'REVISION_CONFLICT', details: { revision: d.revision + 1 } })
-    expect((await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: d.revision })).status).toBe(409)
-    expect((await h.http().post('/api/admin/site/home/discard').set(auth(admin.token)).send({ revision: d.revision })).status).toBe(409)
-    expect(JSON.stringify((await h.http().get('/api/site/home')).body)).not.toContain('Người khác')
+    expect((await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: d.revision })).status).toBe(409)
+    expect((await h.http().post('/api/admin/site/pages/intro/discard').set(auth(admin.token)).send({ revision: d.revision })).status).toBe(409)
+    expect(JSON.stringify((await h.http().get('/api/site/pages/intro')).body)).not.toContain('Người khác')
   })
 
   it('refuses unsafe links, unknown keys and invalid sections', async () => {
     const admin = await createUser(h, { role: 'admin' })
     const { revision } = await draftOf(admin)
-    const put = (sections: unknown[]) => h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision, sections })
+    const put = (sections: unknown[]) => h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision, sections })
     const hero = heroWith([])
     const bad = [
       [{ ...hero, data: { ...hero.data, ctas: [{ label: lt('x'), href: 'javascript:alert(1)' }] } }],
@@ -310,7 +309,7 @@ describe('homepage CMS', () => {
       const postFile = await uploadFixture(h, admin, 'tiny.png')
       await processFile(jobDeps(h), { fileId: postFile })
       const { revision } = await draftOf(admin)
-      const put = (ids: string[], rev = revision) => h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: rev, sections: [heroWith(ids)] })
+      const put = (ids: string[], rev = revision) => h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: rev, sections: [heroWith(ids)] })
       for (const ids of [[postFile], [new Types.ObjectId().toString()]]) {
         const res = await put(ids)
         expect(res.status).toBe(400)
@@ -320,13 +319,13 @@ describe('homepage CMS', () => {
       // Still processing: fine in a draft, not publishable.
       const pending = await siteImage(h, admin, false)
       expect((await put([pending])).status).toBe(200)
-      const pub = await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 })
+      const pub = await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: revision + 1 })
       expect(pub.status).toBe(400)
       expect(pub.body.error).toMatchObject({ code: 'SITE_IMAGE_INVALID', details: { fileIds: [pending] } })
 
       await processFile(jobDeps(h), { fileId: pending })
-      await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 }).expect(200)
-      const home = await h.http().get('/api/site/home')
+      await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: revision + 1 }).expect(200)
+      const home = await h.http().get('/api/site/pages/intro')
       const img = home.body.images[pending]
       expect(img.src).toMatch(/test-cuka-public\/.+\?v=\d+$/)
       expect(img.srcset).toMatch(/ \d+w/)
@@ -355,9 +354,9 @@ describe('homepage CMS', () => {
       expect((await jobDeps(h).storage.stat('test-cuka-public', clip.objectKey))!.size).toBe(file!.sizeBytes)
 
       const { revision } = await draftOf(admin)
-      await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision, sections: [heroVideoWith(vid)] }).expect(200)
-      await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 }).expect(200)
-      const home = (await h.http().get('/api/site/home')).body
+      await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision, sections: [heroVideoWith(vid)] }).expect(200)
+      await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: revision + 1 }).expect(200)
+      const home = (await h.http().get('/api/site/pages/intro')).body
       expect(home.videos[vid]).toMatchObject({ mime: 'video/mp4', durationSec: expect.any(Number) })
       expect(home.videos[vid].src).toMatch(/test-cuka-public\/.+\/video\.mp4\?v=\d+$/)
       // The poster frame, as responsive renders.
@@ -373,7 +372,7 @@ describe('homepage CMS', () => {
       const img = await siteImage(h, admin)
       const vid = await siteVideo(h, admin)
       const { revision } = await draftOf(admin)
-      const put = (sections: unknown[]) => h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision, sections })
+      const put = (sections: unknown[]) => h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision, sections })
       for (const sections of [[heroVideoWith(img)], [heroVideoWith(null, [vid])], [heroWith([vid])]]) {
         const res = await put(sections)
         expect(res.status, JSON.stringify(sections)).toBe(400)
@@ -381,15 +380,15 @@ describe('homepage CMS', () => {
       }
       const pending = await siteVideo(h, admin, false)
       await put([heroVideoWith(pending, [img])]).expect(200)
-      const pub = await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 })
+      const pub = await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: revision + 1 })
       expect(pub.status).toBe(400)
       expect(pub.body.error.details.fileIds).toEqual([pending])
       // Ready without its published clip (e.g. processed before the upgrade) still is not publishable.
       await processFile(jobDeps(h), { fileId: pending })
       await h.db.collection('files').updateOne({ _id: new Types.ObjectId(pending) }, { $pull: { variants: { name: 'video' } } as never })
-      expect((await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 })).status).toBe(400)
+      expect((await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: revision + 1 })).status).toBe(400)
       await processFile(jobDeps(h), { fileId: pending })
-      await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: revision + 1 }).expect(200)
+      await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: revision + 1 }).expect(200)
     })
 
     it('media used by the Introduction page is in use too, for deletion and for the cleanup job', async () => {
@@ -422,7 +421,7 @@ describe('homepage CMS', () => {
       const used = await siteImage(h, admin)
       const spare = await siteImage(h, admin)
       const { revision } = await draftOf(admin)
-      await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision, sections: [heroWith([used])] }).expect(200)
+      await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision, sections: [heroWith([used])] }).expect(200)
 
       const list = await h.http().get('/api/admin/site/images').set(auth(admin.token))
       expect(list.status).toBe(200)
@@ -476,6 +475,116 @@ describe('homepage CMS', () => {
 /** Same Redis database the feed-cache suite uses; skipped when nothing listens there. */
 const REDIS_URL = process.env.REDIS_URL_TEST || 'redis://127.0.0.1:6379/15'
 
+describe('home → intro migration and the home banner', () => {
+  let h: Harness
+  beforeAll(async () => {
+    h = await createTestHarness()
+  })
+  beforeEach(() => h.reset())
+  afterAll(() => h.close())
+
+  const now = new Date('2026-05-01')
+  const releasesOf = (id: string, title: string) => ({ id, type: 'releases', visible: true, data: { eyebrow: lt(''), heading: lt(title), source: 'latestFanart', count: 4, items: [] } })
+  const musicOf = (id: string, heading: string) => ({ id, type: 'music', visible: true, data: { eyebrow: lt(''), heading: lt(heading), channelId: 'UC5RSxmHP5c4pU9Og1Pxx4wg' } })
+  const vibe = { id: 'vibe', type: 'vibe', visible: true, data: { eyebrow: lt(''), text: lt('Hầm'), image: null, cta: null } }
+  const footer = { id: 'end', type: 'footer', visible: true, data: { note: lt('x') } }
+  const about = { id: 'about', type: 'about', visible: true, data: { eyebrow: lt(''), heading: lt('Giới thiệu cũ'), body: lt('Nội dung'), image: null } }
+
+  /** A database from before the merge: an admin-edited landing (`home`) and an Introduction page. */
+  async function editedDb() {
+    const by = new Types.ObjectId()
+    const homeDraft = [heroVideoWith(null, [], 'Du Ca nháp'), releasesOf('rel-1', 'Mới của admin'), musicOf('mv', 'Nhạc của admin'), vibe, footer]
+    const homePub = [heroVideoWith(null, [], 'Du Ca'), releasesOf('rel-1', 'Mới đã đăng'), vibe, footer]
+    await h.db.collection('homepage').insertMany([
+      { _id: 'home' as never, draft: { revision: 7, sections: homeDraft, updatedAt: now, updatedBy: by }, published: { sections: homePub, publishedAt: now, publishedBy: by } },
+      { _id: 'intro' as never, draft: { revision: 2, sections: [about], updatedAt: now, updatedBy: by }, published: { sections: [about], publishedAt: now, publishedBy: by } },
+    ])
+  }
+  const ids = (list: Array<{ id: string }>) => list.map((x) => x.id)
+
+  it('copies the landing sections the intro lacks to its top, once, in order, in both draft and published; vibe and footer stay behind', async () => {
+    await editedDb()
+    const lines: string[] = []
+    await prepareDatabase(h.db, (l) => lines.push(l))
+    expect(lines.join('\n')).toMatch(/moved 3 sections? of the old landing page/)
+    const intro = (await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!
+    expect(ids(intro.draft.sections)).toEqual(['top', 'rel-1', 'mv', 'about'])
+    expect(ids(intro.published.sections)).toEqual(['top', 'rel-1', 'about'])
+    expect(intro.draft.sections[1].data.heading.vi).toBe('Mới của admin')
+    expect(intro.published.sections[1].data.heading.vi).toBe('Mới đã đăng')
+    expect(intro.draft.sections[2].data.heading.vi).toBe('Nhạc của admin')
+    expect(intro.draft.revision).toBe(3)
+    // The old landing page is left as it was, marked done.
+    const home = (await h.db.collection('homepage').findOne({ _id: 'home' as never }))!
+    expect(ids(home.draft.sections)).toEqual(['top', 'rel-1', 'mv', 'vibe', 'end'])
+    expect(home.migratedToIntro).toBeInstanceOf(Date)
+
+    // Setup again, a restore, a first read: nothing is copied twice, even after the admin removed a moved block.
+    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'draft.sections': [about] } })
+    await prepareDatabase(h.db)
+    expect(await migrateHomeIntoIntro(h.db)).toBe(0)
+    await h.http().get('/api/site/pages/intro').expect(200)
+    expect(ids((await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!.draft.sections)).toEqual(['about'])
+    // The public intro page serves the published copy.
+    expect(ids((await h.http().get('/api/site/pages/intro')).body.sections)).toEqual(['top', 'rel-1', 'about'])
+  })
+
+  it('a section already on the intro page (same id) is not copied over it', async () => {
+    await editedDb()
+    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'draft.sections': [releasesOf('rel-1', 'Bản intro'), about] } })
+    expect(await migrateHomeIntoIntro(h.db)).toBe(2)
+    const intro = (await h.db.collection('homepage').findOne({ _id: 'intro' as never }))!
+    expect(ids(intro.draft.sections)).toEqual(['top', 'mv', 'rel-1', 'about'])
+    expect(intro.draft.sections[2].data.heading.vi).toBe('Bản intro')
+  })
+
+  it('the banner: seeded, public only once published, its image resolved and counted as in use', async () => {
+    const admin = await createUser(h, { role: 'admin' })
+    const first = await h.http().get('/api/site/banner')
+    expect(first.status).toBe(200)
+    expect(first.body.banner).toEqual({ ...HOME_BANNER_SEED, image: null })
+    expect(first.body.banner).toMatchObject({ title: lt('Hibiki Du Ca', 'Hibiki Du Ca'), link: { href: '/gioi-thieu' } })
+    expect(first.body.banner.text.vi).not.toBe('')
+
+    const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    expect(d.banner).toEqual(HOME_BANNER_SEED)
+    const img = await siteImage(h, admin)
+    const banner = { title: lt('Du Ca mới'), text: lt('Một dòng'), image: { fileId: img, alt: lt('Du Ca'), decorative: false }, link: { label: lt('Xem'), href: '/gioi-thieu' } }
+    const saved = await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections: d.sections, banner })
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200)
+    expect(saved.body).toMatchObject({ unpublished: true, banner: { title: lt('Du Ca mới') } })
+    expect(saved.body.images[img].src).toContain('thumb_md')
+    expect((await h.http().get('/api/site/banner')).body.banner.title.vi).toBe('Hibiki Du Ca')
+    // In use by the draft: it cannot be deleted.
+    expect((await h.http().delete(`/api/admin/site/images/${img}`).set(auth(admin.token))).status).toBe(409)
+
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: d.revision + 1 }).expect(200)
+    const pub = (await h.http().get('/api/site/banner')).body.banner
+    expect(pub).toMatchObject({ title: lt('Du Ca mới'), text: lt('Một dòng'), link: { href: '/gioi-thieu' }, image: { alt: lt('Du Ca'), decorative: false } })
+    expect(pub.image.src).toContain('thumb_md')
+    expect(pub.image.srcset).toContain('w')
+
+    // Saving without a banner keeps it; null clears it (the gallery then shows none).
+    const d2 = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    const kept = await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d2.revision, sections: d2.sections })
+    expect(kept.body.banner.title.vi).toBe('Du Ca mới')
+    expect(kept.body.unpublished).toBe(false)
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d2.revision + 1, sections: d2.sections, banner: null }).expect(200)
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: d2.revision + 2 }).expect(200)
+    expect((await h.http().get('/api/site/banner')).body).toEqual({ banner: null })
+  })
+
+  it('a banner with an unsafe link or a non-site image is refused', async () => {
+    const admin = await createUser(h, { role: 'admin' })
+    const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    const put = (banner: unknown) => h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections: d.sections, banner })
+    expect((await put({ ...HOME_BANNER_SEED, link: { label: lt('x'), href: 'javascript:alert(1)' } })).status).toBe(400)
+    const missing = await put({ ...HOME_BANNER_SEED, image: { fileId: 'f'.repeat(24), alt: lt('x'), decorative: false } })
+    expect(missing.status).toBe(400)
+    expect(missing.body.error.code).toBe('SITE_IMAGE_INVALID')
+  })
+})
+
 describe('homepage cache', () => {
   let h: Harness | undefined
   const raw = new Redis(REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 0, retryStrategy: () => null })
@@ -502,30 +611,28 @@ describe('homepage cache', () => {
     if (!up || !h) return ctx.skip()
     await vi.waitFor(() => expect(h!.app.get(FeedCache).ready).toBe(true), { timeout: 3000 })
     const admin = await createUser(h, { role: 'admin' })
-    await h.http().get('/api/site/home').expect(200) // starts a generation
-    await h.http().get('/api/site/home').expect(200) // stored
+    await h.http().get('/api/site/pages/intro').expect(200) // starts a generation
+    await h.http().get('/api/site/pages/intro').expect(200) // stored
     await vi.waitFor(async () => expect((await raw.keys('cuka:feed:v1:*')).length).toBeGreaterThan(0))
 
     // A change written behind the API's back stays invisible while the entry is cached…
-    await h.db.collection('homepage').updateOne({ _id: 'home' as never }, { $set: { 'published.sections': [heroWith([], 'Ngầm')] } })
-    expect(JSON.stringify((await h.http().get('/api/site/home')).body)).not.toContain('Ngầm')
+    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'published.sections': [heroWith([], 'Ngầm')] } })
+    expect(JSON.stringify((await h.http().get('/api/site/pages/intro')).body)).not.toContain('Ngầm')
 
     // …and a publish invalidates it at once.
-    const d = (await h.http().get('/api/admin/site/home/draft').set(auth(admin.token))).body
-    await h.http().put('/api/admin/site/home/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [heroWith([], 'Mới xuất bản')] }).expect(200)
-    await h.http().post('/api/admin/site/home/publish').set(auth(admin.token)).send({ revision: d.revision + 1 }).expect(200)
-    const res = await h.http().get('/api/site/home')
+    const d = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d.revision, sections: [heroWith([], 'Mới xuất bản')] }).expect(200)
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: d.revision + 1 }).expect(200)
+    const res = await h.http().get('/api/site/pages/intro')
     expect(res.body.sections[0].data.title.vi).toBe('Mới xuất bản')
 
-    // Pages are cached apart: the intro page is its own entry, refreshed by its own publish.
-    await h.http().get('/api/site/pages/intro').expect(200)
-    await h.http().get('/api/site/pages/intro').expect(200)
-    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'published.sections': [heroWith([], 'Ngầm intro')] } })
-    expect(JSON.stringify((await h.http().get('/api/site/pages/intro')).body)).not.toContain('Ngầm intro')
-    const di = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
-    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: di.revision, sections: [heroWith([], 'Intro mới')] }).expect(200)
-    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: di.revision + 1 }).expect(200)
-    expect((await h.http().get('/api/site/pages/intro')).body.sections[0].data.title.vi).toBe('Intro mới')
-    expect((await h.http().get('/api/site/home')).body.sections[0].data.title.vi).toBe('Mới xuất bản')
+    // The home banner is cached too, and refreshed by the same publish.
+    expect((await h.http().get('/api/site/banner')).body.banner.title.vi).toBe('Hibiki Du Ca')
+    await h.db.collection('homepage').updateOne({ _id: 'intro' as never }, { $set: { 'published.banner.title.vi': 'Ngầm banner' } })
+    expect((await h.http().get('/api/site/banner')).body.banner.title.vi).toBe('Hibiki Du Ca')
+    const d2 = (await h.http().get('/api/admin/site/pages/intro/draft').set(auth(admin.token))).body
+    await h.http().put('/api/admin/site/pages/intro/draft').set(auth(admin.token)).send({ revision: d2.revision, sections: d2.sections, banner: { ...d2.banner, title: lt('Banner mới') } }).expect(200)
+    await h.http().post('/api/admin/site/pages/intro/publish').set(auth(admin.token)).send({ revision: d2.revision + 1 }).expect(200)
+    expect((await h.http().get('/api/site/banner')).body.banner.title.vi).toBe('Banner mới')
   })
 })

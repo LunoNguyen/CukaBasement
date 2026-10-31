@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { getConnectionToken, InjectModel } from '@nestjs/mongoose'
-import { type HomeSection, homeImageIds, homeSectionSchema, homeVideoIds, type saveHomeDraftSchema, SITE_PAGES, type SitePage } from '@cuka/shared'
+import { EDITABLE_SITE_PAGES, type EditableSitePage, type HomeBanner, homeBannerSchema, homeImageIds, type HomeImage, type HomeSection, homeSectionSchema, homeVideoIds, type saveHomeDraftSchema, SITE_PAGES, type SitePage } from '@cuka/shared'
 import { type Connection, type Model, Types } from 'mongoose'
 import type { z } from 'zod'
 import type { Viewer } from '../auth/viewer'
@@ -20,6 +20,9 @@ export { ensureHomepage }
 
 /** Whether `v` names a CMS page (home, intro). */
 export const isSitePage = (v: unknown): v is SitePage => typeof v === 'string' && (SITE_PAGES as readonly string[]).includes(v)
+
+/** Whether `page` may still be edited (only the Introduction page; the old landing page is read-only). */
+export const isEditableSitePage = (v: SitePage): v is EditableSitePage => (EDITABLE_SITE_PAGES as readonly string[]).includes(v)
 
 export type SaveHomeDraftInput = z.output<typeof saveHomeDraftSchema>
 
@@ -86,10 +89,17 @@ export interface AdminSiteImageDto {
   video: SiteVideoDto | null
 }
 
+/** The gallery's home banner as visitors get it: its picture resolved (null when it has none or it is not ready). */
+export interface HomeBannerDto extends Omit<HomeBanner, 'image'> {
+  image: (HomeImage & SiteImageDto) | null
+}
+
 export interface HomeDraftDto {
   page: SitePage
   revision: number
   sections: HomeSection[]
+  /** The home banner being edited (Introduction page only; null when cleared or on the old landing page). */
+  banner: HomeBanner | null
   updatedAt: string
   updatedBy: { username: string } | null
   publishedAt: string
@@ -112,6 +122,17 @@ function validSections(list: unknown): HomeSection[] {
 
 const sameSections = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
+/** A stored banner that still passes the schema, else null. */
+function validBanner(v: unknown): HomeBanner | null {
+  const r = homeBannerSchema.safeParse(v)
+  return r.success ? r.data : null
+}
+
+/** What media checks and lookups walk: the sections plus the banner (as a pseudo-section holding an image). */
+function mediaHolders(sections: HomeSection[], banner: HomeBanner | null): Array<{ type: string; data: unknown }> {
+  return banner ? [...sections, { type: 'homeBanner', data: banner }] : sections
+}
+
 @Injectable()
 export class SiteService {
   constructor(
@@ -129,7 +150,15 @@ export class SiteService {
     return this.conn.collection<HomepageDoc>(HOME_COLLECTION)
   }
 
+  /** The pages were checked (seeded, banner, home → intro move) by this process; see ensureSitePages. */
+  private pagesChecked = false
+
   private async load(page: SitePage): Promise<HomepageDoc> {
+    if (!this.pagesChecked) {
+      // The first read after an upgrade runs the one-time migration even before `npm run setup` is re-run.
+      await ensureSitePages(this.conn)
+      this.pagesChecked = true
+    }
     let doc = await this.col().findOne({ _id: page })
     if (!doc) {
       await ensureSitePages(this.conn)
@@ -145,6 +174,17 @@ export class SiteService {
       const sections = validSections(doc.published.sections).filter((s) => s.visible)
       const media = await this.resolveMedia(homeImageIds(sections))
       return { page, sections, ...media, youtube: await this.youtube(sections), publishedAt: doc.published.publishedAt.toISOString() }
+    })
+  }
+
+  /** The published home banner (the gallery's top strip); cached like the pages, refreshed by publish. */
+  publicBanner(): Promise<{ banner: HomeBannerDto | null }> {
+    return this.cache.wrap('site-banner', { v: 1 }, async () => {
+      const banner = validBanner((await this.load('intro')).published.banner)
+      if (!banner) return { banner: null }
+      const { images } = await this.resolveMedia(banner.image ? [banner.image.fileId] : [])
+      const img = banner.image && images[banner.image.fileId]
+      return { banner: { ...banner, image: img ? { ...banner.image!, ...img } : null } }
     })
   }
 
@@ -183,6 +223,7 @@ export class SiteService {
   async draft(page: SitePage): Promise<HomeDraftDto> {
     const doc = await this.load(page)
     const sections = validSections(doc.draft.sections)
+    const banner = page === 'intro' ? validBanner(doc.draft.banner) : null
     const ids = [doc.draft.updatedBy, doc.published.publishedBy].filter((x): x is Types.ObjectId => !!x)
     const names = new Map(
       (ids.length ? await this.users.find({ _id: { $in: ids } }, { profile: 1 }).lean() : []).map((u) => [u._id.toString(), u.profile.username]),
@@ -192,23 +233,26 @@ export class SiteService {
       page,
       revision: doc.draft.revision,
       sections,
+      banner,
       updatedAt: doc.draft.updatedAt.toISOString(),
       updatedBy: who(doc.draft.updatedBy),
       publishedAt: doc.published.publishedAt.toISOString(),
       publishedBy: who(doc.published.publishedBy),
-      unpublished: !sameSections(sections, validSections(doc.published.sections)),
-      ...(await this.resolveMedia(homeImageIds(sections))),
+      unpublished: !sameSections(sections, validSections(doc.published.sections)) || (page === 'intro' && !sameSections(banner, validBanner(doc.published.banner))),
+      ...(await this.resolveMedia(homeImageIds(mediaHolders(sections, banner)))),
       youtube: await this.youtube(sections),
     }
   }
 
-  async saveDraft(actor: Viewer, page: SitePage, input: SaveHomeDraftInput): Promise<HomeDraftDto> {
+  async saveDraft(actor: Viewer, page: EditableSitePage, input: SaveHomeDraftInput): Promise<HomeDraftDto> {
     await this.load(page)
-    await this.assertMedia(input.sections, ['processing', 'ready'])
+    await this.assertMedia(mediaHolders(input.sections, input.banner ?? null), ['processing', 'ready'])
+    // A body without `banner` keeps the stored one.
+    const banner = input.banner === undefined ? {} : { 'draft.banner': input.banner }
     const res = await this.col().updateOne(
       { _id: page, 'draft.revision': input.revision },
       {
-        $set: { 'draft.sections': input.sections, 'draft.updatedAt': new Date(), 'draft.updatedBy': new Types.ObjectId(actor.id) },
+        $set: { 'draft.sections': input.sections, ...banner, 'draft.updatedAt': new Date(), 'draft.updatedBy': new Types.ObjectId(actor.id) },
         $inc: { 'draft.revision': 1 },
       },
     )
@@ -218,14 +262,15 @@ export class SiteService {
   }
 
   /** Publishes the draft the admin was looking at (`revision`); every image and video must be ready by then. */
-  async publish(actor: Viewer, page: SitePage, revision: number): Promise<HomeDraftDto> {
+  async publish(actor: Viewer, page: EditableSitePage, revision: number): Promise<HomeDraftDto> {
     const doc = await this.load(page)
     if (doc.draft.revision !== revision) await this.conflict(page)
     const sections = validSections(doc.draft.sections)
-    await this.assertMedia(sections, ['ready'])
+    const banner = validBanner(doc.draft.banner)
+    await this.assertMedia(mediaHolders(sections, banner), ['ready'])
     const res = await this.col().updateOne(
       { _id: page, 'draft.revision': revision },
-      { $set: { published: { sections, publishedAt: new Date(), publishedBy: new Types.ObjectId(actor.id) } } },
+      { $set: { published: { sections, banner, publishedAt: new Date(), publishedBy: new Types.ObjectId(actor.id) } } },
     )
     if (res.matchedCount === 0) await this.conflict(page)
     await this.modLog.log(actor.id, 'homepage_publish', 'site', page, `${sections.length} sections`)
@@ -235,12 +280,12 @@ export class SiteService {
   }
 
   /** Resets the draft to the published version. */
-  async discard(actor: Viewer, page: SitePage, revision: number): Promise<HomeDraftDto> {
+  async discard(actor: Viewer, page: EditableSitePage, revision: number): Promise<HomeDraftDto> {
     const doc = await this.load(page)
     const res = await this.col().updateOne(
       { _id: page, 'draft.revision': revision },
       {
-        $set: { 'draft.sections': doc.published.sections, 'draft.updatedAt': new Date(), 'draft.updatedBy': new Types.ObjectId(actor.id) },
+        $set: { 'draft.sections': doc.published.sections, 'draft.banner': doc.published.banner ?? null, 'draft.updatedAt': new Date(), 'draft.updatedBy': new Types.ObjectId(actor.id) },
         $inc: { 'draft.revision': 1 },
       },
     )
@@ -283,7 +328,9 @@ export class SiteService {
   /** Ids referenced by the draft or published version of any page. */
   private async usedIds(): Promise<Set<string>> {
     const docs = await this.col().find({}).toArray()
-    return new Set(homeImageIds(docs.flatMap((d) => [...(d.draft?.sections ?? []), ...(d.published?.sections ?? [])])))
+    return new Set(
+      homeImageIds(docs.flatMap((d) => [...mediaHolders(d.draft?.sections ?? [], d.draft?.banner ?? null), ...mediaHolders(d.published?.sections ?? [], d.published?.banner ?? null)])),
+    )
   }
 
   private async conflict(page: SitePage): Promise<never> {
@@ -295,7 +342,7 @@ export class SiteService {
    * Every referenced id must be a site upload in one of `statuses`: a background video slot holds a video, every
    * other slot an image; else 400 SITE_IMAGE_INVALID. A video counts as ready only once its clip is published.
    */
-  private async assertMedia(sections: HomeSection[], statuses: Array<FileDoc['status']>): Promise<void> {
+  private async assertMedia(sections: ReadonlyArray<{ type: string; data: unknown }>, statuses: Array<FileDoc['status']>): Promise<void> {
     const ids = homeImageIds(sections)
     if (!ids.length) return
     const videos = new Set(homeVideoIds(sections))

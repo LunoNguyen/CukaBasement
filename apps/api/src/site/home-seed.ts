@@ -1,4 +1,4 @@
-import { DU_CA_CHANNEL_ID, type HomeSection, homeSectionSchema, homeSectionsSchema, type SitePage } from '@cuka/shared'
+import { DU_CA_CHANNEL_ID, type HomeBanner, homeBannerSchema, type HomeSection, homeSectionSchema, homeSectionsSchema, type SitePage } from '@cuka/shared'
 import type { Connection, Types } from 'mongoose'
 
 // Kept free of Nest services: database/prepare (setup, restore) imports it.
@@ -143,9 +143,6 @@ const longForm = [
 /** Validated once at load, so a typo here fails every test instead of reaching a database. */
 export const LEGACY_HOME_SEED: HomeSection[] = homeSectionsSchema.parse(longForm)
 
-/** The Introduction page's default content: the long-form profile above. */
-export const INTRO_SEED: HomeSection[] = homeSectionsSchema.parse(longForm)
-
 /**
  * The landing page ("/") created on first setup: full-screen sections in the spirit of an agency site. No video or
  * pictures yet (the brand art stands in), the newest fanart as the "new release" row, Du Ca's channel videos (from
@@ -200,7 +197,7 @@ const landing = [
       items: [
         { name: { vi: 'Model gốc', en: 'Original model' }, caption: { vi: '08/08/2021 · ra mắt trên YouTube', en: 'August 8, 2021 · YouTube debut' }, background: null, thumb: null, href: '/gioi-thieu' },
         { name: { vi: 'Chibi', en: 'Chibi' }, caption: { vi: '09/08/2024 · mừng 3 năm hoạt động', en: 'August 9, 2024 · 3rd anniversary' }, background: null, thumb: null, href: '' },
-        { name: { vi: 'Qua nét vẽ của Cuka', en: 'Drawn by the Cuka' }, caption: { vi: 'Mọi phiên bản fan vẽ, ở cùng một chỗ', en: 'Every version fans have drawn, in one place' }, background: null, thumb: null, href: '/posts' },
+        { name: { vi: 'Qua nét vẽ của Cuka', en: 'Drawn by the Cuka' }, caption: { vi: 'Mọi phiên bản fan vẽ, ở cùng một chỗ', en: 'Every version fans have drawn, in one place' }, background: null, thumb: null, href: '/' },
       ],
     },
   },
@@ -237,6 +234,32 @@ const landing = [
 
 export const HOME_SEED: HomeSection[] = homeSectionsSchema.parse(landing)
 
+const byId = (list: Array<{ id: string }>, id: string) => list.find((x) => x.id === id)!
+
+/**
+ * The Introduction page's default content (one normal-scrolling page): the former landing blocks (opening video,
+ * music, new releases, looks), then the long-form profile, the hashtag banner, and gallery and videos hidden until
+ * they have something to show.
+ */
+export const INTRO_SEED: HomeSection[] = homeSectionsSchema.parse([
+  ...['top', 'music', 'new', 'looks'].map((id) => byId(landing, id)),
+  ...['about', 'profile', 'timeline', 'links', 'fanart', 'hashtags', 'gallery', 'videos'].map((id) => byId(longForm, id)),
+])
+
+/** The small banner atop the fanart gallery ("/"): no picture yet, a line about Du Ca, a link to the Introduction page. */
+export const HOME_BANNER_SEED: HomeBanner = homeBannerSchema.parse({
+  title: { vi: 'Hibiki Du Ca', en: 'Hibiki Du Ca' },
+  text: {
+    vi: 'Nữ VTuber người Việt thuộc thế hệ đầu tiên của NIJIGEN Project — nơi Cuka chia sẻ fanart về cô.',
+    en: 'A Vietnamese VTuber from the first generation of NIJIGEN Project — where the Cuka share their fanart of her.',
+  },
+  image: null,
+  link: { label: { vi: 'Giới thiệu', en: 'About Du Ca' }, href: '/gioi-thieu' },
+})
+
+/** Section types of the old landing page that only made sense full-screen: never copied to the Introduction page. */
+const LANDING_ONLY_TYPES = new Set(['vibe', 'footer'])
+
 export const HOME_COLLECTION = 'homepage'
 export const HOME_ID = 'home'
 export const INTRO_ID = 'intro'
@@ -249,21 +272,25 @@ const SEEDS: Record<SitePage, HomeSection[]> = { home: HOME_SEED, intro: INTRO_S
  */
 export interface HomepageDoc {
   _id: SitePage
-  draft: { revision: number; sections: HomeSection[]; updatedAt: Date; updatedBy: Types.ObjectId | null }
-  published: { sections: HomeSection[]; publishedAt: Date; publishedBy: Types.ObjectId | null }
+  /** `banner`: the gallery's home banner, kept on the Introduction page only (absent on older documents). */
+  draft: { revision: number; sections: HomeSection[]; banner?: HomeBanner | null; updatedAt: Date; updatedBy: Types.ObjectId | null }
+  published: { sections: HomeSection[]; banner?: HomeBanner | null; publishedAt: Date; publishedBy: Types.ObjectId | null }
+  /** On `home`: when its sections were copied to the Introduction page (see migrateHomeIntoIntro). */
+  migratedToIntro?: Date
 }
 
 /** Creates page `page` with its default content unless it exists; never overwrites. Returns whether it was created. */
 async function ensurePage(conn: Connection, page: SitePage): Promise<boolean> {
   const now = new Date()
   const sections = SEEDS[page]
+  const banner = page === 'intro' ? { banner: HOME_BANNER_SEED } : {}
   try {
     const res = await conn.collection<HomepageDoc>(HOME_COLLECTION).updateOne(
       { _id: page },
       {
         $setOnInsert: {
-          draft: { revision: 0, sections, updatedAt: now, updatedBy: null },
-          published: { sections, publishedAt: now, publishedBy: null },
+          draft: { revision: 0, sections, ...banner, updatedAt: now, updatedBy: null },
+          published: { sections, ...banner, publishedAt: now, publishedBy: null },
         },
       },
       { upsert: true },
@@ -295,7 +322,8 @@ export function isUntouchedLegacyHome(doc: HomepageDoc | null): boolean {
   return normalised(doc.draft.sections) === legacy && normalised(doc.published.sections) === legacy
 }
 
-export type EnsurePagesResult = { home: 'created' | 'migrated' | 'kept'; intro: 'created' | 'kept' }
+/** `moved`: sections copied from the old landing page to the Introduction page by this run (see migrateHomeIntoIntro). */
+export type EnsurePagesResult = { home: 'created' | 'migrated' | 'kept'; intro: 'created' | 'kept'; moved: number }
 
 /**
  * Makes sure both pages exist (setup, restore, first read). A homepage that is still the untouched first seed
@@ -304,10 +332,16 @@ export type EnsurePagesResult = { home: 'created' | 'migrated' | 'kept'; intro: 
  */
 export async function ensureSitePages(conn: Connection): Promise<EnsurePagesResult> {
   const intro = (await ensurePage(conn, 'intro')) ? 'created' : 'kept'
-  if (await ensurePage(conn, 'home')) return { home: 'created', intro }
+  const home = await ensureHome(conn)
+  await ensureIntroBanner(conn)
+  return { home, intro, moved: await migrateHomeIntoIntro(conn) }
+}
+
+async function ensureHome(conn: Connection): Promise<EnsurePagesResult['home']> {
+  if (await ensurePage(conn, 'home')) return 'created'
   const col = conn.collection<HomepageDoc>(HOME_COLLECTION)
   const doc = await col.findOne({ _id: HOME_ID })
-  if (!doc || !isUntouchedLegacyHome(doc)) return { home: 'kept', intro }
+  if (!doc || !isUntouchedLegacyHome(doc)) return 'kept'
   const now = new Date()
   // Guarded on the revision and the empty editor fields, so a save landing meanwhile wins.
   const res = await col.updateOne(
@@ -317,7 +351,49 @@ export async function ensureSitePages(conn: Connection): Promise<EnsurePagesResu
       $inc: { 'draft.revision': 1 },
     },
   )
-  return { home: res.modifiedCount ? 'migrated' : 'kept', intro }
+  return res.modifiedCount ? 'migrated' : 'kept'
+}
+
+/** An Introduction page from before the home banner gets the default one (draft and published); never overwrites. */
+async function ensureIntroBanner(conn: Connection): Promise<void> {
+  const col = conn.collection<HomepageDoc>(HOME_COLLECTION)
+  for (const part of ['draft', 'published'] as const)
+    await col.updateOne({ _id: INTRO_ID, [`${part}.banner`]: { $exists: false } }, { $set: { [`${part}.banner`]: HOME_BANNER_SEED } })
+}
+
+/**
+ * "/" became the fanart gallery, so the old landing page (`home`) is no longer shown or edited. Once (setup, restore
+ * or first read), the sections it has that the Introduction page lacks (by id; `vibe` and `footer` excepted) are
+ * copied to the top of the Introduction page, draft to draft and published to published, in their order; the intro's
+ * own sections stay as they are. `home` is then marked, so later runs (and a section the admin removed since) are
+ * left alone. Returns how many sections were added to the draft (0 when there was nothing to do).
+ */
+export async function migrateHomeIntoIntro(conn: Connection): Promise<number> {
+  const col = conn.collection<HomepageDoc>(HOME_COLLECTION)
+  // Claimed first, so two processes starting together cannot both copy.
+  const home = await col.findOneAndUpdate({ _id: HOME_ID, migratedToIntro: { $exists: false } }, { $set: { migratedToIntro: new Date() } })
+  if (!home) return 0
+  const missing = (from: unknown, into: Array<{ id: string }>) => {
+    const have = new Set(into.map((s) => s.id))
+    return (Array.isArray(from) ? (from as HomeSection[]) : []).filter((s) => s && !LANDING_ONLY_TYPES.has(s.type) && !have.has(s.id))
+  }
+  // Guarded on the intro draft's revision: an admin save landing in between is re-read, never overwritten.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const intro = await col.findOne({ _id: INTRO_ID })
+    if (!intro) return 0
+    const draft = missing(home.draft?.sections, intro.draft.sections ?? [])
+    const published = missing(home.published?.sections, intro.published.sections ?? [])
+    if (!draft.length && !published.length) return 0
+    const res = await col.updateOne(
+      { _id: INTRO_ID, 'draft.revision': intro.draft.revision },
+      {
+        $set: { 'draft.sections': [...draft, ...(intro.draft.sections ?? [])], 'published.sections': [...published, ...(intro.published.sections ?? [])] },
+        ...(draft.length ? { $inc: { 'draft.revision': 1 } } : {}),
+      },
+    )
+    if (res.matchedCount) return draft.length
+  }
+  return 0
 }
 
 /** Creates the default pages unless they exist (see ensureSitePages). Returns whether the homepage was created. */

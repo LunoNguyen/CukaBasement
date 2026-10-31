@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common'
-import { HOME_LIMITS, isYouTubeVideoId, MUSIC_GROUPS, type MusicData } from '@cuka/shared'
+import { EDITABLE_SITE_PAGES, HOME_LIMITS, isYouTubeVideoId, MUSIC_GROUPS, type MusicData } from '@cuka/shared'
 import sharp from 'sharp'
 import { autoFeedKey, feedsCol, manualIds, musicSections, thumbKey, videosCol, type YouTubeVideoDoc } from '../../site/music-store'
 import {
@@ -50,9 +50,15 @@ interface FeedPlan {
   keyword: string
 }
 
-/** What the music sections of every page (drafts included, so the preview has data) want fetched. */
+/**
+ * What the music sections of the shown pages (drafts included, so the preview has data) want fetched. The old
+ * landing page (`home`) is no longer shown, so its music sections are not followed.
+ */
 async function plan(deps: YouTubeSyncDeps, apiKey: boolean): Promise<{ feeds: Map<string, FeedPlan>; manual: string[] }> {
-  const docs = await deps.conn.collection<{ draft?: { sections?: unknown }; published?: { sections?: unknown } }>('homepage').find({}).toArray()
+  const docs = await deps.conn
+    .collection<{ _id: string; draft?: { sections?: unknown }; published?: { sections?: unknown } }>('homepage')
+    .find({ _id: { $in: [...EDITABLE_SITE_PAGES] } })
+    .toArray()
   const sections: Array<{ data: MusicData }> = docs.flatMap((d) => [...musicSections(d.draft?.sections), ...musicSections(d.published?.sections)])
   const feeds = new Map<string, FeedPlan>()
   const manual = new Set<string>()

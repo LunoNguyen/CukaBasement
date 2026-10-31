@@ -26,6 +26,18 @@ export const SITE_PAGE_TYPES: Record<SitePage, readonly HomeSectionType[]> = {
   intro: LONGFORM_SECTION_TYPES,
 }
 
+/** Pages admins can still edit: "/" is now the fanart gallery, so the old landing page (`home`) is read-only. */
+export const EDITABLE_SITE_PAGES = ['intro'] as const satisfies readonly SitePage[]
+export type EditableSitePage = (typeof EDITABLE_SITE_PAGES)[number]
+
+/**
+ * The section types the editor offers to add, per editable page: the former landing sections that became blocks
+ * of the Introduction page first, then the long-form ones. `vibe` and `footer` only render on old data.
+ */
+export const ADDABLE_SECTION_TYPES: Record<EditableSitePage, readonly HomeSectionType[]> = {
+  intro: ['heroVideo', 'music', 'releases', 'spotlight', ...LONGFORM_SECTION_TYPES],
+}
+
 export const RELEASE_SOURCES = ['manual', 'latestFanart'] as const
 export type ReleaseSource = (typeof RELEASE_SOURCES)[number]
 
