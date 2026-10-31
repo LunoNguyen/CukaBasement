@@ -27,7 +27,7 @@ const hasImage = computed(() => !!props.data.image)
             v-if="data.cta"
             :href="data.cta.href"
             data-test="banner-cta"
-            class="inline-flex h-10 items-center rounded bg-[var(--c-accent-strong)] px-4 text-sm font-semibold text-[var(--c-on-primary)] hover:brightness-110"
+            class="inline-flex h-10 items-center rounded bg-[var(--c-primary)] px-4 text-sm font-semibold text-[var(--c-on-primary)] hover:brightness-110"
           >
             {{ tx(data.cta.label) }}
           </SmartLink>

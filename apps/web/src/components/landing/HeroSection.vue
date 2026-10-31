@@ -93,7 +93,7 @@ watch(
           class="inline-flex h-10 items-center rounded px-4 text-sm font-semibold transition"
           :class="
             i === 0
-              ? 'bg-[var(--c-accent-strong)] text-[var(--c-on-primary)] hover:brightness-110'
+              ? 'bg-[var(--c-primary)] text-[var(--c-on-primary)] hover:brightness-110'
               : slides.length
                 ? 'border border-white/40 text-white hover:bg-white/10'
                 : 'border border-[var(--c-border)] bg-[var(--c-bg)] hover:bg-[var(--c-surface-2)]'

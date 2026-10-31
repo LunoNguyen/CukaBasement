@@ -20,7 +20,8 @@
   --c-accent-strong: #c2365a;
   --c-accent-soft: #fdecf1;
   --c-danger: #d92d20;
-  /* Text on a primary (accent-strong) or danger fill. */
+  /* Primary buttons and other filled actions, and the text on them (and on danger fills). */
+  --c-primary: #c2365a;
   --c-on-primary: #ffffff;
   /* Dimmed backdrop behind dialogs and the lightbox. */
   --c-scrim: rgb(0 0 0 / 0.5);
@@ -38,6 +39,7 @@
   --c-accent-strong: #ff9db3;
   --c-accent-soft: #3a1f27;
   --c-danger: #ff8a80;
+  --c-primary: #ff7d9a;
   --c-on-primary: #141414;
   --c-scrim: rgb(0 0 0 / 0.7);
   --shadow-pop: 0 4px 16px rgb(0 0 0 / 0.5);
@@ -230,16 +232,8 @@
     text-decoration: underline;
   }
 
-  /* Small section label (sentence case, not mono). */
-  .eyebrow {
-    color: var(--c-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  /* Bordered block: panels, cards, frames. */
-  .panel,
-  .card {
+  /* Bordered block: panels and frames. */
+  .panel {
     border: 1px solid var(--c-border);
     border-radius: 8px;
     background: var(--c-bg);

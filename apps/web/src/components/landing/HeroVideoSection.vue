@@ -154,7 +154,7 @@ const media = computed(() => !!clip.value || slides.value.length > 0)
           v-if="data.link"
           :href="data.link.href"
           data-test="fp-now-playing"
-          class="inline-flex h-10 items-center gap-1.5 rounded bg-[var(--c-accent-strong)] px-4 text-sm font-semibold text-[var(--c-on-primary)] hover:brightness-110"
+          class="inline-flex h-10 items-center gap-1.5 rounded bg-[var(--c-primary)] px-4 text-sm font-semibold text-[var(--c-on-primary)] hover:brightness-110"
         >
           <span v-if="tx(data.link.kicker)" class="sr-only">{{ tx(data.link.kicker) }}:</span>
           {{ tx(data.link.label) }}

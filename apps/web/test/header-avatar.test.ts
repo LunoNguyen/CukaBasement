@@ -34,7 +34,7 @@ describe('header avatar', () => {
     const { w } = await mountHeader(null)
     const upload = w.get('[data-test="header-upload"]')
     expect(upload.attributes('href')).toBe('/upload')
-    expect(upload.classes().some((c) => c.includes('--c-accent-strong'))).toBe(true)
+    expect(upload.classes().some((c) => c.includes('bg-[var(--c-primary)]'))).toBe(true)
     expect(w.find('[data-test="lang-en"]').exists()).toBe(false)
     expect(w.find('[data-test="header-more"]').exists()).toBe(false)
     await w.get('[data-test="account-menu-button"]').trigger('click')

@@ -151,10 +151,10 @@ function onPlaying(m: PostMediaDto) {
         <RouterLink
           v-if="!auth.isLoggedIn"
           :to="{ path: '/login', query: { next: route.fullPath } }"
-          class="inline-flex min-h-11 items-center rounded bg-[var(--c-accent-strong)] px-4 text-sm font-semibold text-[var(--c-on-primary)]"
+          class="inline-flex min-h-11 items-center rounded bg-[var(--c-primary)] px-4 text-sm font-semibold text-[var(--c-on-primary)]"
           >{{ t('post.r18Login') }}</RouterLink
         >
-        <RouterLink v-else to="/settings" class="inline-flex min-h-11 items-center rounded bg-[var(--c-accent-strong)] px-4 text-sm font-semibold text-[var(--c-on-primary)]">{{ t('post.r18Settings') }}</RouterLink>
+        <RouterLink v-else to="/settings" class="inline-flex min-h-11 items-center rounded bg-[var(--c-primary)] px-4 text-sm font-semibold text-[var(--c-on-primary)]">{{ t('post.r18Settings') }}</RouterLink>
       </div>
     </div>
 

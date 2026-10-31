@@ -11,9 +11,9 @@ const WEB = fileURLToPath(new URL('..', import.meta.url))
 const PUBLIC = join(WEB, 'public')
 const sharp = createRequire(join(WEB, '../api/package.json'))('sharp')
 
-const COCOA = '#5b3a29'
-const CREAM = '#fbf7f4'
-const PINK = '#e85d75'
+const COCOA = '#1f1f1f'
+const CREAM = '#ffffff'
+const PINK = '#e8577a'
 const TAGLINE = 'Vẽ thật. Ghi công <span foreground="#ff8fa2">thật.</span>'
 
 const FONTS = {

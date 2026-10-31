@@ -118,7 +118,7 @@ const open = (v: MusicVideo) => (playing.value = v)
       <div v-else-if="current === 'newest'" class="grid gap-5 md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] md:gap-8">
         <button type="button" class="group flex min-w-0 flex-col gap-2 text-left" :aria-label="t('landing.music.play', { title: featured!.title })" data-test="music-featured" @click="open(featured!)">
           <MusicThumb :video="featured!" sizes="(min-width: 768px) 60vw, 100vw" play="lg" eager>
-            <span class="absolute top-2 left-2 rounded bg-[var(--c-accent-strong)] px-1.5 text-xs leading-5 font-bold text-[var(--c-on-primary)]">{{ t('landing.music.latest') }}</span>
+            <span class="absolute top-2 left-2 rounded bg-[var(--c-primary)] px-1.5 text-xs leading-5 font-bold text-[var(--c-on-primary)]">{{ t('landing.music.latest') }}</span>
           </MusicThumb>
           <span class="flex flex-col gap-0.5">
             <span class="line-clamp-2 text-base font-bold group-hover:underline">{{ featured!.title }}</span>

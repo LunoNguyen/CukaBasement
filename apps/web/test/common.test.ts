@@ -87,9 +87,9 @@ describe('a11y bits', () => {
     const w = mount(Spinner, { global: { plugins } })
     expect(w.attributes('aria-label')).toBe(i18n.global.t('common.loading'))
   })
-  it('Btn primary is filled with accent-strong and square-cornered, never a pill', () => {
+  it('Btn primary is filled with the primary token and square-cornered, never a pill', () => {
     const b = mount(Btn, { props: { variant: 'primary' }, global: { plugins } })
-    expect(b.classes().some((c) => c.includes('--c-accent-strong'))).toBe(true)
+    expect(b.classes().some((c) => c.includes('bg-[var(--c-primary)]'))).toBe(true)
     expect(b.classes()).not.toContain('rounded-full')
     expect(b.classes()).toContain('rounded')
   })

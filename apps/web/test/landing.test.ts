@@ -195,7 +195,7 @@ describe('Introduction page (/gioi-thieu)', () => {
 
   it('logged out: ends with the sign-up invitation; logged in: no invitation', async () => {
     let { w } = await mountLanding()
-    expect(w.get('[data-test="intro-join"]').get('a[href="/register"]').classes().some((c) => c.includes('--c-accent-strong'))).toBe(true)
+    expect(w.get('[data-test="intro-join"]').get('a[href="/register"]').classes().some((c) => c.includes('bg-[var(--c-primary)]'))).toBe(true)
     w.unmount()
     ;({ w } = await mountLanding(publicHome(), true))
     expect(w.find('[data-test="intro-join"]').exists()).toBe(false)

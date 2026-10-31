@@ -19,7 +19,7 @@ onBeforeUnmount(() => store.stop())
     <span
       v-if="store.count > 0"
       data-test="bell-badge"
-      class="absolute top-1 right-1 min-w-4 rounded-full bg-[var(--c-accent-strong)] px-1 text-center text-[10px] font-bold leading-4 text-[var(--c-on-primary)] ring-2 ring-[var(--c-bg)]"
+      class="absolute top-1 right-1 min-w-4 rounded-full bg-[var(--c-primary)] px-1 text-center text-[10px] font-bold leading-4 text-[var(--c-on-primary)] ring-2 ring-[var(--c-bg)]"
       aria-hidden="true"
     >{{ label }}</span>
   </RouterLink>

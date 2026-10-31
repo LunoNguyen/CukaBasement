@@ -9,7 +9,7 @@ const { t } = useI18n()
     <p class="mb-1 text-sm font-bold text-[var(--c-muted)] tabular-nums">404</p>
     <h1 class="text-2xl font-bold">{{ t('notFound.title') }}</h1>
     <p class="mt-2 text-sm text-[var(--c-muted)]">{{ t('notFound.body') }}</p>
-    <RouterLink to="/" class="mt-6 inline-flex h-10 items-center rounded bg-[var(--c-accent-strong)] px-5 text-sm font-semibold text-[var(--c-on-primary)] hover:brightness-110">{{
+    <RouterLink to="/" class="mt-6 inline-flex h-10 items-center rounded bg-[var(--c-primary)] px-5 text-sm font-semibold text-[var(--c-on-primary)] hover:brightness-110">{{
       t('notFound.back')
     }}</RouterLink>
   </div>

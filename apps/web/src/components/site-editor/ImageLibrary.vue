@@ -122,7 +122,7 @@ const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} M
         <li v-for="q in pending" :key="q.id" class="flex items-center gap-3 rounded-lg border border-[var(--c-border)] px-3 py-2 text-xs">
           <span class="min-w-0 flex-1 truncate">{{ q.name }}</span>
           <span class="h-1.5 w-32 overflow-hidden rounded-full bg-[var(--c-surface-2)]" role="progressbar" :aria-label="t('admin.home.uploading', { name: q.name })" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(q.progress * 100)">
-            <span class="block h-full bg-[var(--c-accent-strong)] transition-[width]" :style="{ width: `${Math.round(q.progress * 100)}%` }" />
+            <span class="block h-full bg-[var(--c-primary)] transition-[width]" :style="{ width: `${Math.round(q.progress * 100)}%` }" />
           </span>
           <span class="w-9 text-right text-[var(--c-muted)]">{{ Math.round(q.progress * 100) }}%</span>
         </li>

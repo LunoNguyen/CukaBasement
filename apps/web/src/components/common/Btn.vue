@@ -15,7 +15,7 @@ const props = withDefaults(
 const classes = computed(() => [
   props.size === 'sm' ? 'touch-pad h-8 px-3 text-[13px]' : 'h-11 px-4 text-sm sm:h-10',
   {
-    'bg-[var(--c-accent-strong)] text-[var(--c-on-primary)] hover:brightness-110': props.variant === 'primary',
+    'bg-[var(--c-primary)] text-[var(--c-on-primary)] hover:brightness-110': props.variant === 'primary',
     'border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] hover:bg-[var(--c-surface-2)]': props.variant === 'secondary',
     'text-[var(--c-text)] hover:bg-[var(--c-surface-2)]': props.variant === 'ghost',
     'bg-[var(--c-danger)] text-[var(--c-on-primary)] hover:brightness-110': props.variant === 'danger',

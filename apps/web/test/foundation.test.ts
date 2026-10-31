@@ -91,7 +91,7 @@ describe('foundation', () => {
     const register = w.get('[data-test="header-register"]')
     expect(login.attributes('href')).toBe('/login')
     expect(register.attributes('href')).toBe('/register')
-    expect(register.classes().some((c) => c.includes('--c-accent-strong'))).toBe(true)
+    expect(register.classes().some((c) => c.includes('bg-[var(--c-primary)]'))).toBe(true)
   })
 
   it('the footer is one muted line naming CukaBasement with a link to the introduction', async () => {
@@ -107,6 +107,9 @@ describe('foundation', () => {
     for (const [k, v] of Object.entries({ bg: '#ffffff', 'surface-2': '#f5f5f5', border: '#e5e5e5', text: '#1f1f1f', muted: '#6b6b6b', accent: '#e8577a', 'accent-strong': '#c2365a', 'accent-soft': '#fdecf1', danger: '#d92d20' }))
       expect(light.toLowerCase(), k).toContain(`--c-${k}: ${v};`)
     const dark = block("[data-theme='dark'] {")
+    // Dark primary buttons: #FF7D9A with dark text; light ones: accent-strong with white text.
+    expect(dark.toLowerCase()).toContain('--c-primary: #ff7d9a;')
+    expect(light.toLowerCase()).toContain('--c-primary: #c2365a;')
     for (const [k, v] of Object.entries({ bg: '#141414', 'surface-2': '#1f1f1f', border: '#2e2e2e', text: '#ededed', muted: '#a3a3a3', accent: '#ff7d9a', 'accent-strong': '#ff9db3', 'accent-soft': '#3a1f27', danger: '#ff8a80' }))
       expect(dark.toLowerCase(), k).toContain(`--c-${k}: ${v};`)
     expect(css).not.toMatch(/--c-(cellar|latte|paper|soft)\b/)
