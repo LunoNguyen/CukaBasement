@@ -32,7 +32,7 @@ const img = computed(() => props.banner.image)
       <!-- Keeps the text legible on any picture. -->
       <div class="absolute inset-0 bg-linear-to-r from-black/70 via-black/40 to-transparent" aria-hidden="true" />
     </template>
-    <div class="relative flex max-w-xl min-w-0 flex-col gap-1 px-5 sm:px-8">
+    <div class="relative flex max-w-2xl min-w-0 flex-col gap-1 px-5 sm:px-8">
       <h1 class="truncate text-xl font-bold sm:text-2xl">{{ tx(banner.title) }}</h1>
       <p v-if="tx(banner.text)" class="line-clamp-2 text-[13px] sm:line-clamp-1 sm:text-sm" :class="img ? 'text-white/85' : 'text-[var(--c-muted)]'">{{ tx(banner.text) }}</p>
       <component

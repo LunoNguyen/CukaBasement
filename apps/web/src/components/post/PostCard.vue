@@ -101,7 +101,7 @@ const heartClass = computed(() => [
           v-if="rank"
           data-test="rank"
           class="absolute top-0 left-0 flex h-9 min-w-9 items-center justify-center rounded-br-lg px-2 text-xl leading-none font-bold"
-          :class="rank <= 3 ? 'bg-[var(--c-accent)] text-white' : 'bg-black/60 text-white'"
+          :class="rank <= 3 ? 'bg-[var(--c-accent)] text-[var(--c-on-primary)]' : 'bg-black/60 text-white'"
         >{{ rank }}</span>
       </RouterLink>
       <button

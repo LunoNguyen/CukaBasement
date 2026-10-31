@@ -39,9 +39,9 @@ const allLink = computed(() => ({ path: '/ranking', query: { period: period.valu
 
 <template>
   <section data-test="ranking-row" aria-labelledby="ranking-heading" class="flex flex-col gap-3">
-    <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
-      <div class="flex items-end gap-6">
-        <h2 id="ranking-heading" class="pb-2 text-base font-bold sm:text-lg">{{ t('home.ranking') }}</h2>
+    <div class="flex items-end justify-between gap-x-6">
+      <div class="flex flex-col sm:flex-row sm:items-end sm:gap-6">
+        <h2 id="ranking-heading" class="text-base font-bold sm:pb-2 sm:text-lg">{{ t('home.ranking') }}</h2>
         <PeriodTabs v-model="period" />
       </div>
       <RouterLink data-test="ranking-all" :to="allLink" class="inline-flex min-h-9 items-center gap-0.5 text-sm text-[var(--c-muted)] hover:text-[var(--c-text)]">
@@ -54,7 +54,7 @@ const allLink = computed(() => ({ path: '/ranking', query: { period: period.valu
     <p v-else-if="!items.length" class="py-8 text-center text-sm text-[var(--c-muted)]">{{ t('home.rankingEmpty') }}</p>
     <ol
       v-else
-      class="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:gap-4 sm:px-6 [scrollbar-width:thin]"
+      class="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:scroll-px-6 sm:gap-4 sm:px-6 [scrollbar-width:thin]"
       :class="{ 'opacity-60': loading }"
     >
       <li v-for="p in items" :key="p.id" class="w-[42vw] max-w-48 shrink-0 snap-start sm:w-48">
