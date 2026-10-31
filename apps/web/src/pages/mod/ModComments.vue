@@ -33,7 +33,7 @@ async function restore(c: HiddenCommentDto) {
 <template>
   <div>
     <ul class="flex flex-col gap-3">
-      <li v-for="c in list.items.value" :key="c.id" data-test="hidden-comment" class="card p-3 text-sm">
+      <li v-for="c in list.items.value" :key="c.id" data-test="hidden-comment" class="panel p-3 text-sm">
         <p class="whitespace-pre-wrap break-words">{{ c.body }}</p>
         <p class="mt-1 text-xs text-[var(--c-muted)]">
           {{ c.author.displayName || c.author.username }} ·

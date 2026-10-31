@@ -23,7 +23,7 @@ const update = (i: number, v: T) => (items.value = items.value.map((x, k) => (k 
     <legend class="mb-2 flex w-full items-center justify-between text-sm font-semibold">
       {{ label }}<span class="text-xs font-normal text-[var(--c-muted)]">{{ items.length }}/{{ max }}</span>
     </legend>
-    <div v-for="(item, i) in items" :key="i" class="flex flex-col gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-bg)] p-3" data-test="item-row">
+    <div v-for="(item, i) in items" :key="i" class="flex flex-col gap-3 rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] p-3" data-test="item-row">
       <div class="flex items-center gap-1">
         <span class="mr-auto text-xs text-[var(--c-muted)]">#{{ i + 1 }}</span>
         <button type="button" class="icon-btn size-9" :disabled="i === 0" :aria-label="t('admin.home.moveUp')" data-test="item-up" @click="move(i, -1)">
@@ -41,7 +41,7 @@ const update = (i: number, v: T) => (items.value = items.value.map((x, k) => (k 
     <button
       v-if="items.length < max"
       type="button"
-      class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--c-border)] text-sm font-semibold text-[var(--c-muted)] hover:border-[var(--c-muted)] hover:text-[var(--c-text)]"
+      class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--c-border)] text-sm font-semibold text-[var(--c-muted)] hover:border-[var(--c-muted)] hover:text-[var(--c-text)]"
       data-test="item-add"
       @click="add"
     >

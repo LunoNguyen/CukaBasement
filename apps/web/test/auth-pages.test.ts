@@ -30,6 +30,17 @@ async function mountAt(path: string) {
 const err = (status: number, code: string) => ({ status, body: { error: { code, message: 'raw server text' } } })
 
 describe('login', () => {
+  it('auth pages: one 400px panel with the logo, the title and the form; no art beside it', async () => {
+    fake = installFakeFetch({})
+    const { w } = await mountAt('/login')
+    const panel = w.get('form').element.closest('.max-w-\\[400px\\]')
+    expect(panel).not.toBeNull()
+    expect(w.find('[data-test="auth-art"]').exists()).toBe(false)
+    expect(panel!.querySelector('h1')!.textContent).toBe('Đăng nhập')
+    expect(panel!.querySelector('svg[viewBox="0 0 100 100"]')).not.toBeNull()
+    w.unmount()
+  })
+
   it('login success redirects to ?next', async () => {
     fake = installFakeFetch({
       'POST /api/auth/login': { status: 200, body: { accessToken: 'tok', user: makeMe() } },

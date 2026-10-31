@@ -130,7 +130,7 @@ const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} M
       <div v-if="loading" class="flex justify-center py-10"><Spinner /></div>
       <p v-else-if="!shown.length" class="py-8 text-center text-sm text-[var(--c-muted)]">{{ kind === 'video' ? t('admin.home.videoLibraryEmpty') : t('admin.home.libraryEmpty') }}</p>
       <ul v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <li v-for="img in shown" :key="img.id" class="flex flex-col overflow-hidden rounded-xl border border-[var(--c-border)]" data-test="library-item">
+        <li v-for="img in shown" :key="img.id" class="flex flex-col overflow-hidden rounded-lg border border-[var(--c-border)]" data-test="library-item">
           <button
             type="button"
             class="relative aspect-square bg-[var(--c-surface-2)] disabled:cursor-not-allowed"

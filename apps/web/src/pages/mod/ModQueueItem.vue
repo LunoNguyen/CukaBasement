@@ -74,7 +74,7 @@ async function submitCredit() {
 </script>
 
 <template>
-  <li data-test="queue-item" class="flex flex-col gap-3 card p-3 sm:flex-row">
+  <li data-test="queue-item" class="flex flex-col gap-3 panel p-3 sm:flex-row">
     <RouterLink :to="`/posts/${post.id}`" class="relative block aspect-[4/5] w-full shrink-0 overflow-hidden rounded sm:w-40">
       <img v-if="src" :src="src" :alt="post.title" loading="lazy" class="h-full w-full object-cover" />
       <MediaPlaceholder v-else />

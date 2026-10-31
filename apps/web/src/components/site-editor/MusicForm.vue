@@ -79,7 +79,7 @@ function setAuto(g: MusicGroup, on: boolean) {
       <span class="text-xs font-normal text-[var(--c-muted)]">{{ t('admin.home.music.channelIdHint') }}</span>
     </label>
 
-    <section class="flex flex-col gap-2 rounded-xl border border-[var(--c-border)] bg-[var(--c-surface-2)] p-3 text-sm" data-test="music-sync">
+    <section class="flex flex-col gap-2 rounded-lg border border-[var(--c-border)] bg-[var(--c-surface-2)] p-3 text-sm" data-test="music-sync">
       <div class="flex flex-wrap items-center gap-2">
         <h3 class="mr-auto font-semibold">{{ t('admin.home.music.syncTitle') }}</h3>
         <Btn size="sm" variant="secondary" :loading="refreshing" data-test="music-refresh" @click="refresh">{{ t('admin.home.music.refresh') }}</Btn>
@@ -89,7 +89,7 @@ function setAuto(g: MusicGroup, on: boolean) {
       <p v-else-if="status" class="text-xs" :class="apiKey ? 'text-[var(--c-text)]' : 'text-[var(--c-muted)]'" data-test="music-api-key">{{ apiKey ? t('admin.home.music.apiKeyOn') : t('admin.home.music.apiKeyOff') }}</p>
     </section>
 
-    <fieldset v-for="g in MUSIC_GROUPS" :key="g" class="flex flex-col gap-4 rounded-xl border border-[var(--c-border)] p-3" :data-test="`music-group-${g}`">
+    <fieldset v-for="g in MUSIC_GROUPS" :key="g" class="flex flex-col gap-4 rounded-lg border border-[var(--c-border)] p-3" :data-test="`music-group-${g}`">
       <legend class="px-1 text-sm font-semibold">{{ t(`admin.home.music.group.${g}`) }}</legend>
       <LocalizedInput v-model="data[g].label" :label="t('admin.home.music.tabLabel')" :max="L.labelMax" :test-id="`f-music-label-${g}`" />
 

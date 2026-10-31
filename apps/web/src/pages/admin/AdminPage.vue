@@ -25,7 +25,7 @@ const tabs = computed(() => KEYS.map((key) => ({ key, label: t(`admin.tabs.${key
 
 <template>
   <section class="mx-auto px-3 py-4" :class="tab === 'home' ? 'max-w-screen-2xl' : 'max-w-5xl'">
-    <h1 class="mb-4 font-display text-3xl font-semibold tracking-tight">{{ t('admin.title') }}</h1>
+    <h1 class="mb-4 text-2xl font-bold">{{ t('admin.title') }}</h1>
     <Tabs v-model="tab" :tabs="tabs" />
     <div class="pt-4">
       <AdminUsers v-if="tab === 'users'" />

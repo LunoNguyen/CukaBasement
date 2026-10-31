@@ -12,7 +12,7 @@ const tag = computed(() => String(route.params.tag ?? ''))
 
 <template>
   <div class="flex flex-col gap-3">
-    <h1 class="font-display text-4xl font-semibold tracking-tight">#{{ tag }}</h1>
+    <h1 class="text-2xl font-bold">#{{ tag }}</h1>
     <PostFeed :key="tag" :fetch-page="(c) => search({ tag }, c)" :empty-text="t('tag.empty')" />
   </div>
 </template>

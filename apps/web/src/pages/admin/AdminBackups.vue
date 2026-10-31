@@ -228,7 +228,7 @@ async function loginAgain() {
   <p v-if="loadError" class="py-6 text-center text-[var(--c-muted)]">{{ errorText(loadError) }}</p>
   <div v-else-if="!data" class="flex justify-center py-6"><Spinner /></div>
   <div v-else class="flex flex-col gap-6">
-    <div v-if="restoreDone" data-test="restore-done" role="status" class="card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+    <div v-if="restoreDone" data-test="restore-done" role="status" class="panel flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
       <p>{{ t('admin.backups.restoreDoneBody') }}</p>
       <Btn size="sm" @click="loginAgain">{{ t('admin.backups.loginAgain') }}</Btn>
     </div>
@@ -243,7 +243,7 @@ async function loginAgain() {
         </label>
       </div>
 
-      <div v-if="data.run" data-test="backup-run" class="card p-3 text-sm" :role="data.run.status === 'running' ? 'status' : undefined">
+      <div v-if="data.run" data-test="backup-run" class="panel p-3 text-sm" :role="data.run.status === 'running' ? 'status' : undefined">
         <p class="font-semibold">
           {{ t(`admin.backups.kind.${data.run.kind}`) }} · {{ t(`admin.backups.status.${data.run.status}`) }}
           <span v-if="data.run.status === 'running' && data.run.progress">
@@ -257,7 +257,7 @@ async function loginAgain() {
 
       <p v-if="data.items.length === 0" class="py-4 text-center text-sm text-[var(--c-muted)]">{{ t('admin.backups.empty') }}</p>
       <ul v-else class="flex flex-col gap-2">
-        <li v-for="b in data.items" :key="b.name" data-test="backup-row" class="card flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
+        <li v-for="b in data.items" :key="b.name" data-test="backup-row" class="panel flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
           <div class="min-w-0">
             <p class="break-all font-semibold">
               {{ b.name }}
@@ -275,7 +275,7 @@ async function loginAgain() {
     </section>
 
     <section class="flex flex-col gap-3" data-test="backup-schedule">
-      <h2 class="font-display text-xl font-semibold">{{ t('admin.backups.schedule.title') }}</h2>
+      <h2 class="text-base font-bold">{{ t('admin.backups.schedule.title') }}</h2>
       <form novalidate class="flex max-w-md flex-col gap-3" @submit.prevent="saveSchedule">
         <label class="flex items-center gap-2 text-sm">
           <input v-model="form.enabled" data-test="sched-enabled" type="checkbox" />

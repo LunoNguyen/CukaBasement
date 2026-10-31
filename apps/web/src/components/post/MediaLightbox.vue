@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
       tabindex="-1"
       data-test="lightbox"
       :aria-label="t('post.lightbox', { name: title })"
-      class="fixed inset-0 z-50 flex flex-col bg-[#0a0a0a]/95 text-[#ededed] outline-none backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex flex-col bg-[#0a0a0a]/95 text-[#ededed] outline-none"
       @keydown="onKeydown"
     >
       <div class="flex shrink-0 items-center gap-1 px-2 py-2 sm:px-4">

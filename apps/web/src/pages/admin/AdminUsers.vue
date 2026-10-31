@@ -98,7 +98,7 @@ async function confirm() {
     </div>
 
     <ul class="flex flex-col gap-2">
-      <li v-for="u in list.items.value" :key="u.id" data-test="user-row" class="flex flex-col gap-2 card p-3 text-sm sm:flex-row sm:items-center">
+      <li v-for="u in list.items.value" :key="u.id" data-test="user-row" class="flex flex-col gap-2 panel p-3 text-sm sm:flex-row sm:items-center">
         <div class="min-w-0 flex-1">
           <p class="truncate font-semibold">@{{ u.username }} <span v-if="u.emailVerified" class="text-xs font-normal text-[var(--c-muted)]">· {{ t('admin.users.verified') }}</span></p>
           <p class="truncate text-xs text-[var(--c-muted)]">{{ u.email }} · {{ new Date(u.createdAt).toLocaleDateString(locale) }}</p>

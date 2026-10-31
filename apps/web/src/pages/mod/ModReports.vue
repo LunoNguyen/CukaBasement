@@ -60,7 +60,7 @@ async function resolve(g: ReportGroupDto, decision: 'keep' | 'remove') {
       <Btn variant="secondary" :loading="loading" @click="load">{{ t('mod.reload') }}</Btn>
     </div>
     <ul class="flex flex-col gap-3">
-      <li v-for="g in groups" :key="g.post.id" data-test="report-group" class="flex flex-col gap-3 card p-3 sm:flex-row">
+      <li v-for="g in groups" :key="g.post.id" data-test="report-group" class="flex flex-col gap-3 panel p-3 sm:flex-row">
         <RouterLink :to="`/posts/${g.post.id}`" class="block aspect-[4/5] w-full shrink-0 overflow-hidden rounded sm:w-32">
           <img v-if="g.post.cover?.thumbSmUrl" :src="g.post.cover.thumbSmUrl" :alt="g.post.title" loading="lazy" class="h-full w-full object-cover" />
           <MediaPlaceholder v-else />

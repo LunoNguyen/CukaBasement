@@ -154,15 +154,15 @@ const avatarUrl = computed(() => auth.user?.avatarUrl ?? null)
 const bannerUrl = computed(() => auth.user?.bannerUrl ?? null)
 
 const field = 'field'
-const section = 'flex flex-col gap-3 card p-4'
+const section = 'flex flex-col gap-3 panel p-4'
 </script>
 
 <template>
   <div class="mx-auto flex max-w-2xl flex-col gap-4">
-    <h1 class="font-display text-3xl font-semibold tracking-tight">{{ t('settings.title') }}</h1>
+    <h1 class="text-2xl font-bold">{{ t('settings.title') }}</h1>
 
     <form :class="section" data-test="profile-form" @submit.prevent="saveProfile">
-      <h2 class="font-display text-lg font-semibold">{{ t('settings.profile') }}</h2>
+      <h2 class="text-base font-bold">{{ t('settings.profile') }}</h2>
       <ImageField :label="t('settings.avatar')" test-id="avatar" shape="avatar" :current-url="avatarUrl" :save="(id, crop) => saveImage({ avatarFileId: id, ...(crop ? { avatarCrop: crop } : {}) })" />
       <ImageField :label="t('settings.banner')" test-id="banner" shape="banner" :current-url="bannerUrl" :save="(id, crop) => saveImage({ bannerFileId: id, ...(crop ? { bannerCrop: crop } : {}) })" />
       <label class="flex flex-col gap-1 text-sm">
@@ -179,7 +179,7 @@ const section = 'flex flex-col gap-3 card p-4'
     </form>
 
     <form :class="section" @submit.prevent="savePassword">
-      <h2 class="font-display text-lg font-semibold">{{ t('settings.password') }}</h2>
+      <h2 class="text-base font-bold">{{ t('settings.password') }}</h2>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('settings.currentPassword') }}
         <input v-model="currentPassword" data-test="current-password" type="password" autocomplete="current-password" :class="field" />
@@ -194,7 +194,7 @@ const section = 'flex flex-col gap-3 card p-4'
 
     <fieldset :key="localeRev" :class="section" :disabled="busy.locale">
       <legend class="sr-only">{{ t('settings.language') }}</legend>
-      <h2 class="font-display text-lg font-semibold">{{ t('settings.language') }}</h2>
+      <h2 class="text-base font-bold">{{ t('settings.language') }}</h2>
       <div class="flex flex-wrap gap-2">
         <label class="chip">
           <input type="radio" class="sr-only" name="locale" data-test="locale-vi" :checked="locale === 'vi'" @change="pickLocale('vi')" /> Tiếng Việt
@@ -206,7 +206,7 @@ const section = 'flex flex-col gap-3 card p-4'
     </fieldset>
 
     <form :class="section" @submit.prevent="saveR18">
-      <h2 class="font-display text-lg font-semibold">{{ t('settings.r18') }}</h2>
+      <h2 class="text-base font-bold">{{ t('settings.r18') }}</h2>
       <label class="flex flex-col gap-1 text-sm">
         {{ t('settings.birthDate') }}
         <input v-model="birthDate" data-test="birthdate" type="date" :class="field" />

@@ -27,7 +27,7 @@ watch(action, () => {
       </select>
     </label>
     <ul class="flex flex-col gap-2">
-      <li v-for="l in list.items.value" :key="l.id" data-test="log-row" class="card p-3 text-sm">
+      <li v-for="l in list.items.value" :key="l.id" data-test="log-row" class="panel p-3 text-sm">
         <p class="break-words">
           <span class="font-semibold">{{ l.actor === 'system' ? t('admin.logs.system') : '@' + l.actor.username }}</span>
           · {{ t(`admin.actions.${l.action}`) }} ·

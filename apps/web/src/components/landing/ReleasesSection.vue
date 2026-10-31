@@ -111,7 +111,6 @@ watch(n, (count) => {
 const go = (i: number) => (cur.value = ((i % n.value) + n.value) % n.value)
 const prev = () => go(cur.value - 1)
 const next = () => go(cur.value + 1)
-/** Signed distance of card `i` from the current one, going round the shorter way. */
 let touchX: number | null = null
 const onTouchStart = (e: TouchEvent) => (touchX = e.touches[0]?.clientX ?? null)
 function onTouchEnd(e: TouchEvent) {
