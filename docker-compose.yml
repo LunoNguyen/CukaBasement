@@ -1,0 +1,120 @@
+# CukaBasement: the whole stack on one host.
+#   cp .env.docker.example .env.docker   # then change the secrets
+#   docker compose up -d --build
+#   docker compose run --rm api node apps/api/dist/scripts/create-admin.js --email <email> --password <pw> --username <name>
+#   (not `npm run create-admin`: those npm scripts run `nest build` first, and the production image has no dev deps)
+# Site: http://localhost:${WEB_PORT:-8080}. MinIO must be reachable by browsers at MINIO_PUBLIC_URL (port 9000 here).
+
+x-app: &app
+  build:
+    context: .
+    target: api
+  image: cuka-api:latest
+  env_file: .env.docker
+  init: true
+  restart: unless-stopped
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  minio:
+    # MinIO no longer publishes new images; override MINIO_IMAGE with a mirror or your own build if this tag is gone.
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-09-07T16-13-09Z}
+    restart: unless-stopped
+    env_file: .env.docker
+    # Root credentials are the api's MINIO_ACCESS_KEY / MINIO_SECRET_KEY; browsers on APP_URL upload directly.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        MINIO_ROOT_USER="$$MINIO_ACCESS_KEY" MINIO_ROOT_PASSWORD="$$MINIO_SECRET_KEY"
+        MINIO_API_CORS_ALLOW_ORIGIN="$$APP_URL"
+        exec minio server /data --address :9000 --console-address :9001
+    ports:
+      - "${MINIO_PORT_PUBLISHED:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    # Optional list cache: the api falls back to MongoDB when it is down (or set REDIS_DISABLED=true).
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: indexes, buckets, default settings, CMS migration. Safe to re-run (`docker compose run --rm setup`).
+  setup:
+    <<: *app
+    restart: "no"
+    command: ["node", "apps/api/dist/scripts/setup.js"]
+    healthcheck:
+      disable: true
+    depends_on:
+      mongo:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    volumes:
+      - backups:/data/backups
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+        required: false
+
+  worker:
+    <<: *app
+    build:
+      context: .
+      target: worker
+    image: cuka-worker:latest
+    volumes:
+      - backups:/data/backups
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      target: web
+    image: cuka-web:latest
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: api:3000
+      NGINX_CLIENT_MAX_BODY_SIZE: 50g
+      NGINX_BACKUP_TIMEOUT: 7200s
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
+  minio-data:
+  backups:

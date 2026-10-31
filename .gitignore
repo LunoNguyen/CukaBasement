@@ -46,6 +46,7 @@ __screenshots__/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 
 # AI agent skills & local tooling (không đẩy lên GitHub)
 .claude/skills/
